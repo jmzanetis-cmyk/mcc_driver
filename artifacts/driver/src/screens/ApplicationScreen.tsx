@@ -111,10 +111,19 @@ function FileUploadField({
         </div>
       ) : state.file && !state.preview ? (
         <div style={{
-          padding: 12, background: colors.bgSecondary, borderRadius: borderRadius.sm,
-          fontSize: 13, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 8,
+          padding: 12,
+          background: '#FFF3E0',
+          border: `1px solid #FFB74D`,
+          borderRadius: borderRadius.sm,
+          fontSize: 13, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 10,
         }}>
-          <span>📄</span>
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            gap: 2, flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 18 }}>📄</span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: '#E65100', letterSpacing: '0.05em' }}>PDF</span>
+          </div>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {state.file.name}
           </span>
