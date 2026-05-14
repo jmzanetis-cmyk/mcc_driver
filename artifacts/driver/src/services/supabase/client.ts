@@ -1,19 +1,10 @@
-// ============================================================
-// MCC Driver — Supabase Client
-// ============================================================
-// NOTE: Once you run `supabase gen types typescript`, uncomment
-// the Database import and add it to createClient<Database>().
-// Until then, the client is untyped to avoid 'never' errors.
-// ============================================================
-
 import { createClient } from '@supabase/supabase-js';
-// import type { Database } from '@/types/database';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('[MCC Driver] Missing Supabase env vars.');
+if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  console.warn('[MCC Driver] Missing Supabase env vars — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to connect.');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
