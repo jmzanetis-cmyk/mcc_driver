@@ -5,7 +5,7 @@
 // license photo and/or insurance document.
 // ============================================================
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { colors, borderRadius, shadows } from '@/theme';
 import { Button, Spinner } from '@/components';
 import { uploadDriverDocument } from '@/services/documents/documentService';
@@ -44,6 +44,22 @@ function FileUploadRow({
 }) {
   const handleClick = () => inputRef.current?.click();
 
+  // Create / revoke an object URL for image previews
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (fileState.file?.type.startsWith('image/')) {
+      const url = URL.createObjectURL(fileState.file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+    return undefined;
+  }, [fileState.file]);
+
+  const isPdf = fileState.file?.type === 'application/pdf';
+  const hasNewFile = fileState.file !== null;
+
   const statusColor =
     fileState.state === 'done'
       ? colors.success
@@ -55,7 +71,7 @@ function FileUploadRow({
 
   const statusLabel =
     fileState.state === 'done'
-      ? 'New file selected'
+      ? 'Uploaded successfully'
       : fileState.state === 'error'
         ? fileState.error ?? 'Upload failed'
         : fileState.state === 'uploading'
@@ -68,32 +84,71 @@ function FileUploadRow({
     <div style={{
       background: colors.bgSecondary,
       borderRadius: borderRadius.md,
-      border: `1px solid ${colors.border}`,
+      border: `1px solid ${hasNewFile ? colors.gold + '80' : colors.border}`,
       padding: '14px 16px',
       marginBottom: 12,
+      transition: 'border-color 0.2s',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: borderRadius.md,
-          background: colors.bgCard, border: `1px solid ${colors.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 20, flexShrink: 0,
-        }}>
-          {icon}
-        </div>
+
+        {/* Icon / thumbnail area */}
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="Preview"
+            style={{
+              width: 48, height: 48, borderRadius: borderRadius.md,
+              objectFit: 'cover', flexShrink: 0,
+              border: `1px solid ${colors.border}`,
+            }}
+          />
+        ) : (
+          <div style={{
+            width: 48, height: 48, borderRadius: borderRadius.md,
+            background: isPdf ? '#FFF3E0' : colors.bgCard,
+            border: `1px solid ${isPdf ? '#FFB74D' : colors.border}`,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            fontSize: isPdf ? 18 : 20, flexShrink: 0,
+            gap: 1,
+          }}>
+            {isPdf ? (
+              <>
+                <span>📄</span>
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#E65100', letterSpacing: '0.05em' }}>PDF</span>
+              </>
+            ) : icon}
+          </div>
+        )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: colors.textPrimary, marginBottom: 2 }}>
             {label}
           </div>
+
+          {/* Filename shown when a new file is staged */}
+          {hasNewFile && fileState.state !== 'done' && fileState.state !== 'uploading' && (
+            <div style={{
+              fontSize: 12, color: colors.navy, fontWeight: 500,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              marginBottom: 2,
+            }}>
+              {fileState.file!.name}
+            </div>
+          )}
+
           <div style={{ fontSize: 12, color: statusColor, display: 'flex', alignItems: 'center', gap: 4 }}>
             {fileState.state === 'uploading' && <Spinner size={10} color={colors.gold} />}
             {fileState.state === 'done' && '✓ '}
             {fileState.state === 'error' && '✗ '}
-            {fileState.state === 'idle' && existing && '✓ '}
+            {fileState.state === 'idle' && existing && !hasNewFile && '✓ '}
+            {fileState.state === 'idle' && hasNewFile && '● '}
             {statusLabel}
           </div>
-          <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{hint}</div>
+
+          {!hasNewFile && (
+            <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{hint}</div>
+          )}
         </div>
 
         <input
@@ -122,7 +177,7 @@ function FileUploadRow({
             opacity: fileState.state === 'uploading' ? 0.5 : 1,
           }}
         >
-          {existing || fileState.file ? 'Replace' : 'Upload'}
+          {existing || hasNewFile ? 'Replace' : 'Upload'}
         </button>
       </div>
     </div>
