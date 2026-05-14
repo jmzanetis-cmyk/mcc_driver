@@ -28,11 +28,12 @@ interface SupabaseUser {
 // Calls /auth/v1/user with the bearer token — Supabase validates signature,
 // expiry, and audience server-side. Returns the user on success, null on failure.
 async function verifySupabaseToken(token: string): Promise<SupabaseUser | null> {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  // Accept both VITE_-prefixed (frontend convention) and plain names (server convention)
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    logger.warn("VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not set — cannot verify JWT");
+    logger.warn("Supabase env vars not set (SUPABASE_URL / VITE_SUPABASE_URL) — cannot verify JWT");
     return null;
   }
 
