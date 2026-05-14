@@ -7,15 +7,43 @@ import { useAuth } from '@/hooks/useAuth';
 import { colors, borderRadius } from '@/theme';
 import { Button } from '@/components';
 
-const STEPS = [
-  { label: 'Application submitted', status: 'done' as const },
-  { label: 'Background check', status: 'pending' as const },
-  { label: 'Driving record review', status: 'pending' as const },
-  { label: 'Account activation', status: 'waiting' as const },
-];
+type StepStatus = 'done' | 'pending' | 'waiting';
+
+interface Step {
+  label: string;
+  status: StepStatus;
+}
+
+function buildSteps(
+  driverStatus: string | undefined,
+  backgroundCheckPassed: boolean,
+): Step[] {
+  const isActive = driverStatus === 'active';
+
+  return [
+    {
+      label: 'Application submitted',
+      status: 'done',
+    },
+    {
+      label: 'Background check',
+      status: backgroundCheckPassed ? 'done' : isActive ? 'done' : 'pending',
+    },
+    {
+      label: 'Driving record review',
+      status: backgroundCheckPassed ? 'done' : isActive ? 'done' : 'pending',
+    },
+    {
+      label: 'Account activation',
+      status: isActive ? 'done' : 'waiting',
+    },
+  ];
+}
 
 export function PendingScreen() {
-  const { refreshDriver, signOut } = useAuth();
+  const { refreshDriver, signOut, driver } = useAuth();
+
+  const steps = buildSteps(driver?.status, driver?.backgroundCheckPassed ?? false);
 
   return (
     <div style={{
@@ -45,11 +73,11 @@ export function PendingScreen() {
         border: `1px solid ${colors.border}`, padding: 20,
         width: '100%', maxWidth: 360,
       }}>
-        {STEPS.map((step, i) => (
+        {steps.map((step, i) => (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', gap: 12,
             padding: '12px 0',
-            borderBottom: i < STEPS.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
+            borderBottom: i < steps.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
           }}>
             <div style={{
               width: 24, height: 24, borderRadius: '50%',
@@ -76,9 +104,39 @@ export function PendingScreen() {
                 IN PROGRESS
               </span>
             )}
+            {step.status === 'done' && i > 0 && (
+              <span style={{
+                marginLeft: 'auto', fontSize: 11, fontWeight: 600,
+                color: colors.success, background: `${colors.success}20`,
+                padding: '2px 8px', borderRadius: 4,
+              }}>
+                COMPLETE
+              </span>
+            )}
           </div>
         ))}
       </div>
+
+      {driver?.licenseDocumentPath || driver?.insuranceDocumentPath ? (
+        <div style={{
+          marginTop: 16, padding: 12,
+          background: `${colors.success}15`, borderRadius: borderRadius.md,
+          border: `1px solid ${colors.success}30`,
+          width: '100%', maxWidth: 360,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: colors.success, marginBottom: 6 }}>
+            Documents Received
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {driver.licenseDocumentPath && (
+              <div style={{ fontSize: 12, color: colors.textMuted }}>✓ Driver's license photo</div>
+            )}
+            {driver.insuranceDocumentPath && (
+              <div style={{ fontSize: 12, color: colors.textMuted }}>✓ Proof of insurance</div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 32, display: 'flex', gap: 12 }}>
         <Button onClick={refreshDriver} variant="secondary" size="sm">

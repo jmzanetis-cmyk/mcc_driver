@@ -60,6 +60,9 @@ export function useAuth() {
         averageRating: row.average_rating,
         completionRate: row.completion_rate,
         stripeAccountId: row.stripe_account_id ?? undefined,
+        backgroundCheckPassed: row.background_check_passed ?? false,
+        licenseDocumentPath: row.license_document_path ?? undefined,
+        insuranceDocumentPath: row.insurance_document_path ?? undefined,
       });
     }
   }, [user, setDriver]);

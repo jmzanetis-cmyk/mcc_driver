@@ -103,6 +103,9 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       averageRating: driver.average_rating,
       completionRate: driver.completion_rate,
       stripeAccountId: driver.stripe_account_id ?? undefined,
+      backgroundCheckPassed: driver.background_check_passed ?? false,
+      licenseDocumentPath: driver.license_document_path ?? undefined,
+      insuranceDocumentPath: driver.insurance_document_path ?? undefined,
     };
 
     setDriver(profile);

@@ -20,6 +20,8 @@ export interface Database {
           email: string;
           phone: string;
           profile_photo_url: string | null;
+          license_document_path: string | null;
+          insurance_document_path: string | null;
           date_of_birth: string;
           drivers_license_number: string;
           drivers_license_state: string;

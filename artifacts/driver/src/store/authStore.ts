@@ -22,6 +22,9 @@ export interface DriverProfile {
   averageRating: number;
   completionRate: number;
   stripeAccountId?: string;
+  backgroundCheckPassed: boolean;
+  licenseDocumentPath?: string;
+  insuranceDocumentPath?: string;
 }
 
 interface AuthState {

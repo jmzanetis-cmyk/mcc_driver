@@ -2,9 +2,11 @@
 // MCC Driver — Driver Application Screen
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createDriverApplication } from '@/services/auth/authService';
+import { uploadDriverDocument, type DocumentType } from '@/services/documents/documentService';
+import { supabase } from '@/services/supabase/client';
 import { Button, Input, PageHeader } from '@/components';
 import { colors, borderRadius } from '@/theme';
 
@@ -32,12 +34,131 @@ const INITIAL_FORM: FormData = {
   vehicleYear: '', vehicleColor: '', vehiclePlate: '', partnerInviteCode: '',
 };
 
+interface FileState {
+  file: File | null;
+  preview: string | null;
+  uploading: boolean;
+  /** Storage path in the private bucket — not a public URL */
+  path: string | null;
+  error: string | null;
+}
+
+const EMPTY_FILE: FileState = { file: null, preview: null, uploading: false, path: null, error: null };
+
+function FileUploadField({
+  label,
+  hint,
+  state,
+  onSelect,
+  required,
+}: {
+  label: string;
+  hint: string;
+  state: FileState;
+  onSelect: (file: File) => void;
+  required?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+        {label}{required && <span style={{ color: colors.error }}> *</span>}
+      </div>
+      <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 8 }}>{hint}</div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onSelect(file);
+        }}
+      />
+
+      {state.preview ? (
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <img
+            src={state.preview}
+            alt={label}
+            style={{
+              width: '100%', maxHeight: 140, objectFit: 'cover',
+              borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`,
+            }}
+          />
+          <button
+            onClick={() => inputRef.current?.click()}
+            style={{
+              position: 'absolute', bottom: 8, right: 8,
+              background: 'rgba(0,0,0,0.6)', color: '#fff',
+              border: 'none', borderRadius: borderRadius.sm,
+              fontSize: 11, padding: '4px 8px', cursor: 'pointer',
+            }}
+          >
+            Change
+          </button>
+          {state.path && (
+            <div style={{
+              position: 'absolute', top: 8, right: 8,
+              background: colors.success, color: '#fff',
+              borderRadius: 999, fontSize: 11, padding: '3px 8px',
+            }}>
+              ✓ Uploaded
+            </div>
+          )}
+        </div>
+      ) : state.file && !state.preview ? (
+        <div style={{
+          padding: 12, background: colors.bgSecondary, borderRadius: borderRadius.sm,
+          fontSize: 13, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span>📄</span>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {state.file.name}
+          </span>
+          {state.path && <span style={{ color: colors.success, fontWeight: 600 }}>✓</span>}
+        </div>
+      ) : (
+        <button
+          onClick={() => inputRef.current?.click()}
+          style={{
+            width: '100%', padding: '20px 16px',
+            border: `2px dashed ${colors.border}`,
+            borderRadius: borderRadius.md, background: colors.bgSecondary,
+            cursor: 'pointer', textAlign: 'center',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+          }}
+        >
+          <span style={{ fontSize: 24 }}>📷</span>
+          <span style={{ fontSize: 13, color: colors.textPrimary, fontWeight: 500 }}>
+            Tap to upload
+          </span>
+          <span style={{ fontSize: 11, color: colors.textMuted }}>
+            JPG, PNG or PDF
+          </span>
+        </button>
+      )}
+
+      {state.uploading && (
+        <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 6 }}>Uploading…</div>
+      )}
+      {state.error && (
+        <div style={{ fontSize: 12, color: colors.error, marginTop: 6 }}>{state.error}</div>
+      )}
+    </div>
+  );
+}
+
 export function ApplicationScreen() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [licenseDoc, setLicenseDoc] = useState<FileState>(EMPTY_FILE);
+  const [insuranceDoc, setInsuranceDoc] = useState<FileState>(EMPTY_FILE);
 
   const totalSteps = 3;
 
@@ -46,7 +167,45 @@ export function ApplicationScreen() {
     setError('');
   };
 
+  const handleFileSelect = async (
+    file: File,
+    docType: 'license' | 'insurance',
+    setter: React.Dispatch<React.SetStateAction<FileState>>,
+  ) => {
+    const isImage = file.type.startsWith('image/');
+    const nextPreview = isImage ? URL.createObjectURL(file) : null;
+
+    setter(prev => {
+      if (prev.preview) URL.revokeObjectURL(prev.preview);
+      return { file, preview: nextPreview, uploading: true, path: null, error: null };
+    });
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setter(prev => ({ ...prev, uploading: false, error: 'Not authenticated' }));
+      return;
+    }
+
+    const result = await uploadDriverDocument(user.id, docType, file);
+    if (result.success && result.path) {
+      setter(prev => ({ ...prev, uploading: false, path: result.path! }));
+    } else {
+      setter(prev => ({ ...prev, uploading: false, error: result.error ?? 'Upload failed' }));
+    }
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (licenseDoc.preview) URL.revokeObjectURL(licenseDoc.preview);
+      if (insuranceDoc.preview) URL.revokeObjectURL(insuranceDoc.preview);
+    };
+  }, []);
+
   const handleSubmit = async () => {
+    if (!licenseDoc.path) {
+      setError("Please upload your driver's license photo before submitting.");
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -64,6 +223,8 @@ export function ApplicationScreen() {
       vehicleYear: form.vehicleYear ? parseInt(form.vehicleYear) : undefined,
       vehicleColor: form.vehicleColor || undefined,
       vehiclePlate: form.vehiclePlate || undefined,
+      licenseDocumentPath: licenseDoc.path ?? undefined,
+      insuranceDocumentPath: insuranceDoc.path ?? undefined,
       partnerInviteCode: form.partnerInviteCode || undefined,
     });
 
@@ -77,7 +238,11 @@ export function ApplicationScreen() {
 
   const canProceed = () => {
     if (step === 1) return form.firstName && form.lastName && form.email && form.dateOfBirth;
-    if (step === 2) return form.driversLicenseNumber && form.driversLicenseExpiry;
+    if (step === 2) {
+      const licenseInfoComplete = form.driversLicenseNumber && form.driversLicenseExpiry;
+      const anyUploading = licenseDoc.uploading || insuranceDoc.uploading;
+      return licenseInfoComplete && !anyUploading;
+    }
     return true;
   };
 
@@ -118,7 +283,7 @@ export function ApplicationScreen() {
         {step === 2 && (
           <>
             <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
-              Driver's License
+              Driver's License & Documents
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
               You must be at least 21 years old with a valid license
@@ -127,7 +292,22 @@ export function ApplicationScreen() {
             <Input label="License State" value={form.driversLicenseState} onChange={update('driversLicenseState')} required />
             <Input label="License Expiry" value={form.driversLicenseExpiry} onChange={update('driversLicenseExpiry')} type="date" required />
 
-            <div style={{ marginTop: 24, padding: 16, background: colors.bgSecondary, borderRadius: borderRadius.md }}>
+            <FileUploadField
+              label="Driver's License Photo"
+              hint="Front of your license — must be clear and legible"
+              state={licenseDoc}
+              onSelect={(file) => handleFileSelect(file, 'license', setLicenseDoc)}
+              required
+            />
+
+            <FileUploadField
+              label="Proof of Insurance"
+              hint="Current insurance card or policy document"
+              state={insuranceDoc}
+              onSelect={(file) => handleFileSelect(file, 'insurance', setInsuranceDoc)}
+            />
+
+            <div style={{ marginTop: 8, padding: 16, background: colors.bgSecondary, borderRadius: borderRadius.md }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
                 Your Vehicle (optional for now)
               </div>
@@ -167,6 +347,29 @@ export function ApplicationScreen() {
                 License: {form.driversLicenseState} — {form.driversLicenseNumber}<br />
                 {form.vehicleMake && `Vehicle: ${form.vehicleYear} ${form.vehicleColor} ${form.vehicleMake} ${form.vehicleModel}`}
                 {form.vehiclePlate && ` (${form.vehiclePlate})`}
+              </div>
+            </div>
+
+            {/* Document upload status */}
+            <div style={{ background: colors.bgSecondary, borderRadius: borderRadius.md, padding: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Documents</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <span style={{ color: licenseDoc.path ? colors.success : colors.textMuted }}>
+                    {licenseDoc.path ? '✓' : '○'}
+                  </span>
+                  <span style={{ color: licenseDoc.path ? colors.textPrimary : colors.textMuted }}>
+                    Driver's License Photo {licenseDoc.path ? 'uploaded' : '(not uploaded)'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <span style={{ color: insuranceDoc.path ? colors.success : colors.textMuted }}>
+                    {insuranceDoc.path ? '✓' : '○'}
+                  </span>
+                  <span style={{ color: insuranceDoc.path ? colors.textPrimary : colors.textMuted }}>
+                    Proof of Insurance {insuranceDoc.path ? 'uploaded' : '(not uploaded)'}
+                  </span>
+                </div>
               </div>
             </div>
 

@@ -105,6 +105,8 @@ export async function createDriverApplication(applicationData: {
   vehicleColor?: string;
   vehiclePlate?: string;
   profilePhotoUrl?: string;
+  licenseDocumentPath?: string;
+  insuranceDocumentPath?: string;
   partnerInviteCode?: string;
 }): Promise<{ success: boolean; driverId?: string; error?: string }> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -139,6 +141,8 @@ export async function createDriverApplication(applicationData: {
       vehicle_color: applicationData.vehicleColor,
       vehicle_plate: applicationData.vehiclePlate,
       profile_photo_url: applicationData.profilePhotoUrl,
+      license_document_path: applicationData.licenseDocumentPath ?? null,
+      insurance_document_path: applicationData.insuranceDocumentPath ?? null,
       partner_id: partnerId,
       status: 'pending_approval',
     })

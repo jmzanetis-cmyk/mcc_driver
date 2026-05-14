@@ -7,6 +7,9 @@ export interface DriverRow {
   phone: string;
   status: 'pending_approval' | 'active' | 'inactive' | 'suspended' | 'deactivated';
   profile_photo_url: string | null;
+  license_document_path: string | null;
+  insurance_document_path: string | null;
+  background_check_passed: boolean;
   partner_id: string | null;
   is_online: boolean;
   can_drive_member_vehicle: boolean;
