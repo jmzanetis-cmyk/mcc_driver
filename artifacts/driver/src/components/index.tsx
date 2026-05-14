@@ -269,15 +269,21 @@ export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderP
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12,
-      padding: '16px', background: colors.navy,
+      padding: '12px 16px', background: colors.navy,
     }}>
-      {onBack && (
+      {onBack ? (
         <button onClick={onBack} style={{
           background: 'none', border: 'none', color: colors.textWhite,
           fontSize: 22, cursor: 'pointer', padding: 4,
         }}>
           ←
         </button>
+      ) : (
+        <img
+          src="/driver/mcc-logo.png"
+          alt="MCC"
+          style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }}
+        />
       )}
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 18, fontWeight: 600, color: colors.textWhite }}>{title}</div>

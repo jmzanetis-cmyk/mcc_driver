@@ -65,19 +65,13 @@ export function SignInScreen() {
     }}>
       {/* Logo area */}
       <div style={{ textAlign: 'center', marginBottom: 48 }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: borderRadius.lg,
-          background: colors.gold, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', margin: '0 auto 16px', fontSize: 32,
-          fontWeight: 700, color: colors.navy,
-        }}>
-          MCC
-        </div>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color: colors.textWhite, marginBottom: 4 }}>
-          MCC Driver
-        </h1>
-        <p style={{ fontSize: 14, color: colors.gold }}>
-          My Car Concierge — Driver App
+        <img
+          src="/driver/mcc-logo.png"
+          alt="My Car Concierge"
+          style={{ width: 160, height: 160, objectFit: 'contain', margin: '0 auto 8px', display: 'block' }}
+        />
+        <p style={{ fontSize: 14, color: colors.gold, marginTop: 0 }}>
+          Driver App
         </p>
       </div>
 
