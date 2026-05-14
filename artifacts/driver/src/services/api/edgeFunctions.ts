@@ -1,125 +1,155 @@
 // ============================================================
-// MCC Driver — Edge Function API Calls
+// MCC Driver — API Server Calls
 // ============================================================
-// CRITICAL: Ride state mutations go through Edge Functions,
-// NOT direct table updates. This prevents race conditions
-// where two drivers accept the same ride simultaneously.
+// Ride state mutations go through the API server, which applies
+// transitions atomically and prevents race conditions
+// (e.g. two drivers accepting the same ride simultaneously).
 //
-// Each function calls a Supabase Edge Function that:
-// 1. Validates the current state
-// 2. Applies the transition atomically
-// 3. Returns the result
+// cancelRide and requestPayout still use Supabase Edge Functions
+// which handle Stripe payment logic and complex rollback.
 // ============================================================
 
 import { supabase } from '@/services/supabase/client';
 import { logger } from '@/services/telemetry/logger';
 
-interface EdgeFunctionResult<T = unknown> {
+interface ApiResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
 }
 
+// ── API server calls ──────────────────────────────────────────────────────────
+
+async function callApi<T = unknown>(
+  path: string,
+  method: 'POST' | 'PATCH' | 'GET' = 'POST',
+  body?: Record<string, unknown>
+): Promise<ApiResult<T>> {
+  logger.info('api.call', { path, method });
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const res = await fetch(`/api${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const json = (await res.json()) as T & { error?: string };
+
+    if (!res.ok) {
+      const errorMsg = (json as { error?: string }).error ?? `HTTP ${res.status}`;
+      logger.error('api.error', { path, status: res.status, error: errorMsg });
+      return { success: false, error: errorMsg };
+    }
+
+    return { success: true, data: json };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Network error';
+    logger.error('api.network_error', { path, error: message });
+    return { success: false, error: message };
+  }
+}
+
+// ── Supabase Edge Function calls ──────────────────────────────────────────────
+
 async function invokeEdgeFunction<T = unknown>(
   name: string,
   body: Record<string, unknown>
-): Promise<EdgeFunctionResult<T>> {
-  logger.info(`edge_function.invoke`, { name, body });
+): Promise<ApiResult<T>> {
+  logger.info('edge_function.invoke', { name, body });
 
   const { data, error } = await supabase.functions.invoke(name, { body });
 
   if (error) {
-    logger.error(`edge_function.error`, { name, error: error.message });
+    logger.error('edge_function.error', { name, error: error.message });
     return { success: false, error: error.message };
   }
 
   return { success: true, data: data as T };
 }
 
+// ── Exported functions ────────────────────────────────────────────────────────
+
 /**
- * Accept a ride assignment. The Edge Function:
+ * Accept a ride assignment via the API server.
  * - Checks assignment still has status='pending'
  * - Checks response_deadline hasn't passed
  * - Updates assignment to 'accepted' atomically
- * - For multi-driver rides, checks if all roles are filled
  * - Updates ride status to 'driver_accepted' if all drivers accepted
  */
-export async function acceptRide(assignmentId: string): Promise<EdgeFunctionResult> {
-  return invokeEdgeFunction('accept-ride', { assignmentId });
+export async function acceptRide(assignmentId: string): Promise<ApiResult> {
+  return callApi(`/rides/assignments/${assignmentId}/accept`);
 }
 
 /**
- * Decline a ride assignment. The Edge Function:
+ * Decline a ride assignment via the API server.
  * - Marks assignment as 'rejected'
- * - Triggers dispatch cascade to next available driver
  */
-export async function declineRide(assignmentId: string): Promise<EdgeFunctionResult> {
-  return invokeEdgeFunction('accept-ride', { assignmentId, action: 'decline' });
+export async function declineRide(assignmentId: string): Promise<ApiResult> {
+  return callApi(`/rides/assignments/${assignmentId}/decline`);
 }
 
 /**
- * Cancel an active ride. The Edge Function:
- * - Validates cancellation is allowed for current status
- * - Applies cancellation fee if applicable
- * - Updates ride and all assignments
- * - Notifies member
+ * Cancel an active ride via Supabase Edge Function.
+ * The Edge Function handles cancellation fees, Stripe rollback, and member notification.
  */
 export async function cancelRide(
   rideId: string,
   reason?: string
-): Promise<EdgeFunctionResult> {
+): Promise<ApiResult> {
   return invokeEdgeFunction('cancel-ride', { rideId, reason });
 }
 
 /**
- * Complete a ride. The Edge Function:
- * - Validates all required photos uploaded (Tiers 2-4)
+ * Complete a ride via the API server.
  * - Recalculates fare with actual distance
- * - Captures Stripe payment
- * - Splits payment 85/15
- * - Updates driver stats
  * - Creates payout record
+ * - Updates driver stats
  */
 export async function completeRide(
   rideId: string,
   assignmentId: string,
   actualDistanceMiles: number
-): Promise<EdgeFunctionResult<{ finalFare: number; driverPayout: number }>> {
-  return invokeEdgeFunction('complete-ride', {
-    rideId,
-    assignmentId,
-    actualDistanceMiles,
-  });
+): Promise<ApiResult<{ finalFare: number; driverPayout: number }>> {
+  return callApi<{ finalFare: number; driverPayout: number }>(
+    `/rides/${rideId}/complete`,
+    'POST',
+    { assignmentId, actualDistanceMiles }
+  );
 }
 
 /**
- * Update ride stage (en_route, arrived, in_progress).
- * These are less critical than accept/complete so they CAN
- * be direct updates, but we route through Edge Functions
- * for consistency and audit logging.
+ * Update ride stage (en_route, arrived, in_progress) via the API server.
  */
 export async function updateRideStage(
-  rideId: string,
+  _rideId: string,
   assignmentId: string,
   stage: 'en_route' | 'arrived' | 'in_progress'
-): Promise<EdgeFunctionResult> {
-  return invokeEdgeFunction('accept-ride', {
-    assignmentId,
-    action: `update_${stage}`,
-    rideId,
-  });
+): Promise<ApiResult> {
+  return callApi(`/rides/assignments/${assignmentId}/stage`, 'PATCH', { stage });
 }
 
 /**
- * Request instant or standard payout. The Edge Function:
- * - Validates available balance
- * - Checks daily limits for instant
- * - Creates Stripe payout
- * - Records in driver_payouts
+ * Request instant or standard payout via Supabase Edge Function.
+ * The Edge Function validates limits, creates the Stripe transfer, and records the payout.
  */
 export async function requestPayout(
   method: 'instant' | 'standard',
   amount?: number
-): Promise<EdgeFunctionResult<{ payoutId: string; netAmount: number; arrivalTime: string }>> {
-  return invokeEdgeFunction('request-payout', { method, amount });
+): Promise<ApiResult<{ payoutId: string; netAmount: number; arrivalTime: string }>> {
+  return invokeEdgeFunction<{ payoutId: string; netAmount: number; arrivalTime: string }>(
+    'request-payout',
+    { method, amount }
+  );
 }

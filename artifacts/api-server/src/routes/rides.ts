@@ -1,0 +1,699 @@
+// ============================================================
+// MCC API — Rides Router
+// ============================================================
+// Handles ride dispatch and lifecycle transitions.
+// Inserting into driver_assignments triggers Supabase Realtime,
+// which delivers the request to the driver app in real time.
+// ============================================================
+
+import { Router, type IRouter, type Request, type Response } from "express";
+import { eq, and, inArray, isNotNull } from "drizzle-orm";
+import { db } from "@workspace/db";
+import {
+  ridesTable,
+  driverAssignmentsTable,
+  driversTable,
+  driverPayoutsTable,
+} from "@workspace/db/schema";
+import { logger } from "../lib/logger";
+import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
+
+const router: IRouter = Router();
+
+// ── Auth / identity helpers ───────────────────────────────────────────────────
+
+interface SupabaseUser {
+  id: string;
+  email?: string;
+}
+
+async function verifySupabaseToken(token: string): Promise<SupabaseUser | null> {
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    logger.warn("Supabase env vars not configured — cannot verify JWT");
+    return null;
+  }
+
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: supabaseAnonKey,
+      },
+    });
+    if (!res.ok) return null;
+    const user = (await res.json()) as SupabaseUser;
+    if (!user?.id) return null;
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+function extractBearerToken(req: Request): string | null {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) return null;
+  return auth.slice(7);
+}
+
+/**
+ * Requires the caller to be an authenticated Supabase user.
+ * Returns the Supabase user on success, or sends 401 and returns null.
+ */
+async function requireUserAuth(req: Request, res: Response): Promise<SupabaseUser | null> {
+  const token = extractBearerToken(req);
+  if (!token) {
+    res.status(401).json({ error: "Unauthorized — authentication required" });
+    return null;
+  }
+
+  const user = await verifySupabaseToken(token);
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized — invalid or expired token" });
+    return null;
+  }
+
+  return user;
+}
+
+/**
+ * Requires the DISPATCH_API_KEY service credential.
+ * Used for privileged operations that must not be accessible to regular drivers.
+ */
+function requireDispatchKey(req: Request, res: Response): boolean {
+  const dispatchKey = process.env.DISPATCH_API_KEY;
+  if (!dispatchKey) {
+    // If no key is configured, block all calls in production; allow in dev for setup convenience
+    if (process.env.NODE_ENV === "production") {
+      res.status(503).json({ error: "Dispatch service not configured" });
+      return false;
+    }
+    logger.warn("DISPATCH_API_KEY not set — dispatch endpoint unprotected in dev mode");
+    return true;
+  }
+
+  const provided = req.headers["x-api-key"];
+  if (provided !== dispatchKey) {
+    res.status(401).json({ error: "Unauthorized — invalid service key" });
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Looks up the driver record for an authenticated user.
+ * Returns the driver row or sends 403/404 and returns null.
+ */
+async function resolveCallerDriver(
+  user: SupabaseUser,
+  res: Response,
+): Promise<(typeof driversTable.$inferSelect) | null> {
+  const [driver] = await db
+    .select()
+    .from(driversTable)
+    .where(eq(driversTable.userId, user.id))
+    .limit(1);
+
+  if (!driver) {
+    res.status(403).json({ error: "Forbidden — no driver profile found for this account" });
+    return null;
+  }
+
+  return driver;
+}
+
+// ── POST /api/rides/dispatch ──────────────────────────────────────────────────
+// Restricted to service callers only (DISPATCH_API_KEY).
+// Creates a ride and inserts driver_assignments rows. Supabase Realtime fires
+// postgres_changes INSERT events to the subscribed driver apps immediately.
+
+router.post("/rides/dispatch", async (req: Request, res: Response) => {
+  if (!requireDispatchKey(req, res)) return;
+
+  const body = req.body as {
+    scenario: string;
+    tier: string;
+    pickupAddress: string;
+    pickupLat: number;
+    pickupLng: number;
+    dropoffAddress: string;
+    dropoffLat: number;
+    dropoffLng: number;
+    estimatedFare: number;
+    estimatedDistanceMiles: number;
+    memberId?: string;
+    memberVehicleYear?: number;
+    memberVehicleMake?: string;
+    memberVehicleModel?: string;
+    memberVehicleColor?: string;
+    targetDriverIds?: string[];
+    responseDeadlineSeconds?: number;
+  };
+
+  if (
+    !body.scenario ||
+    !body.tier ||
+    !body.pickupAddress ||
+    body.pickupLat == null ||
+    body.pickupLng == null ||
+    !body.dropoffAddress ||
+    body.dropoffLat == null ||
+    body.dropoffLng == null ||
+    body.estimatedFare == null ||
+    body.estimatedDistanceMiles == null
+  ) {
+    res.status(400).json({ error: "Missing required ride fields" });
+    return;
+  }
+
+  const config = SCENARIO_CONFIG[body.scenario];
+  if (!config) {
+    res.status(400).json({ error: `Unknown scenario: ${body.scenario}` });
+    return;
+  }
+
+  const deadlineSeconds = body.responseDeadlineSeconds ?? 30;
+  const responseDeadline = new Date(Date.now() + deadlineSeconds * 1000);
+
+  try {
+    let targetDriverIds: string[] = body.targetDriverIds ?? [];
+
+    if (targetDriverIds.length === 0) {
+      const activeStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];
+
+      const busyDriverRows = await db
+        .select({ driverId: driverAssignmentsTable.driverId })
+        .from(driverAssignmentsTable)
+        .where(inArray(driverAssignmentsTable.status, activeStatuses));
+
+      const busyIds = busyDriverRows.map((r) => r.driverId);
+
+      const eligibleDrivers = await db
+        .select({ id: driversTable.id })
+        .from(driversTable)
+        .where(
+          and(
+            eq(driversTable.isOnline, true),
+            eq(driversTable.status, "active"),
+            isNotNull(driversTable.currentLat),
+            isNotNull(driversTable.currentLng),
+          ),
+        );
+
+      targetDriverIds = eligibleDrivers
+        .map((d) => d.id)
+        .filter((id) => !busyIds.includes(id));
+
+      if (config.assignments.some((a) => a.drivesMemberVehicle)) {
+        const capableDrivers = await db
+          .select({ id: driversTable.id })
+          .from(driversTable)
+          .where(
+            and(
+              eq(driversTable.isOnline, true),
+              eq(driversTable.status, "active"),
+              eq(driversTable.canDriveMemberVehicle, true),
+            ),
+          );
+        const capableIds = new Set(capableDrivers.map((d) => d.id));
+        targetDriverIds = targetDriverIds.filter((id) => capableIds.has(id));
+      }
+    }
+
+    const driversNeeded = config.driversRequired;
+    if (targetDriverIds.length < driversNeeded) {
+      res.status(404).json({
+        error: `Not enough eligible drivers. Need ${driversNeeded}, found ${targetDriverIds.length}.`,
+      });
+      return;
+    }
+
+    const memberVehicleDesc =
+      body.memberVehicleYear && body.memberVehicleMake
+        ? `${body.memberVehicleYear} ${body.memberVehicleColor ?? ""} ${body.memberVehicleMake} ${body.memberVehicleModel ?? ""}`.trim()
+        : null;
+
+    const [ride] = await db
+      .insert(ridesTable)
+      .values({
+        scenario: body.scenario,
+        tier: body.tier,
+        status: "pending_dispatch",
+        memberId: body.memberId ?? null,
+        pickupAddress: body.pickupAddress,
+        pickupLat: body.pickupLat,
+        pickupLng: body.pickupLng,
+        dropoffAddress: body.dropoffAddress,
+        dropoffLat: body.dropoffLat,
+        dropoffLng: body.dropoffLng,
+        estimatedFare: body.estimatedFare,
+        estimatedDistanceMiles: body.estimatedDistanceMiles,
+        memberVehicleYear: body.memberVehicleYear ?? null,
+        memberVehicleMake: body.memberVehicleMake ?? null,
+        memberVehicleModel: body.memberVehicleModel ?? null,
+        memberVehicleColor: body.memberVehicleColor ?? null,
+      })
+      .returning();
+
+    const selectedDriverIds = targetDriverIds.slice(0, driversNeeded);
+
+    const assignmentValues = config.assignments.map((assignmentCfg, idx) => ({
+      rideId: ride!.id,
+      driverId: selectedDriverIds[idx]!,
+      role: assignmentCfg.role,
+      status: "pending",
+      drivesMemberVehicle: assignmentCfg.drivesMemberVehicle,
+      carriesPassenger: assignmentCfg.carriesPassenger,
+      responseDeadline,
+      memberVehicleDescription: assignmentCfg.drivesMemberVehicle ? memberVehicleDesc : null,
+    }));
+
+    const assignments = await db
+      .insert(driverAssignmentsTable)
+      .values(assignmentValues)
+      .returning();
+
+    req.log.info(
+      { rideId: ride!.id, driversNotified: assignments.length },
+      "rides.dispatch.success",
+    );
+
+    res.status(201).json({
+      rideId: ride!.id,
+      assignmentIds: assignments.map((a) => a.id),
+      driversNotified: assignments.length,
+    });
+  } catch (err) {
+    logger.error({ err }, "rides.dispatch failed");
+    res.status(500).json({ error: "Internal error while dispatching ride" });
+  }
+});
+
+// ── POST /api/rides/assignments/:assignmentId/accept ──────────────────────────
+
+router.post("/rides/assignments/:assignmentId/accept", async (req: Request, res: Response) => {
+  const user = await requireUserAuth(req, res);
+  if (!user) return;
+
+  const driver = await resolveCallerDriver(user, res);
+  if (!driver) return;
+
+  const assignmentId = String(req.params["assignmentId"]);
+
+  try {
+    const [assignment] = await db
+      .select()
+      .from(driverAssignmentsTable)
+      .where(eq(driverAssignmentsTable.id, assignmentId))
+      .limit(1);
+
+    if (!assignment) {
+      res.status(404).json({ error: "Assignment not found" });
+      return;
+    }
+
+    // Ownership check: only the assigned driver can accept
+    if (assignment.driverId !== driver.id) {
+      res.status(403).json({ error: "Forbidden — this assignment belongs to a different driver" });
+      return;
+    }
+
+    if (assignment.status !== "pending") {
+      res.status(400).json({
+        error: `Assignment is already ${assignment.status} — cannot accept`,
+      });
+      return;
+    }
+
+    if (new Date() > assignment.responseDeadline) {
+      await db
+        .update(driverAssignmentsTable)
+        .set({ status: "expired" })
+        .where(eq(driverAssignmentsTable.id, assignmentId));
+
+      res.status(400).json({ error: "Response deadline has passed" });
+      return;
+    }
+
+    // Atomic update: only succeeds if still pending (prevents double-accept)
+    const [updated] = await db
+      .update(driverAssignmentsTable)
+      .set({ status: "accepted" })
+      .where(
+        and(
+          eq(driverAssignmentsTable.id, assignmentId),
+          eq(driverAssignmentsTable.status, "pending"),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      res.status(400).json({ error: "Assignment was already claimed" });
+      return;
+    }
+
+    // Update ride status when all assignments are accepted
+    const allAssignments = await db
+      .select()
+      .from(driverAssignmentsTable)
+      .where(eq(driverAssignmentsTable.rideId, updated.rideId));
+
+    const allAccepted = allAssignments.every((a) => a.status === "accepted");
+
+    if (allAccepted) {
+      await db
+        .update(ridesTable)
+        .set({ status: "driver_accepted" })
+        .where(eq(ridesTable.id, updated.rideId));
+    }
+
+    req.log.info({ assignmentId, rideId: updated.rideId, driverId: driver.id }, "rides.assignment.accepted");
+
+    res.json({
+      success: true,
+      assignmentId: updated.id,
+      rideId: updated.rideId,
+    });
+  } catch (err) {
+    logger.error({ err }, "rides.accept failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/rides/assignments/:assignmentId/decline ─────────────────────────
+
+router.post("/rides/assignments/:assignmentId/decline", async (req: Request, res: Response) => {
+  const user = await requireUserAuth(req, res);
+  if (!user) return;
+
+  const driver = await resolveCallerDriver(user, res);
+  if (!driver) return;
+
+  const assignmentId = String(req.params["assignmentId"]);
+
+  try {
+    const [assignment] = await db
+      .select()
+      .from(driverAssignmentsTable)
+      .where(eq(driverAssignmentsTable.id, assignmentId))
+      .limit(1);
+
+    if (!assignment) {
+      res.status(404).json({ error: "Assignment not found" });
+      return;
+    }
+
+    // Ownership check: only the assigned driver can decline
+    if (assignment.driverId !== driver.id) {
+      res.status(403).json({ error: "Forbidden — this assignment belongs to a different driver" });
+      return;
+    }
+
+    // Transition guard: only pending assignments can be declined
+    if (assignment.status !== "pending") {
+      res.status(400).json({
+        error: `Cannot decline an assignment with status '${assignment.status}' — only pending assignments can be declined`,
+      });
+      return;
+    }
+
+    const [updated] = await db
+      .update(driverAssignmentsTable)
+      .set({ status: "rejected" })
+      .where(
+        and(
+          eq(driverAssignmentsTable.id, assignmentId),
+          eq(driverAssignmentsTable.status, "pending"),
+        ),
+      )
+      .returning();
+
+    // Guard: if zero rows were updated, a concurrent change won the race
+    if (!updated) {
+      res.status(409).json({ error: "Assignment was already modified by a concurrent request — please retry" });
+      return;
+    }
+
+    req.log.info({ assignmentId, rideId: updated.rideId, driverId: driver.id }, "rides.assignment.declined");
+
+    res.json({
+      success: true,
+      assignmentId: updated.id,
+      rideId: updated.rideId,
+    });
+  } catch (err) {
+    logger.error({ err }, "rides.decline failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── PATCH /api/rides/assignments/:assignmentId/stage ──────────────────────────
+
+const VALID_STAGES = ["en_route", "arrived", "in_progress"] as const;
+type RideStage = (typeof VALID_STAGES)[number];
+
+const STAGE_TO_ASSIGNMENT_STATUS: Record<RideStage, string> = {
+  en_route: "en_route",
+  arrived: "arrived",
+  in_progress: "in_progress",
+};
+
+const STAGE_TO_RIDE_STATUS: Record<RideStage, string> = {
+  en_route: "driver_en_route",
+  arrived: "driver_arrived",
+  in_progress: "in_progress",
+};
+
+router.patch("/rides/assignments/:assignmentId/stage", async (req: Request, res: Response) => {
+  const user = await requireUserAuth(req, res);
+  if (!user) return;
+
+  const driver = await resolveCallerDriver(user, res);
+  if (!driver) return;
+
+  const assignmentId = String(req.params["assignmentId"]);
+  const { stage } = req.body as { stage: string };
+
+  if (!stage || !VALID_STAGES.includes(stage as RideStage)) {
+    res.status(400).json({
+      error: `Invalid stage. Must be one of: ${VALID_STAGES.join(", ")}`,
+    });
+    return;
+  }
+
+  try {
+    const [assignment] = await db
+      .select()
+      .from(driverAssignmentsTable)
+      .where(eq(driverAssignmentsTable.id, assignmentId))
+      .limit(1);
+
+    if (!assignment) {
+      res.status(404).json({ error: "Assignment not found" });
+      return;
+    }
+
+    // Ownership check: only the assigned driver can update stage
+    if (assignment.driverId !== driver.id) {
+      res.status(403).json({ error: "Forbidden — this assignment belongs to a different driver" });
+      return;
+    }
+
+    const typedStage = stage as RideStage;
+
+    // Transition guard: enforce sequential stage progression
+    const ALLOWED_FROM: Record<RideStage, string[]> = {
+      en_route: ["accepted"],
+      arrived: ["en_route"],
+      in_progress: ["arrived"],
+    };
+
+    const allowedFrom = ALLOWED_FROM[typedStage];
+    if (!allowedFrom.includes(assignment.status)) {
+      res.status(400).json({
+        error: `Cannot transition to '${typedStage}' from '${assignment.status}'. Expected one of: ${allowedFrom.join(", ")}`,
+      });
+      return;
+    }
+
+    const [updated] = await db
+      .update(driverAssignmentsTable)
+      .set({ status: STAGE_TO_ASSIGNMENT_STATUS[typedStage] })
+      .where(
+        and(
+          eq(driverAssignmentsTable.id, assignmentId),
+          inArray(driverAssignmentsTable.status, allowedFrom),
+        ),
+      )
+      .returning();
+
+    // Guard: if zero rows were updated, a concurrent change won the race
+    if (!updated) {
+      res.status(409).json({ error: "Assignment was already modified by a concurrent request — please retry" });
+      return;
+    }
+
+    await db
+      .update(ridesTable)
+      .set({ status: STAGE_TO_RIDE_STATUS[typedStage] })
+      .where(eq(ridesTable.id, assignment.rideId));
+
+    req.log.info({ assignmentId, rideId: assignment.rideId, stage, driverId: driver.id }, "rides.stage.updated");
+
+    res.json({
+      success: true,
+      assignmentId: updated.id,
+      rideId: assignment.rideId,
+    });
+  } catch (err) {
+    logger.error({ err }, "rides.stage failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/rides/:rideId/complete ─────────────────────────────────────────
+
+const DRIVER_SHARE = 0.85;
+
+const TIER_RATES: Record<string, { base: number; perMile: number; minimum: number }> = {
+  tier_1_passenger: { base: 10, perMile: 1.5, minimum: 12 },
+  tier_2_vehicle_solo: { base: 20, perMile: 2.0, minimum: 25 },
+  tier_3_vehicle_paired: { base: 35, perMile: 2.5, minimum: 40 },
+  tier_4_full_concierge: { base: 40, perMile: 3.0, minimum: 45 },
+};
+
+router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
+  const user = await requireUserAuth(req, res);
+  if (!user) return;
+
+  const driver = await resolveCallerDriver(user, res);
+  if (!driver) return;
+
+  const rideId = String(req.params["rideId"]);
+  const { assignmentId, actualDistanceMiles } = req.body as {
+    assignmentId: string;
+    actualDistanceMiles: number;
+  };
+
+  if (!assignmentId || actualDistanceMiles == null) {
+    res.status(400).json({ error: "assignmentId and actualDistanceMiles are required" });
+    return;
+  }
+
+  // Validate distance: must be non-negative and within a sane upper bound (300 miles)
+  if (typeof actualDistanceMiles !== "number" || actualDistanceMiles < 0 || actualDistanceMiles > 300) {
+    res.status(400).json({ error: "actualDistanceMiles must be a number between 0 and 300" });
+    return;
+  }
+
+  try {
+    const [ride] = await db
+      .select()
+      .from(ridesTable)
+      .where(eq(ridesTable.id, rideId))
+      .limit(1);
+
+    if (!ride) {
+      res.status(404).json({ error: "Ride not found" });
+      return;
+    }
+
+    // Idempotency: ride must not already be completed
+    if (ride.status === "completed") {
+      res.status(400).json({ error: "Ride is already completed" });
+      return;
+    }
+
+    const [assignment] = await db
+      .select()
+      .from(driverAssignmentsTable)
+      .where(eq(driverAssignmentsTable.id, assignmentId))
+      .limit(1);
+
+    if (!assignment || assignment.rideId !== rideId) {
+      res.status(404).json({ error: "Assignment not found for this ride" });
+      return;
+    }
+
+    // Ownership check: only the assigned driver can complete
+    if (assignment.driverId !== driver.id) {
+      res.status(403).json({ error: "Forbidden — this assignment belongs to a different driver" });
+      return;
+    }
+
+    // Transition guard: assignment must be in_progress to complete
+    if (assignment.status !== "in_progress") {
+      res.status(400).json({
+        error: `Cannot complete a ride in '${assignment.status}' status — assignment must be in_progress`,
+      });
+      return;
+    }
+
+    const tierRates = TIER_RATES[ride.tier] ?? TIER_RATES["tier_1_passenger"]!;
+    const rawFare = tierRates.base + actualDistanceMiles * tierRates.perMile;
+    const finalFare = Math.max(rawFare, tierRates.minimum);
+    const driverPayout = Math.round(finalFare * DRIVER_SHARE * 100) / 100;
+
+    const now = new Date();
+
+    await db
+      .update(driverAssignmentsTable)
+      .set({
+        status: "completed",
+        completedAt: now,
+        driverPayoutAmount: driverPayout,
+        payoutStatus: "pending",
+      })
+      .where(eq(driverAssignmentsTable.id, assignmentId));
+
+    await db
+      .update(ridesTable)
+      .set({
+        status: "completed",
+        actualFare: finalFare,
+        actualDistanceMiles,
+        completedAt: now,
+      })
+      .where(eq(ridesTable.id, rideId));
+
+    await db.insert(driverPayoutsTable).values({
+      driverId: assignment.driverId,
+      amount: driverPayout,
+      netPayout: driverPayout,
+      platformFee: Math.round((finalFare - driverPayout) * 100) / 100,
+      method: "standard",
+      status: "pending",
+      requestedAt: now,
+    });
+
+    const [currentDriver] = await db
+      .select({ totalRidesCompleted: driversTable.totalRidesCompleted })
+      .from(driversTable)
+      .where(eq(driversTable.id, assignment.driverId))
+      .limit(1);
+
+    if (currentDriver) {
+      await db
+        .update(driversTable)
+        .set({ totalRidesCompleted: currentDriver.totalRidesCompleted + 1 })
+        .where(eq(driversTable.id, assignment.driverId));
+    }
+
+    req.log.info({ rideId, assignmentId, finalFare, driverPayout, driverId: driver.id }, "rides.complete.success");
+
+    res.json({
+      success: true,
+      rideId,
+      finalFare,
+      driverPayout,
+    });
+  } catch (err) {
+    logger.error({ err }, "rides.complete failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+export default router;

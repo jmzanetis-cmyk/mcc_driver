@@ -14,3 +14,121 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Creates a ride record and inserts driver_assignments rows for each
+required driver. Inserting into driver_assignments triggers Supabase
+Realtime postgres_changes events, delivering the request to online
+drivers in real time.
+
+ * @summary Dispatch a new ride to eligible drivers
+ */
+export const dispatchRideBodyResponseDeadlineSecondsDefault = 30;
+
+export const DispatchRideBody = zod.object({
+  scenario: zod
+    .string()
+    .describe(
+      "Ride scenario key (e.g. member_dropoff, paired_vehicle_delivery)",
+    ),
+  tier: zod.string().describe("Service tier (e.g. tier_1_passenger)"),
+  pickupAddress: zod.string(),
+  pickupLat: zod.number(),
+  pickupLng: zod.number(),
+  dropoffAddress: zod.string(),
+  dropoffLat: zod.number(),
+  dropoffLng: zod.number(),
+  estimatedFare: zod.number(),
+  estimatedDistanceMiles: zod.number(),
+  memberId: zod.string().nullish(),
+  memberVehicleYear: zod.number().nullish(),
+  memberVehicleMake: zod.string().nullish(),
+  memberVehicleModel: zod.string().nullish(),
+  memberVehicleColor: zod.string().nullish(),
+  targetDriverIds: zod
+    .array(zod.string().uuid())
+    .nullish()
+    .describe(
+      "If provided, dispatches specifically to these driver IDs.\nOtherwise finds eligible online drivers automatically.\n",
+    ),
+  responseDeadlineSeconds: zod
+    .number()
+    .default(dispatchRideBodyResponseDeadlineSecondsDefault)
+    .describe("Seconds drivers have to respond before the request expires"),
+});
+
+/**
+ * Atomically checks that the assignment is still pending and within the
+response deadline, then updates its status to 'accepted'. Returns an
+error if the deadline has passed or another driver already accepted.
+
+ * @summary Accept a pending ride assignment
+ */
+export const AcceptRideAssignmentParams = zod.object({
+  assignmentId: zod.coerce.string().uuid(),
+});
+
+export const AcceptRideAssignmentResponse = zod.object({
+  success: zod.boolean(),
+  assignmentId: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+});
+
+/**
+ * Marks the assignment as 'rejected'. The dispatch system can then
+offer the ride to the next available driver.
+
+ * @summary Decline a pending ride assignment
+ */
+export const DeclineRideAssignmentParams = zod.object({
+  assignmentId: zod.coerce.string().uuid(),
+});
+
+export const DeclineRideAssignmentResponse = zod.object({
+  success: zod.boolean(),
+  assignmentId: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+});
+
+/**
+ * Records stage transitions (en_route → arrived → in_progress) for an
+active assignment. Used by the driver during a live ride.
+
+ * @summary Update the active stage of a ride assignment
+ */
+export const UpdateAssignmentStageParams = zod.object({
+  assignmentId: zod.coerce.string().uuid(),
+});
+
+export const UpdateAssignmentStageBody = zod.object({
+  stage: zod.enum(["en_route", "arrived", "in_progress"]),
+});
+
+export const UpdateAssignmentStageResponse = zod.object({
+  success: zod.boolean(),
+  assignmentId: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+});
+
+/**
+ * Marks the ride as completed, recalculates fare based on actual distance,
+updates the driver assignment, and creates a payout record. Requires
+the assignment to be in 'in_progress' status.
+
+ * @summary Complete a ride and trigger payout calculation
+ */
+export const CompleteRideParams = zod.object({
+  rideId: zod.coerce.string().uuid(),
+});
+
+export const CompleteRideBody = zod.object({
+  assignmentId: zod.string().uuid(),
+  actualDistanceMiles: zod.number(),
+});
+
+export const CompleteRideResponse = zod.object({
+  success: zod.boolean(),
+  rideId: zod.string().uuid(),
+  finalFare: zod.number(),
+  driverPayout: zod.number(),
+});

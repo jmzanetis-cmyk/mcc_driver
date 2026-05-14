@@ -6,4 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./assignmentActionResponse";
+export * from "./completeRideRequest";
+export * from "./dispatchRideRequest";
+export * from "./dispatchRideResponse";
+export * from "./errorResponse";
 export * from "./healthStatus";
+export * from "./rideCompletionResult";
+export * from "./updateStageRequest";
+export * from "./updateStageRequestStage";

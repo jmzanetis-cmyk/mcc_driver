@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: rides
+    description: Ride dispatch and lifecycle operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,215 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /rides/dispatch:
+    post:
+      operationId: dispatchRide
+      tags: [rides]
+      summary: Dispatch a new ride to eligible drivers
+      description: |
+        Creates a ride record and inserts driver_assignments rows for each
+        required driver. Inserting into driver_assignments triggers Supabase
+        Realtime postgres_changes events, delivering the request to online
+        drivers in real time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchRideRequest"
+      responses:
+        "201":
+          description: Ride dispatched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchRideResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No eligible drivers found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /rides/assignments/{assignmentId}/accept:
+    post:
+      operationId: acceptRideAssignment
+      tags: [rides]
+      summary: Accept a pending ride assignment
+      description: |
+        Atomically checks that the assignment is still pending and within the
+        response deadline, then updates its status to 'accepted'. Returns an
+        error if the deadline has passed or another driver already accepted.
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Assignment accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentActionResponse"
+        "400":
+          description: Deadline passed or assignment no longer pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /rides/assignments/{assignmentId}/decline:
+    post:
+      operationId: declineRideAssignment
+      tags: [rides]
+      summary: Decline a pending ride assignment
+      description: |
+        Marks the assignment as 'rejected'. The dispatch system can then
+        offer the ride to the next available driver.
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Assignment declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentActionResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /rides/assignments/{assignmentId}/stage:
+    patch:
+      operationId: updateAssignmentStage
+      tags: [rides]
+      summary: Update the active stage of a ride assignment
+      description: |
+        Records stage transitions (en_route → arrived → in_progress) for an
+        active assignment. Used by the driver during a live ride.
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStageRequest"
+      responses:
+        "200":
+          description: Stage updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentActionResponse"
+        "400":
+          description: Invalid stage transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /rides/{rideId}/complete:
+    post:
+      operationId: completeRide
+      tags: [rides]
+      summary: Complete a ride and trigger payout calculation
+      description: |
+        Marks the ride as completed, recalculates fare based on actual distance,
+        updates the driver assignment, and creates a payout record. Requires
+        the assignment to be in 'in_progress' status.
+      parameters:
+        - name: rideId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteRideRequest"
+      responses:
+        "200":
+          description: Ride completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RideCompletionResult"
+        "400":
+          description: Ride not in completable state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Ride or assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +245,157 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    DispatchRideRequest:
+      type: object
+      properties:
+        scenario:
+          type: string
+          description: Ride scenario key (e.g. member_dropoff, paired_vehicle_delivery)
+        tier:
+          type: string
+          description: Service tier (e.g. tier_1_passenger)
+        pickupAddress:
+          type: string
+        pickupLat:
+          type: number
+          format: float
+        pickupLng:
+          type: number
+          format: float
+        dropoffAddress:
+          type: string
+        dropoffLat:
+          type: number
+          format: float
+        dropoffLng:
+          type: number
+          format: float
+        estimatedFare:
+          type: number
+          format: float
+        estimatedDistanceMiles:
+          type: number
+          format: float
+        memberId:
+          type: string
+          nullable: true
+        memberVehicleYear:
+          type: integer
+          nullable: true
+        memberVehicleMake:
+          type: string
+          nullable: true
+        memberVehicleModel:
+          type: string
+          nullable: true
+        memberVehicleColor:
+          type: string
+          nullable: true
+        targetDriverIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+          description: |
+            If provided, dispatches specifically to these driver IDs.
+            Otherwise finds eligible online drivers automatically.
+        responseDeadlineSeconds:
+          type: integer
+          default: 30
+          description: Seconds drivers have to respond before the request expires
+      required:
+        - scenario
+        - tier
+        - pickupAddress
+        - pickupLat
+        - pickupLng
+        - dropoffAddress
+        - dropoffLat
+        - dropoffLng
+        - estimatedFare
+        - estimatedDistanceMiles
+
+    DispatchRideResponse:
+      type: object
+      properties:
+        rideId:
+          type: string
+          format: uuid
+        assignmentIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        driversNotified:
+          type: integer
+      required:
+        - rideId
+        - assignmentIds
+        - driversNotified
+
+    AssignmentActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        assignmentId:
+          type: string
+          format: uuid
+        rideId:
+          type: string
+          format: uuid
+      required:
+        - success
+        - assignmentId
+        - rideId
+
+    UpdateStageRequest:
+      type: object
+      properties:
+        stage:
+          type: string
+          enum: [en_route, arrived, in_progress]
+      required:
+        - stage
+
+    CompleteRideRequest:
+      type: object
+      properties:
+        assignmentId:
+          type: string
+          format: uuid
+        actualDistanceMiles:
+          type: number
+          format: float
+      required:
+        - assignmentId
+        - actualDistanceMiles
+
+    RideCompletionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        rideId:
+          type: string
+          format: uuid
+        finalFare:
+          type: number
+          format: float
+        driverPayout:
+          type: number
+          format: float
+      required:
+        - success
+        - rideId
+        - finalFare
+        - driverPayout

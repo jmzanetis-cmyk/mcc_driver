@@ -5,13 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
-
-export interface ErrorResponse {
-  error: string;
-}
 
 export interface DispatchRideRequest {
   /** Ride scenario key (e.g. member_dropoff, paired_vehicle_delivery) */
@@ -37,41 +30,4 @@ Otherwise finds eligible online drivers automatically.
   targetDriverIds?: string[] | null;
   /** Seconds drivers have to respond before the request expires */
   responseDeadlineSeconds?: number;
-}
-
-export interface DispatchRideResponse {
-  rideId: string;
-  assignmentIds: string[];
-  driversNotified: number;
-}
-
-export interface AssignmentActionResponse {
-  success: boolean;
-  assignmentId: string;
-  rideId: string;
-}
-
-export type UpdateStageRequestStage =
-  (typeof UpdateStageRequestStage)[keyof typeof UpdateStageRequestStage];
-
-export const UpdateStageRequestStage = {
-  en_route: "en_route",
-  arrived: "arrived",
-  in_progress: "in_progress",
-} as const;
-
-export interface UpdateStageRequest {
-  stage: UpdateStageRequestStage;
-}
-
-export interface CompleteRideRequest {
-  assignmentId: string;
-  actualDistanceMiles: number;
-}
-
-export interface RideCompletionResult {
-  success: boolean;
-  rideId: string;
-  finalFare: number;
-  driverPayout: number;
 }

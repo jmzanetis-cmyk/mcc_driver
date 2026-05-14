@@ -5,18 +5,30 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  AssignmentActionResponse,
+  CompleteRideRequest,
+  DispatchRideRequest,
+  DispatchRideResponse,
+  ErrorResponse,
+  HealthStatus,
+  RideCompletionResult,
+  UpdateStageRequest,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +111,459 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Creates a ride record and inserts driver_assignments rows for each
+required driver. Inserting into driver_assignments triggers Supabase
+Realtime postgres_changes events, delivering the request to online
+drivers in real time.
+
+ * @summary Dispatch a new ride to eligible drivers
+ */
+export const getDispatchRideUrl = () => {
+  return `/api/rides/dispatch`;
+};
+
+export const dispatchRide = async (
+  dispatchRideRequest: DispatchRideRequest,
+  options?: RequestInit,
+): Promise<DispatchRideResponse> => {
+  return customFetch<DispatchRideResponse>(getDispatchRideUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(dispatchRideRequest),
+  });
+};
+
+export const getDispatchRideMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dispatchRide>>,
+    TError,
+    { data: BodyType<DispatchRideRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dispatchRide>>,
+  TError,
+  { data: BodyType<DispatchRideRequest> },
+  TContext
+> => {
+  const mutationKey = ["dispatchRide"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dispatchRide>>,
+    { data: BodyType<DispatchRideRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return dispatchRide(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DispatchRideMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dispatchRide>>
+>;
+export type DispatchRideMutationBody = BodyType<DispatchRideRequest>;
+export type DispatchRideMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Dispatch a new ride to eligible drivers
+ */
+export const useDispatchRide = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dispatchRide>>,
+    TError,
+    { data: BodyType<DispatchRideRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof dispatchRide>>,
+  TError,
+  { data: BodyType<DispatchRideRequest> },
+  TContext
+> => {
+  return useMutation(getDispatchRideMutationOptions(options));
+};
+
+/**
+ * Atomically checks that the assignment is still pending and within the
+response deadline, then updates its status to 'accepted'. Returns an
+error if the deadline has passed or another driver already accepted.
+
+ * @summary Accept a pending ride assignment
+ */
+export const getAcceptRideAssignmentUrl = (assignmentId: string) => {
+  return `/api/rides/assignments/${assignmentId}/accept`;
+};
+
+export const acceptRideAssignment = async (
+  assignmentId: string,
+  options?: RequestInit,
+): Promise<AssignmentActionResponse> => {
+  return customFetch<AssignmentActionResponse>(
+    getAcceptRideAssignmentUrl(assignmentId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAcceptRideAssignmentMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptRideAssignment>>,
+    TError,
+    { assignmentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptRideAssignment>>,
+  TError,
+  { assignmentId: string },
+  TContext
+> => {
+  const mutationKey = ["acceptRideAssignment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptRideAssignment>>,
+    { assignmentId: string }
+  > = (props) => {
+    const { assignmentId } = props ?? {};
+
+    return acceptRideAssignment(assignmentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptRideAssignmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptRideAssignment>>
+>;
+
+export type AcceptRideAssignmentMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Accept a pending ride assignment
+ */
+export const useAcceptRideAssignment = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptRideAssignment>>,
+    TError,
+    { assignmentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acceptRideAssignment>>,
+  TError,
+  { assignmentId: string },
+  TContext
+> => {
+  return useMutation(getAcceptRideAssignmentMutationOptions(options));
+};
+
+/**
+ * Marks the assignment as 'rejected'. The dispatch system can then
+offer the ride to the next available driver.
+
+ * @summary Decline a pending ride assignment
+ */
+export const getDeclineRideAssignmentUrl = (assignmentId: string) => {
+  return `/api/rides/assignments/${assignmentId}/decline`;
+};
+
+export const declineRideAssignment = async (
+  assignmentId: string,
+  options?: RequestInit,
+): Promise<AssignmentActionResponse> => {
+  return customFetch<AssignmentActionResponse>(
+    getDeclineRideAssignmentUrl(assignmentId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getDeclineRideAssignmentMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof declineRideAssignment>>,
+    TError,
+    { assignmentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof declineRideAssignment>>,
+  TError,
+  { assignmentId: string },
+  TContext
+> => {
+  const mutationKey = ["declineRideAssignment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof declineRideAssignment>>,
+    { assignmentId: string }
+  > = (props) => {
+    const { assignmentId } = props ?? {};
+
+    return declineRideAssignment(assignmentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeclineRideAssignmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof declineRideAssignment>>
+>;
+
+export type DeclineRideAssignmentMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Decline a pending ride assignment
+ */
+export const useDeclineRideAssignment = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof declineRideAssignment>>,
+    TError,
+    { assignmentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof declineRideAssignment>>,
+  TError,
+  { assignmentId: string },
+  TContext
+> => {
+  return useMutation(getDeclineRideAssignmentMutationOptions(options));
+};
+
+/**
+ * Records stage transitions (en_route → arrived → in_progress) for an
+active assignment. Used by the driver during a live ride.
+
+ * @summary Update the active stage of a ride assignment
+ */
+export const getUpdateAssignmentStageUrl = (assignmentId: string) => {
+  return `/api/rides/assignments/${assignmentId}/stage`;
+};
+
+export const updateAssignmentStage = async (
+  assignmentId: string,
+  updateStageRequest: UpdateStageRequest,
+  options?: RequestInit,
+): Promise<AssignmentActionResponse> => {
+  return customFetch<AssignmentActionResponse>(
+    getUpdateAssignmentStageUrl(assignmentId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateStageRequest),
+    },
+  );
+};
+
+export const getUpdateAssignmentStageMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAssignmentStage>>,
+    TError,
+    { assignmentId: string; data: BodyType<UpdateStageRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAssignmentStage>>,
+  TError,
+  { assignmentId: string; data: BodyType<UpdateStageRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateAssignmentStage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAssignmentStage>>,
+    { assignmentId: string; data: BodyType<UpdateStageRequest> }
+  > = (props) => {
+    const { assignmentId, data } = props ?? {};
+
+    return updateAssignmentStage(assignmentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAssignmentStageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAssignmentStage>>
+>;
+export type UpdateAssignmentStageMutationBody = BodyType<UpdateStageRequest>;
+export type UpdateAssignmentStageMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update the active stage of a ride assignment
+ */
+export const useUpdateAssignmentStage = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAssignmentStage>>,
+    TError,
+    { assignmentId: string; data: BodyType<UpdateStageRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAssignmentStage>>,
+  TError,
+  { assignmentId: string; data: BodyType<UpdateStageRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateAssignmentStageMutationOptions(options));
+};
+
+/**
+ * Marks the ride as completed, recalculates fare based on actual distance,
+updates the driver assignment, and creates a payout record. Requires
+the assignment to be in 'in_progress' status.
+
+ * @summary Complete a ride and trigger payout calculation
+ */
+export const getCompleteRideUrl = (rideId: string) => {
+  return `/api/rides/${rideId}/complete`;
+};
+
+export const completeRide = async (
+  rideId: string,
+  completeRideRequest: CompleteRideRequest,
+  options?: RequestInit,
+): Promise<RideCompletionResult> => {
+  return customFetch<RideCompletionResult>(getCompleteRideUrl(rideId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(completeRideRequest),
+  });
+};
+
+export const getCompleteRideMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeRide>>,
+    TError,
+    { rideId: string; data: BodyType<CompleteRideRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeRide>>,
+  TError,
+  { rideId: string; data: BodyType<CompleteRideRequest> },
+  TContext
+> => {
+  const mutationKey = ["completeRide"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeRide>>,
+    { rideId: string; data: BodyType<CompleteRideRequest> }
+  > = (props) => {
+    const { rideId, data } = props ?? {};
+
+    return completeRide(rideId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteRideMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeRide>>
+>;
+export type CompleteRideMutationBody = BodyType<CompleteRideRequest>;
+export type CompleteRideMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Complete a ride and trigger payout calculation
+ */
+export const useCompleteRide = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeRide>>,
+    TError,
+    { rideId: string; data: BodyType<CompleteRideRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeRide>>,
+  TError,
+  { rideId: string; data: BodyType<CompleteRideRequest> },
+  TContext
+> => {
+  return useMutation(getCompleteRideMutationOptions(options));
+};

@@ -1,36 +1,53 @@
-# [Project name]
+# MCC Driver
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A real-time driver portal for My Car Concierge — a premium vehicle concierge service. Drivers receive ride requests in real time, accept or decline them, and navigate through the full ride lifecycle from pickup to completion.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/driver run dev` — run the driver web app
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — Supabase project credentials (driver app)
+- Optional env: `DISPATCH_API_KEY` — allows unauthenticated dispatch calls via `x-api-key` header
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
+- Driver app: React + Vite, Zustand, TanStack Query, Supabase JS client
+- API: Express 5, Drizzle ORM
+- DB: PostgreSQL (Supabase) + Drizzle ORM
+- Realtime: Supabase Realtime (postgres_changes on driver_assignments)
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/db/src/schema/index.ts` — Drizzle ORM schema: drivers, rides, driver_assignments, driver_payouts
+- `lib/api-spec/openapi.yaml` — OpenAPI contract (source of truth for API shape)
+- `artifacts/api-server/src/routes/rides.ts` — Ride dispatch, accept, decline, stage update, complete
+- `artifacts/api-server/src/lib/scenarioConfig.ts` — Server-side ride scenario definitions
+- `artifacts/driver/src/hooks/useRideRequests.ts` — Supabase Realtime subscription for live ride requests
+- `artifacts/driver/src/services/api/edgeFunctions.ts` — API server calls (accept, decline, stage, complete)
+- `artifacts/driver/src/store/dispatchStore.ts` — Zustand store for ride lifecycle state
+- `artifacts/driver/src/screens/RideRequestScreen.tsx` — Ride request modal (RideRequestModal component)
+- `artifacts/driver/src/screens/NavigateScreen.tsx` — Active ride navigation screen
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Supabase Realtime for push delivery**: The driver app subscribes to `postgres_changes` on the `driver_assignments` table filtered by `driver_id`. When the API server inserts a new assignment row, Supabase fires the event to all subscribed drivers within seconds — no polling.
+- **API server for state transitions**: All ride mutations (accept, decline, stage update, complete) go through the API server rather than direct client updates. This enables atomic accept with deadline checking and prevents race conditions where two drivers accept simultaneously.
+- **Zustand dispatch store as single source of truth**: The entire ride lifecycle state (idle → offered → accepted → navigating → arrived → in_progress → completing → completed) lives in a single Zustand store, shared between HomeScreen, NavigateScreen, and RideCompleteScreen without prop drilling.
+- **Dual DB access**: The driver app reads/writes Supabase Postgres directly for auth-adjacent data (driver profile, earnings). The API server uses Drizzle ORM via `DATABASE_URL` pointing to the same Postgres for transactional ride operations.
+- **SCENARIO_CONFIG mirrored on client and server**: The ride scenario definitions (which role drives the member vehicle, how many drivers required, etc.) exist in both `artifacts/driver/src/services/rides/index.ts` and `artifacts/api-server/src/lib/scenarioConfig.ts` to avoid a cross-artifact dependency.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Drivers sign in with Supabase phone auth, submit a background check application, and once approved can go online to receive ride requests. When a ride is dispatched, online drivers receive a modal popup with a countdown timer. Accepting navigates the driver through: en route → arrived at pickup → ride in progress → complete. Drivers see earnings dashboards, can request instant payouts, and have an AI assistant for support.
 
 ## User preferences
 
@@ -38,7 +55,10 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- After changing `lib/db/src/schema/index.ts`, run `pnpm --filter @workspace/db run push` to apply schema changes to the database.
+- After changing `lib/api-spec/openapi.yaml`, run `pnpm --filter @workspace/api-spec run codegen` to regenerate types and hooks.
+- Supabase Realtime only fires for tables that have Realtime enabled in the Supabase dashboard. The `driver_assignments` table must have Realtime enabled for live ride delivery to work.
+- The API server uses `DATABASE_URL` to connect directly to the Supabase Postgres database — this is the same DB the Supabase JS client reads from, so writes from the API server trigger Realtime events.
 
 ## Pointers
 
