@@ -1,0 +1,33 @@
+Are you integrated now with the driver platform?
+
+Just now
+Yes — the backend foundation for the separate "MCC Driver" Replit project is now in place on this side. Here's what's wired up and ready for the Driver app to call:
+
+Auth
+
+POST /api/driver/v1/auth/send-code — Twilio Verify sends an SMS OTP (rate-limited to 3 sends per phone per 15 min, backed by a DB table so the limit is shared across Netlify instances).
+POST /api/driver/v1/auth/verify-code — On a valid code, the server mints a native Supabase session (real access + refresh tokens), so the Driver app talks to Supabase directly under the existing RLS rules.
+POST /api/driver/v1/auth/refresh — Standard Supabase refresh.
+Driver-facing endpoints
+
+GET /me, GET /jobs, GET /jobs/:id
+POST /jobs/:id/accept and /decline (with 409 conflict guards)
+POST /jobs/:id/legs/:leg_id/start and /complete (enforces accepted, correct role, and in-order leg sequencing)
+POST /jobs/:id/location (batched pings, ≤50, only after the leg is started)
+GET /earnings
+Admin side (used by your existing admin UI / dispatchers)
+
+POST /api/admin/concierge-jobs — creates a job and authoritatively expands one of the 11 scenarios into legs (clients can't invent legs).
+POST /:id/assign-driver — assigns/reassigns primary or secondary driver, and properly resets prior accept/decline state on reassignment.
+POST /:id/cancel, GET /:id, GET / (list)
+All write actions log to admin_audit_log and emit agent_events.
+Schema & docs
+
+Migration supabase/migrations/20260514c_driver_concierge_jobs.sql (drivers, concierge_jobs, legs, assignments, location pings, earnings, OTP send log) with read-only RLS for drivers and service-role-only writes.
+Full API contract at docs/driver-app-api.md — that's what the Driver app project should code against.
+Smoke tests at netlify/functions-tests/driver-api.test.js (13 passing).
+What you'll need to set on Netlify before the Driver app can hit prod
+
+TWILIO_VERIFY_SERVICE_SID (the other Twilio vars are already there)
+The existing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, ADMIN_PASSWORD
+What's intentionally not in this task (already proposed as follow-ups #333–#335): push notifications, automatic driver payouts, and the live member map. Let me know when you'd like to start any of those.

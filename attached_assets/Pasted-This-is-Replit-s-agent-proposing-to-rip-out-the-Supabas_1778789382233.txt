@@ -1,0 +1,19 @@
+This is Replit's agent proposing to rip out the Supabase-native backend we built and replace it with calls to the MCC platform API. Before you accept this task, let's think about whether that's the right move.
+The issue: Replit's agent is seeing two backends — the existing MCC platform (which handles the member-facing service marketplace) and the driver app's Supabase tables (which we built specifically for transportation). It's assuming the platform already has a complete driver API with jobs, legs, assignments, Twilio Verify, earnings endpoints, and location pings.
+Does your MCC platform actually have all of that? If your existing mycarconcierge.com backend already has:
+
+A /api/driver/v1/jobs endpoint
+A leg-based dispatch model
+Twilio Verify for driver OTP
+An earnings endpoint
+
+...then yes, integrating makes sense. You wouldn't want two separate systems managing rides.
+But I don't think it does. The MCC platform you've built so far handles service provider bids, member accounts, and the marketplace. The transportation module — drivers, rides, dispatch, fare calculation, multi-driver coordination — that's what we just built from scratch and loaded into Supabase. There's no existing "platform driver API" to integrate with.
+My recommendation: reject this task. The driver app's Supabase tables ARE the platform for transportation. The Replit agent is creating a dependency on API endpoints that don't exist yet. What you actually want is:
+
+Let the driver app talk directly to Supabase (which it already does)
+Later, when you build the member-facing transportation booking flow into the main MCC app, THAT app also talks to the same Supabase tables
+The Edge Functions we built handle the server-side arbitration
+
+If you eventually want a unified REST API layer in front of Supabase, that's a Phase 3 concern — not something to rewire now before you've even tested the first ride.
+Tell the Replit agent to skip this task and move on to getting the sign-in flow working end-to-end instead.
