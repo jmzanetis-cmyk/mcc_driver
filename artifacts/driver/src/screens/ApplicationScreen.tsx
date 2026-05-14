@@ -2,7 +2,7 @@
 // MCC Driver — Driver Application Screen
 // ============================================================
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createDriverApplication } from '@/services/auth/authService';
 import { uploadDriverDocument, type DocumentType } from '@/services/documents/documentService';
@@ -203,10 +203,17 @@ export function ApplicationScreen() {
     }
   };
 
-  React.useEffect(() => {
+  // Refs always hold the latest preview URLs so the unmount cleanup
+  // isn't bound by a stale closure (the [] dependency captures nothing).
+  const licensePreviewRef = useRef<string | null>(null);
+  const insurancePreviewRef = useRef<string | null>(null);
+  licensePreviewRef.current = licenseDoc.preview;
+  insurancePreviewRef.current = insuranceDoc.preview;
+
+  useEffect(() => {
     return () => {
-      if (licenseDoc.preview) URL.revokeObjectURL(licenseDoc.preview);
-      if (insuranceDoc.preview) URL.revokeObjectURL(insuranceDoc.preview);
+      if (licensePreviewRef.current) URL.revokeObjectURL(licensePreviewRef.current);
+      if (insurancePreviewRef.current) URL.revokeObjectURL(insurancePreviewRef.current);
     };
   }, []);
 
