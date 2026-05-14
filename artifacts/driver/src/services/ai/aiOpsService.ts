@@ -498,17 +498,81 @@ async function executeAction(
 // MAIN CHAT FUNCTION
 // ============================================================
 
+export interface ProposedAction {
+  type: string;
+  params: Record<string, string>;
+  label: string;
+}
+
+export interface DriverMessageResult {
+  response: string;
+  conversationId: string;
+  /** Actions that have already been executed (only when confirmedActions was provided). */
+  executedActions: { type: string; result: string }[];
+  /** Actions proposed by the AI that require explicit driver confirmation before running. */
+  proposedActions: ProposedAction[];
+  category: AICategory;
+}
+
+function describeAction(action: ParsedAction): string {
+  switch (action.type) {
+    case 'ADD_VEHICLE':
+      return `Add vehicle: ${action.params.year ?? ''} ${action.params.color ?? ''} ${action.params.make ?? ''} ${action.params.model ?? ''} (${action.params.plate ?? ''})`.trim();
+    case 'DEACTIVATE_VEHICLE':
+      return `Deactivate vehicle (ID: ${action.params.vehicle_id ?? ''})`;
+    case 'UPDATE_PROFILE':
+      return `Update ${action.params.field ?? 'profile field'} to "${action.params.value ?? ''}"`;
+    case 'REQUEST_PAYOUT':
+      return 'Request immediate payout';
+    case 'CREATE_ISSUE':
+      return `Report ride issue: ${action.params.description ?? ''}`;
+    case 'ESCALATE':
+      return `Escalate to MCC support: ${action.params.reason ?? ''}`;
+    case 'SET_STATUS':
+      return `Go ${action.params.online === 'true' ? 'online' : 'offline'}`;
+    case 'SEND_DOCUMENT_REMINDER':
+      return `Send reminder for ${action.params.doc_type ?? 'document'} upload`;
+    default:
+      return `Unknown action: ${action.type}`;
+  }
+}
+
+/**
+ * Send a message to the AI assistant.
+ *
+ * Two-phase action flow (prevents AI from executing writes without driver consent):
+ * 1. First call (confirmedActions = undefined): AI responds, any actions are returned as
+ *    `proposedActions` — NOT executed. The UI must show a confirmation prompt.
+ * 2. Second call (confirmedActions = [...]) : Only the explicitly confirmed action types
+ *    are executed. The AI is not called again; this is a pure execution step.
+ */
 export async function sendDriverMessage(
   driverId: string,
   conversationId: string | null,
   userMessage: string,
   conversationHistory: AIMessage[] = [],
-): Promise<{
-  response: string;
-  conversationId: string;
-  actions: { type: string; result: string }[];
-  category: AICategory;
-}> {
+  /** Pass this to execute previously proposed actions that the driver confirmed. */
+  confirmedActions?: ProposedAction[],
+): Promise<DriverMessageResult> {
+  const convId = conversationId ?? crypto.randomUUID();
+
+  // ── Phase 2: execute confirmed actions (no AI call) ──────────────────────
+  if (confirmedActions && confirmedActions.length > 0) {
+    const executedActions: { type: string; result: string }[] = [];
+    for (const proposed of confirmedActions) {
+      const result = await executeAction({ type: proposed.type, params: proposed.params }, driverId);
+      executedActions.push({ type: proposed.type, result: result.message });
+    }
+    return {
+      response: '',
+      conversationId: convId,
+      executedActions,
+      proposedActions: [],
+      category: 'support',
+    };
+  }
+
+  // ── Phase 1: call AI and surface proposed actions ────────────────────────
   const driverContext = await loadDriverContext(driverId);
   if (!driverContext) {
     throw new Error('Driver profile not found');
@@ -522,10 +586,17 @@ export async function sendDriverMessage(
     { role: 'user' as const, content: userMessage },
   ];
 
+  // Get the Supabase session token to authenticate the API server request
+  const { data: { session } } = await supabase.auth.getSession();
+  const authToken = session?.access_token;
+
   // Call Claude via the API server proxy (keeps API key server-side)
   const response = await fetch('/api/ai/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+    },
     body: JSON.stringify({
       system: buildSystemPrompt(driverContext),
       messages,
@@ -541,17 +612,17 @@ export async function sendDriverMessage(
   if (data.error) throw new Error(data.error);
   const assistantMessage = data.content ?? '';
 
+  // Parse actions but DO NOT execute — surface them as proposals requiring confirmation
   const parsedActions = parseActions(assistantMessage);
-  const actionResults: { type: string; result: string }[] = [];
+  const proposedActions: ProposedAction[] = parsedActions.map(a => ({
+    type: a.type,
+    params: a.params,
+    label: describeAction(a),
+  }));
 
-  for (const action of parsedActions) {
-    const result = await executeAction(action, driverId);
-    actionResults.push({ type: action.type, result: result.message });
-  }
-
+  // Strip ACTION blocks from the display message
   const displayMessage = assistantMessage.replace(/\[ACTION:[^\]]+\]/g, '').trim();
   const category = categorizeMessage(userMessage);
-  const convId = conversationId ?? crypto.randomUUID();
 
   await supabase.from('ai_conversations').upsert({
     id: convId,
@@ -567,11 +638,17 @@ export async function sendDriverMessage(
       conversation_id: convId,
       role: 'assistant',
       content: displayMessage,
-      actions_taken: actionResults.length > 0 ? JSON.stringify(actionResults) : null,
+      actions_taken: proposedActions.length > 0 ? JSON.stringify(proposedActions.map(a => a.label)) : null,
     },
   ]);
 
-  return { response: displayMessage, conversationId: convId, actions: actionResults, category };
+  return {
+    response: displayMessage,
+    conversationId: convId,
+    executedActions: [],
+    proposedActions,
+    category,
+  };
 }
 
 // ============================================================

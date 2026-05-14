@@ -17,9 +17,9 @@ export function AIChatScreen() {
   const navigate = useNavigate();
   const { driver } = useAuth();
   const {
-    messages, conversationId, isSending, error, lastActions, category,
-    recentConversations, sendMessage, startNewConversation, loadHistory,
-    loadExistingConversation,
+    messages, conversationId, isSending, error, proposedActions, category,
+    recentConversations, sendMessage, confirmActions, dismissActions,
+    startNewConversation, loadHistory, loadExistingConversation,
   } = useAIChat(driver?.id || null);
 
   const [input, setInput] = useState('');
@@ -276,17 +276,45 @@ export function AIChatScreen() {
           </div>
         )}
 
-        {/* Action results banner */}
-        {lastActions.length > 0 && (
+        {/* Proposed actions — require explicit driver confirmation before executing */}
+        {proposedActions.length > 0 && (
           <div style={{
-            padding: 12, background: colors.successBg, borderRadius: borderRadius.md,
-            marginBottom: 12,
+            padding: 12, background: colors.bgSecondary, borderRadius: borderRadius.md,
+            marginBottom: 12, border: `1px solid ${colors.border}`,
           }}>
-            {lastActions.map((action, i) => (
-              <div key={i} style={{ fontSize: 13, color: colors.success, fontWeight: 500 }}>
-                ✓ {action.result}
+            <div style={{ fontSize: 13, fontWeight: 600, color: colors.textPrimary, marginBottom: 8 }}>
+              The assistant wants to take the following action{proposedActions.length > 1 ? 's' : ''}:
+            </div>
+            {proposedActions.map((action, i) => (
+              <div key={i} style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 4 }}>
+                • {action.label}
               </div>
             ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button
+                onClick={() => confirmActions(proposedActions)}
+                disabled={isSending}
+                style={{
+                  padding: '8px 16px', borderRadius: borderRadius.sm, border: 'none',
+                  background: colors.navy, color: '#fff', fontSize: 13, fontWeight: 600,
+                  cursor: isSending ? 'wait' : 'pointer',
+                }}
+              >
+                Confirm
+              </button>
+              <button
+                onClick={dismissActions}
+                disabled={isSending}
+                style={{
+                  padding: '8px 16px', borderRadius: borderRadius.sm,
+                  border: `1px solid ${colors.border}`,
+                  background: 'transparent', color: colors.textSecondary,
+                  fontSize: 13, cursor: 'pointer',
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
       </div>

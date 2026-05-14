@@ -16,7 +16,34 @@ interface ChatMessage {
 interface ChatRequestBody {
   system: string;
   messages: ChatMessage[];
+  driverId?: string;
 }
+
+// Simple in-memory rate limiter: max 20 requests per driver per minute
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(key: string, maxRequests = 20, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+
+  if (entry.count >= maxRequests) return false;
+
+  entry.count++;
+  return true;
+}
+
+// Clean up stale rate limit entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetAt) rateLimitMap.delete(key);
+  }
+}, 300_000);
 
 router.post("/ai/chat", async (req: Request, res: Response) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -25,9 +52,23 @@ router.post("/ai/chat", async (req: Request, res: Response) => {
     return;
   }
 
+  // Require Authorization header (Supabase JWT) — validate that it's present
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Unauthorized — authentication required" });
+    return;
+  }
+
   const body = req.body as ChatRequestBody;
-  if (!body.messages || !Array.isArray(body.messages)) {
-    res.status(400).json({ error: "messages array is required" });
+  if (!body.messages || !Array.isArray(body.messages) || body.messages.length === 0) {
+    res.status(400).json({ error: "messages array is required and must not be empty" });
+    return;
+  }
+
+  // Rate limit per auth token (first 32 chars as key)
+  const rateLimitKey = authHeader.slice(7, 39);
+  if (!checkRateLimit(rateLimitKey)) {
+    res.status(429).json({ error: "Too many requests — please wait before sending more messages" });
     return;
   }
 

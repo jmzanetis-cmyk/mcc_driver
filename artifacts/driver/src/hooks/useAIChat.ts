@@ -1,7 +1,3 @@
-// ============================================================
-// MCC Driver — useAIChat Hook
-// ============================================================
-
 import { useState, useCallback, useRef } from 'react';
 import {
   sendDriverMessage,
@@ -10,12 +6,8 @@ import {
   type AIMessage,
   type AIConversation,
   type AICategory,
+  type ProposedAction,
 } from '@/services/ai/aiOpsService';
-
-interface ActionResult {
-  type: string;
-  result: string;
-}
 
 interface ChatState {
   messages: AIMessage[];
@@ -23,7 +15,7 @@ interface ChatState {
   isLoading: boolean;
   isSending: boolean;
   error: string | null;
-  lastActions: ActionResult[];
+  proposedActions: ProposedAction[];
   category: AICategory;
 }
 
@@ -34,7 +26,7 @@ export function useAIChat(driverId: string | null) {
     isLoading: false,
     isSending: false,
     error: null,
-    lastActions: [],
+    proposedActions: [],
     category: 'support',
   });
 
@@ -44,7 +36,6 @@ export function useAIChat(driverId: string | null) {
   const sendMessage = useCallback(async (text: string) => {
     if (!driverId || !text.trim() || state.isSending) return;
 
-    // Add user message immediately (optimistic)
     const userMsg: AIMessage = {
       id: `local-${++messageIdCounter.current}`,
       role: 'user',
@@ -57,6 +48,7 @@ export function useAIChat(driverId: string | null) {
       messages: [...prev.messages, userMsg],
       isSending: true,
       error: null,
+      proposedActions: [],
     }));
 
     try {
@@ -64,7 +56,7 @@ export function useAIChat(driverId: string | null) {
         driverId,
         state.conversationId,
         text.trim(),
-        state.messages, // pass conversation history
+        state.messages,
       );
 
       const assistantMsg: AIMessage = {
@@ -73,9 +65,6 @@ export function useAIChat(driverId: string | null) {
         content: result.response,
         timestamp: new Date().toISOString(),
         category: result.category,
-        actionTaken: result.actions.length > 0
-          ? result.actions.map(a => `${a.type}: ${a.result}`).join('; ')
-          : undefined,
       };
 
       setState(prev => ({
@@ -83,28 +72,57 @@ export function useAIChat(driverId: string | null) {
         messages: [...prev.messages, assistantMsg],
         conversationId: result.conversationId,
         isSending: false,
-        lastActions: result.actions,
+        proposedActions: result.proposedActions,
         category: result.category,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get response';
       setState(prev => ({
         ...prev,
         isSending: false,
-        error: err.message || 'Failed to get response',
+        error: message,
       }));
     }
   }, [driverId, state.conversationId, state.messages, state.isSending]);
 
+  /** Confirm and execute AI-proposed actions after explicit driver approval. */
+  const confirmActions = useCallback(async (actions: ProposedAction[]) => {
+    if (!driverId || actions.length === 0) return;
+
+    setState(prev => ({ ...prev, isSending: true, error: null }));
+
+    try {
+      const result = await sendDriverMessage(driverId, state.conversationId, '', [], actions);
+
+      const confirmMsg: AIMessage = {
+        id: `exec-${++messageIdCounter.current}`,
+        role: 'assistant',
+        content: result.executedActions.map(a => `✓ ${a.result}`).join('\n'),
+        timestamp: new Date().toISOString(),
+        actionTaken: result.executedActions.map(a => `${a.type}: ${a.result}`).join('; '),
+      };
+
+      setState(prev => ({
+        ...prev,
+        messages: [...prev.messages, confirmMsg],
+        isSending: false,
+        proposedActions: [],
+      }));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Action failed';
+      setState(prev => ({ ...prev, isSending: false, error: message }));
+    }
+  }, [driverId, state.conversationId]);
+
+  /** Dismiss proposed actions without executing them. */
+  const dismissActions = useCallback(() => {
+    setState(prev => ({ ...prev, proposedActions: [] }));
+  }, []);
+
   const loadExistingConversation = useCallback(async (conversationId: string) => {
     setState(prev => ({ ...prev, isLoading: true }));
-
     const messages = await loadConversation(conversationId);
-    setState(prev => ({
-      ...prev,
-      messages,
-      conversationId,
-      isLoading: false,
-    }));
+    setState(prev => ({ ...prev, messages, conversationId, isLoading: false }));
   }, []);
 
   const startNewConversation = useCallback(() => {
@@ -114,7 +132,7 @@ export function useAIChat(driverId: string | null) {
       isLoading: false,
       isSending: false,
       error: null,
-      lastActions: [],
+      proposedActions: [],
       category: 'support',
     });
   }, []);
@@ -129,6 +147,8 @@ export function useAIChat(driverId: string | null) {
     ...state,
     recentConversations,
     sendMessage,
+    confirmActions,
+    dismissActions,
     loadExistingConversation,
     startNewConversation,
     loadHistory,

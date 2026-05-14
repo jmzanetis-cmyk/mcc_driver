@@ -64,7 +64,8 @@ export function NavigateScreen() {
     openNavigation(preferredNav, destination);
   };
 
-  const stageActions: Record<ActiveRideStage, { label: string; action: () => void; variant: string }> = {
+  type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
+  const stageActions: Record<ActiveRideStage, { label: string; action: () => void; variant: ButtonVariant }> = {
     accepted: {
       label: `Navigate to Pickup (${getNavAppName(preferredNav)})`,
       action: async () => { await startNavigating(); handleOpenNav(); },
@@ -236,7 +237,7 @@ export function NavigateScreen() {
         {/* Main action button */}
         <Button
           onClick={currentAction.action}
-          variant={currentAction.variant as any}
+          variant={currentAction.variant}
           fullWidth
           size="lg"
           loading={activeRide.stage === 'completing'}
