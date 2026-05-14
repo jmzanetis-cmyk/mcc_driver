@@ -280,8 +280,8 @@ export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderP
         </button>
       ) : (
         <img
-          src="/driver/mcc-logo.png"
-          alt="MCC"
+          src="/driver/mcc-driver-logo.png"
+          alt="MCC Driver"
           style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }}
         />
       )}
