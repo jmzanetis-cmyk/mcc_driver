@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/driver/"
+title = "MCC Driver"
+version = "1.0.0"
+id = "artifacts/driver"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/driver/" ]
+localPort = 19574
+
+[services.development]
+run = "pnpm --filter @workspace/driver run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/driver", "run", "build" ]
+publicDir = "artifacts/driver/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19574"
+BASE_PATH = "/driver/"
