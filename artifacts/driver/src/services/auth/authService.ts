@@ -155,6 +155,28 @@ export async function createDriverApplication(applicationData: {
   return { success: true, driverId: inserted?.id };
 }
 
+export async function updateDriverDocuments(params: {
+  licenseDocumentPath?: string;
+  insuranceDocumentPath?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Not authenticated' };
+
+  const updates: Record<string, string> = {};
+  if (params.licenseDocumentPath) updates['license_document_path'] = params.licenseDocumentPath;
+  if (params.insuranceDocumentPath) updates['insurance_document_path'] = params.insuranceDocumentPath;
+
+  if (Object.keys(updates).length === 0) return { success: true };
+
+  const { error } = await supabase
+    .from('drivers')
+    .update(updates)
+    .eq('user_id', user.id);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
 export async function signOut(): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {

@@ -2,10 +2,11 @@
 // MCC Driver — Approval Pending Screen
 // ============================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { colors, borderRadius } from '@/theme';
 import { Button } from '@/components';
+import { UpdateDocumentsModal } from './UpdateDocumentsModal';
 
 type StepStatus = 'done' | 'pending' | 'waiting';
 
@@ -42,6 +43,7 @@ function buildSteps(
 
 export function PendingScreen() {
   const { refreshDriver, signOut, driver } = useAuth();
+  const [showUpdateDocs, setShowUpdateDocs] = useState(false);
 
   const steps = buildSteps(driver?.status, driver?.backgroundCheckPassed ?? false);
 
@@ -138,7 +140,20 @@ export function PendingScreen() {
         </div>
       ) : null}
 
-      <div style={{ marginTop: 32, display: 'flex', gap: 12 }}>
+      {driver?.status === 'pending_approval' && (
+        <div style={{ marginTop: 20, width: '100%', maxWidth: 360 }}>
+          <Button
+            onClick={() => setShowUpdateDocs(true)}
+            variant="secondary"
+            size="md"
+            fullWidth
+          >
+            📎 Update Documents
+          </Button>
+        </div>
+      )}
+
+      <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
         <Button onClick={refreshDriver} variant="secondary" size="sm">
           Check Status
         </Button>
@@ -146,6 +161,10 @@ export function PendingScreen() {
           Sign Out
         </Button>
       </div>
+
+      {showUpdateDocs && (
+        <UpdateDocumentsModal onClose={() => setShowUpdateDocs(false)} />
+      )}
     </div>
   );
 }
