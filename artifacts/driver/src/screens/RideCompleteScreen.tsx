@@ -1,9 +1,3 @@
-// ============================================================
-// MCC Driver — Ride Complete Screen
-// ============================================================
-// Shown after a ride is completed. Fare summary + rate member.
-// ============================================================
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
@@ -12,6 +6,7 @@ import { colors, borderRadius } from '@/theme';
 import {
   formatCurrency, formatDistance, formatDuration, getScenarioLabel, getTierLabel,
 } from '@/utils/formatters';
+import type { RideRow } from '@/services/supabase/types';
 
 interface CompletedRideData {
   scenario: string;
@@ -41,23 +36,25 @@ export function RideCompleteScreen() {
         .from('rides')
         .select('*')
         .eq('id', rideId)
-        .single() as any;
+        .single();
 
       if (data) {
-        const started = data.started_at ? new Date(data.started_at).getTime() : 0;
-        const completed = data.completed_at ? new Date(data.completed_at).getTime() : Date.now();
+        const row = data as unknown as RideRow;
+        const started = row.started_at ? new Date(row.started_at).getTime() : 0;
+        const completed = row.completed_at ? new Date(row.completed_at).getTime() : Date.now();
         const durationMs = completed - started;
+        const fare = row.actual_fare ?? row.estimated_fare;
 
         setRide({
-          scenario: data.scenario,
-          tier: data.tier,
-          pickupAddress: data.pickup_address,
-          dropoffAddress: data.dropoff_address,
-          actualFare: data.actual_fare || data.estimated_fare,
-          driverPayout: (data.actual_fare || data.estimated_fare) * 0.85,
-          distanceMiles: data.actual_distance_miles || data.estimated_distance_miles,
+          scenario: row.scenario,
+          tier: row.tier,
+          pickupAddress: row.pickup_address,
+          dropoffAddress: row.dropoff_address,
+          actualFare: fare,
+          driverPayout: fare * 0.85,
+          distanceMiles: row.actual_distance_miles ?? row.estimated_distance_miles,
           durationMinutes: durationMs / 60000,
-          tipAmount: data.tip_amount || 0,
+          tipAmount: row.tip_amount ?? 0,
         });
       }
     }
@@ -88,7 +85,6 @@ export function RideCompleteScreen() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>
-      {/* Success header */}
       <div style={{
         background: colors.navy, padding: '40px 24px 32px',
         textAlign: 'center',
@@ -111,7 +107,6 @@ export function RideCompleteScreen() {
       </div>
 
       <div style={{ padding: 20 }}>
-        {/* Earnings summary */}
         <Card style={{ marginBottom: 16 }} padding={20}>
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -131,7 +126,6 @@ export function RideCompleteScreen() {
           </div>
         </Card>
 
-        {/* Trip details */}
         <Card style={{ marginBottom: 16 }} padding={14}>
           <InfoRow icon="📍" label="Pickup" value={ride.pickupAddress.split(',')[0]} />
           <InfoRow icon="🏁" label="Drop-off" value={ride.dropoffAddress.split(',')[0]} />
@@ -140,7 +134,6 @@ export function RideCompleteScreen() {
           <InfoRow icon="⏱️" label="Duration" value={formatDuration(ride.durationMinutes)} />
         </Card>
 
-        {/* Rate member */}
         {!submitted ? (
           <Card style={{ marginBottom: 16 }} padding={20}>
             <div style={{ fontSize: 16, fontWeight: 600, color: colors.navy, marginBottom: 4, textAlign: 'center' }}>
@@ -150,7 +143,6 @@ export function RideCompleteScreen() {
               How was your experience?
             </div>
 
-            {/* Star rating */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
               {[1, 2, 3, 4, 5].map(star => (
                 <button
@@ -168,7 +160,6 @@ export function RideCompleteScreen() {
               ))}
             </div>
 
-            {/* Optional feedback */}
             <textarea
               value={feedback}
               onChange={e => setFeedback(e.target.value)}
@@ -195,7 +186,6 @@ export function RideCompleteScreen() {
           </Card>
         )}
 
-        {/* Return home */}
         <Button onClick={() => navigate('/home')} variant="secondary" fullWidth size="lg">
           Back to Home
         </Button>

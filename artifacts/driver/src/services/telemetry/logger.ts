@@ -1,10 +1,3 @@
-// ============================================================
-// MCC Driver — Structured Logger
-// ============================================================
-// Logs structured events. In production, forward to Sentry
-// breadcrumbs and/or PostHog.
-// ============================================================
-
 import { Sentry } from './sentry';
 
 export const logger = {

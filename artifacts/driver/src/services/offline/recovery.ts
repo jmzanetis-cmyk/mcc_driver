@@ -1,19 +1,13 @@
-// ============================================================
-// MCC Driver — Reconnect Recovery
-// ============================================================
-// When the app comes back online, reconcile local state
-// with the server truth.
-// ============================================================
-
 import { supabase } from '@/services/supabase/client';
 import { useDispatchStore } from '@/store/dispatchStore';
 import { drainOfflineActions } from './storage';
 import { logger } from '@/services/telemetry/logger';
+import type { AssignmentRow, RideRow } from '@/services/supabase/types';
 
-/**
- * Fetch the current ride state from the server and
- * update the dispatch store to match.
- */
+interface AssignmentWithRide extends AssignmentRow {
+  rides: RideRow | null;
+}
+
 export async function recoverRideState(driverId: string): Promise<void> {
   logger.info('recovery.start', { driverId });
 
@@ -30,12 +24,11 @@ export async function recoverRideState(driverId: string): Promise<void> {
     .eq('driver_id', driverId)
     .in('status', ['accepted', 'en_route', 'arrived', 'in_progress'])
     .order('created_at', { ascending: false })
-    .limit(1) as any;
+    .limit(1);
 
   const store = useDispatchStore.getState();
 
   if (!assignments || assignments.length === 0) {
-    // No active ride on server — clear local state if stale
     if (store.stage !== 'idle') {
       logger.warn('recovery.clearing_stale_dispatch');
       store.clearDispatch();
@@ -43,8 +36,9 @@ export async function recoverRideState(driverId: string): Promise<void> {
     return;
   }
 
-  const assignment = assignments[0];
-  const ride = (assignment as any).rides;
+  const rows = assignments as unknown as AssignmentWithRide[];
+  const assignment = rows[0];
+  const ride = assignment.rides;
 
   if (!ride) return;
 
@@ -55,9 +49,8 @@ export async function recoverRideState(driverId: string): Promise<void> {
     in_progress: 'in_progress',
   };
 
-  const serverStage = stageMap[assignment.status] || 'accepted';
+  const serverStage = stageMap[assignment.status] ?? 'accepted';
 
-  // Only update if server state differs from local
   if (store.rideId !== ride.id || store.stage !== serverStage) {
     logger.info('recovery.reconciling', {
       local: { rideId: store.rideId, stage: store.stage },
@@ -67,7 +60,7 @@ export async function recoverRideState(driverId: string): Promise<void> {
     store.setStage(serverStage, {
       rideId: ride.id,
       assignmentId: assignment.id,
-      role: assignment.role,
+      role: (assignment.role === 'primary' || assignment.role === 'chase') ? assignment.role : null,
       scenario: ride.scenario,
       tier: ride.tier,
       pickupAddress: ride.pickup_address,
@@ -80,14 +73,11 @@ export async function recoverRideState(driverId: string): Promise<void> {
       estimatedDistance: ride.estimated_distance_miles,
       drivesMemberVehicle: assignment.drives_member_vehicle,
       carriesPassenger: assignment.carries_passenger,
-      startedAt: ride.started_at,
+      startedAt: ride.started_at ?? undefined,
     });
   }
 }
 
-/**
- * Replay any actions that were queued while offline
- */
 export async function replayOfflineActions(): Promise<void> {
   const actions = await drainOfflineActions();
   if (actions.length === 0) return;
@@ -96,7 +86,6 @@ export async function replayOfflineActions(): Promise<void> {
 
   for (const { action, payload } of actions) {
     try {
-      // Route to the appropriate Edge Function
       await supabase.functions.invoke(action, { body: payload as Record<string, unknown> });
       logger.info('recovery.action_replayed', { action });
     } catch (err) {

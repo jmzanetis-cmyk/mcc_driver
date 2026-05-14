@@ -1,29 +1,21 @@
-// ============================================================
-// MCC Driver — AI Operations Service
-// ============================================================
-// Handles all AI-powered features: support chat, automated
-// accounting, payout inquiries, vehicle management, document
-// verification, dispute resolution, and onboarding guidance.
-//
-// Uses Claude API (Sonnet) via the Anthropic Messages endpoint.
-// The system prompt gives Claude full context about MCC's
-// operations, the driver's profile, and available actions.
-// ============================================================
-
 import { supabase } from '@/services/supabase/client';
+import type {
+  DriverRow, PartnerRow, VehicleRow, AssignmentRow, RideRow,
+  PayoutRow, SupportIssueRow, AIConversationRow, AIMessageRow,
+} from '@/services/supabase/types';
 
 // ============================================================
 // TYPES
 // ============================================================
 
 export type AICategory =
-  | 'support'          // General help, how-to, troubleshooting
-  | 'earnings'         // Payout questions, fare disputes, tax help
-  | 'vehicle'          // Add/remove vehicles, insurance docs
-  | 'verification'     // License renewal, background check status
-  | 'ride_issue'       // Active/recent ride problems
-  | 'account'          // Profile, settings, deactivation concerns
-  | 'onboarding';      // New driver guidance
+  | 'support'
+  | 'earnings'
+  | 'vehicle'
+  | 'verification'
+  | 'ride_issue'
+  | 'account'
+  | 'onboarding';
 
 export interface AIMessage {
   id: string;
@@ -31,7 +23,7 @@ export interface AIMessage {
   content: string;
   timestamp: string;
   category?: AICategory;
-  actionTaken?: string;  // e.g., "vehicle_added", "payout_initiated"
+  actionTaken?: string;
 }
 
 export interface AIConversation {
@@ -103,6 +95,10 @@ interface IssueInfo {
   createdAt: string;
 }
 
+interface AssignmentWithRide extends AssignmentRow {
+  rides: RideRow | null;
+}
+
 // ============================================================
 // SYSTEM PROMPT BUILDER
 // ============================================================
@@ -161,7 +157,7 @@ Name: ${driver.firstName} ${driver.lastName}
 Email: ${driver.email}
 Phone: ${driver.phone}
 Status: ${driver.status}
-Type: ${driver.partnerId ? `Partner driver (${driver.partnerName || 'partner company'})` : 'Independent MCC driver'}
+Type: ${driver.partnerId ? `Partner driver (${driver.partnerName ?? 'partner company'})` : 'Independent MCC driver'}
 Online: ${driver.isOnline ? 'Yes' : 'No'}
 Can drive member vehicles: ${driver.canDriveMemberVehicle ? 'Yes (Tier 2+ eligible)' : 'No (Tier 1 only — needs insurance verification)'}
 Total rides: ${driver.totalRidesCompleted}
@@ -184,7 +180,7 @@ ${issuesList}
 ## What You Can Do
 
 ### Direct Actions (you can execute these)
-When the driver asks you to do something, respond with the action in a structured way. Include an ACTION block at the end of your message:
+When the driver asks you to do something, respond with the action in a structured way. Include an ACTION block at the end of your message. The driver must explicitly confirm before you output any action block — never execute actions without clear driver consent.
 
 1. **Add a vehicle**: Collect make, model, year, color, plate. Then output:
    [ACTION:ADD_VEHICLE|make=X|model=X|year=X|color=X|plate=X]
@@ -244,7 +240,8 @@ When the driver asks you to do something, respond with the action in a structure
 - Never reveal internal dispatch algorithms beyond what's documented
 - Never promise specific payout dates — say "typically within X days"
 - For legal/insurance questions, provide general guidance but recommend consulting a professional
-- If a driver seems frustrated, acknowledge it before solving the problem`;
+- If a driver seems frustrated, acknowledge it before solving the problem
+- Always confirm with the driver before executing any action that modifies data`;
 }
 
 // ============================================================
@@ -252,35 +249,33 @@ When the driver asks you to do something, respond with the action in a structure
 // ============================================================
 
 async function loadDriverContext(driverId: string): Promise<DriverContext | null> {
-  // Get driver profile
-  const { data: driver } = await supabase
+  const { data: driverData } = await supabase
     .from('drivers')
     .select('*')
     .eq('id', driverId)
-    .single() as any;
+    .single();
 
-  if (!driver) return null;
+  if (!driverData) return null;
+  const driver = driverData as unknown as DriverRow;
 
-  // Get partner name if applicable
   let partnerName: string | undefined;
   if (driver.partner_id) {
-    const { data: partner } = await supabase
+    const { data: partnerData } = await supabase
       .from('transportation_partners')
       .select('company_name')
       .eq('id', driver.partner_id)
-      .single() as any;
+      .single();
+    const partner = partnerData as unknown as PartnerRow | null;
     partnerName = partner?.company_name;
   }
 
-  // Get vehicles (from a driver_vehicles table or inline fields)
-  const { data: vehicles } = await supabase
+  const { data: vehiclesData } = await supabase
     .from('driver_vehicles')
     .select('*')
     .eq('driver_id', driverId)
     .order('created_at', { ascending: false });
 
-  // Get recent rides
-  const { data: assignments } = await supabase
+  const { data: assignmentsData } = await supabase
     .from('driver_assignments')
     .select(`
       ride_id, driver_payout_amount, status,
@@ -291,36 +286,39 @@ async function loadDriverContext(driverId: string): Promise<DriverContext | null
     `)
     .eq('driver_id', driverId)
     .order('created_at', { ascending: false })
-    .limit(10) as any;
+    .limit(10);
 
-  // Get pending payouts
-  const { data: payouts } = await supabase
+  const { data: payoutsData } = await supabase
     .from('driver_payouts')
     .select('*')
     .eq('driver_id', driverId)
     .in('status', ['pending', 'scheduled'])
     .order('scheduled_date', { ascending: true });
 
-  // Get open issues
-  const { data: issues } = await supabase
+  const { data: issuesData } = await supabase
     .from('driver_support_issues')
     .select('*')
     .eq('driver_id', driverId)
     .in('status', ['open', 'in_progress'])
     .order('created_at', { ascending: false });
 
-  const recentRides: RecentRideInfo[] = (assignments || []).map((a: any) => {
+  const vehicles = (vehiclesData ?? []) as unknown as VehicleRow[];
+  const assignments = (assignmentsData ?? []) as unknown as AssignmentWithRide[];
+  const payouts = (payoutsData ?? []) as unknown as PayoutRow[];
+  const issues = (issuesData ?? []) as unknown as SupportIssueRow[];
+
+  const recentRides: RecentRideInfo[] = assignments.map((a) => {
     const ride = a.rides;
     return {
-      id: ride?.id || a.ride_id,
-      scenario: ride?.scenario || 'unknown',
-      status: ride?.status || a.status,
-      fare: ride?.actual_fare || ride?.estimated_fare || 0,
-      driverPayout: a.driver_payout_amount || 0,
-      completedAt: ride?.completed_at,
-      pickupAddress: ride?.pickup_address || '',
-      dropoffAddress: ride?.dropoff_address || '',
-      memberRating: ride?.member_rating,
+      id: ride?.id ?? a.ride_id,
+      scenario: ride?.scenario ?? 'unknown',
+      status: ride?.status ?? a.status,
+      fare: ride?.actual_fare ?? ride?.estimated_fare ?? 0,
+      driverPayout: a.driver_payout_amount ?? 0,
+      completedAt: ride?.completed_at ?? undefined,
+      pickupAddress: ride?.pickup_address ?? '',
+      dropoffAddress: ride?.dropoff_address ?? '',
+      memberRating: ride?.member_rating ?? undefined,
     };
   });
 
@@ -331,15 +329,15 @@ async function loadDriverContext(driverId: string): Promise<DriverContext | null
     email: driver.email,
     phone: driver.phone,
     status: driver.status,
-    partnerId: driver.partner_id,
+    partnerId: driver.partner_id ?? undefined,
     partnerName,
     isOnline: driver.is_online,
     canDriveMemberVehicle: driver.can_drive_member_vehicle,
     totalRidesCompleted: driver.total_rides_completed,
     averageRating: driver.average_rating,
     completionRate: driver.completion_rate,
-    stripeAccountId: driver.stripe_account_id,
-    vehicles: (vehicles || []).map((v: any) => ({
+    stripeAccountId: driver.stripe_account_id ?? undefined,
+    vehicles: vehicles.map((v) => ({
       id: v.id,
       make: v.make,
       model: v.model,
@@ -347,16 +345,16 @@ async function loadDriverContext(driverId: string): Promise<DriverContext | null
       color: v.color,
       plate: v.plate,
       isActive: v.is_active,
-      insuranceExpiry: v.insurance_expiry,
+      insuranceExpiry: v.insurance_expiry ?? undefined,
     })),
     recentRides,
-    pendingPayouts: (payouts || []).map((p: any) => ({
+    pendingPayouts: payouts.map((p) => ({
       amount: p.amount,
       status: p.status,
-      scheduledDate: p.scheduled_date,
-      stripeTransferId: p.stripe_transfer_id,
+      scheduledDate: p.scheduled_date ?? '',
+      stripeTransferId: p.stripe_transfer_id ?? undefined,
     })),
-    openIssues: (issues || []).map((i: any) => ({
+    openIssues: issues.map((i) => ({
       id: i.id,
       type: i.issue_type,
       description: i.description,
@@ -382,7 +380,7 @@ function parseActions(response: string): ParsedAction[] {
 
   while ((match = actionRegex.exec(response)) !== null) {
     const type = match[1];
-    const paramsStr = match[2] || '';
+    const paramsStr = match[2] ?? '';
     const params: Record<string, string> = {};
 
     if (paramsStr) {
@@ -443,7 +441,6 @@ async function executeAction(
     }
 
     case 'REQUEST_PAYOUT': {
-      // In production: trigger Stripe payout via Edge Function
       const { error } = await supabase.from('driver_payouts').insert({
         driver_id: driverId,
         status: 'requested',
@@ -463,7 +460,7 @@ async function executeAction(
         status: 'open',
       });
       if (error) return { success: false, message: `Failed to create issue: ${error.message}` };
-      return { success: true, message: 'Support ticket created — we\'ll follow up within 24 hours' };
+      return { success: true, message: "Support ticket created — we'll follow up within 24 hours" };
     }
 
     case 'ESCALATE': {
@@ -485,11 +482,10 @@ async function executeAction(
         .update({ is_online: online })
         .eq('id', driverId);
       if (error) return { success: false, message: `Failed to update status: ${error.message}` };
-      return { success: true, message: online ? 'You\'re now online' : 'You\'re now offline' };
+      return { success: true, message: online ? "You're now online" : "You're now offline" };
     }
 
     case 'SEND_DOCUMENT_REMINDER': {
-      // In production: trigger Twilio SMS or push notification
       return { success: true, message: `Reminder sent for ${action.params.doc_type} upload` };
     }
 
@@ -513,13 +509,11 @@ export async function sendDriverMessage(
   actions: { type: string; result: string }[];
   category: AICategory;
 }> {
-  // Load fresh driver context
   const driverContext = await loadDriverContext(driverId);
   if (!driverContext) {
     throw new Error('Driver profile not found');
   }
 
-  // Build messages array for Claude
   const messages = [
     ...conversationHistory.map(m => ({
       role: m.role as 'user' | 'assistant',
@@ -528,13 +522,11 @@ export async function sendDriverMessage(
     { role: 'user' as const, content: userMessage },
   ];
 
-  // Call Claude API
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  // Call Claude via the API server proxy (keeps API key server-side)
+  const response = await fetch('/api/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
       system: buildSystemPrompt(driverContext),
       messages,
     }),
@@ -542,35 +534,24 @@ export async function sendDriverMessage(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Claude API error: ${response.status} — ${errorText}`);
+    throw new Error(`AI service error: ${response.status} — ${errorText}`);
   }
 
-  const data = await response.json();
-  const assistantMessage = data.content
-    .filter((block: any) => block.type === 'text')
-    .map((block: any) => block.text)
-    .join('\n');
+  const data = await response.json() as { content: string; error?: string };
+  if (data.error) throw new Error(data.error);
+  const assistantMessage = data.content ?? '';
 
-  // Parse and execute any actions
   const parsedActions = parseActions(assistantMessage);
   const actionResults: { type: string; result: string }[] = [];
 
   for (const action of parsedActions) {
     const result = await executeAction(action, driverId);
-    actionResults.push({
-      type: action.type,
-      result: result.message,
-    });
+    actionResults.push({ type: action.type, result: result.message });
   }
 
-  // Strip ACTION blocks from the display message
   const displayMessage = assistantMessage.replace(/\[ACTION:[^\]]+\]/g, '').trim();
-
-  // Categorize the conversation
   const category = categorizeMessage(userMessage);
-
-  // Save to conversation history in Supabase
-  const convId = conversationId || crypto.randomUUID();
+  const convId = conversationId ?? crypto.randomUUID();
 
   await supabase.from('ai_conversations').upsert({
     id: convId,
@@ -581,11 +562,7 @@ export async function sendDriverMessage(
   });
 
   await supabase.from('ai_messages').insert([
-    {
-      conversation_id: convId,
-      role: 'user',
-      content: userMessage,
-    },
+    { conversation_id: convId, role: 'user', content: userMessage },
     {
       conversation_id: convId,
       role: 'assistant',
@@ -594,12 +571,7 @@ export async function sendDriverMessage(
     },
   ]);
 
-  return {
-    response: displayMessage,
-    conversationId: convId,
-    actions: actionResults,
-    category,
-  };
+  return { response: displayMessage, conversationId: convId, actions: actionResults, category };
 }
 
 // ============================================================
@@ -608,34 +580,32 @@ export async function sendDriverMessage(
 
 function categorizeMessage(message: string): AICategory {
   const lower = message.toLowerCase();
-
   if (/payout|earn|pay|money|income|tax|1099|deposit|transfer|stripe/i.test(lower)) return 'earnings';
   if (/vehicle|car|truck|van|plate|add.*(car|vehicle)|remove.*(car|vehicle)|insurance/i.test(lower)) return 'vehicle';
   if (/license|background.?check|document|verify|certification|expir/i.test(lower)) return 'verification';
   if (/ride.*issue|problem.*ride|member.*complaint|dispute|cancel|wrong.*address|accident/i.test(lower)) return 'ride_issue';
   if (/account|deactivat|suspend|password|login|profile|settings/i.test(lower)) return 'account';
   if (/how.*(do|does|to)|get.?started|new.?driver|first.?ride|onboard|sign.?up/i.test(lower)) return 'onboarding';
-
   return 'support';
 }
 
 // ============================================================
-// QUICK ACTIONS (pre-built prompts for common tasks)
+// QUICK ACTIONS
 // ============================================================
 
 export const QUICK_ACTIONS = [
-  { id: 'earnings_today', label: 'Today\'s earnings', icon: '💰', prompt: 'Show me my earnings breakdown for today' },
+  { id: 'earnings_today', label: "Today's earnings", icon: '💰', prompt: 'Show me my earnings breakdown for today' },
   { id: 'add_vehicle', label: 'Add a vehicle', icon: '🚗', prompt: 'I want to add a new vehicle to my account' },
   { id: 'payout_status', label: 'Payout status', icon: '💳', prompt: 'When is my next payout and how much?' },
   { id: 'tier2_cert', label: 'Get Tier 2 certified', icon: '📋', prompt: 'How do I get certified to drive member vehicles (Tier 2+)?' },
   { id: 'ride_issue', label: 'Report ride issue', icon: '⚠️', prompt: 'I have an issue with a recent ride' },
   { id: 'tax_help', label: 'Tax info', icon: '📊', prompt: 'What do I need to know about taxes as an MCC driver?' },
   { id: 'insurance', label: 'Insurance help', icon: '🛡️', prompt: 'What insurance do I need and how do I upload it?' },
-  { id: 'update_license', label: 'Update license', icon: '🪪', prompt: 'My driver\'s license is expiring, how do I update it?' },
+  { id: 'update_license', label: 'Update license', icon: '🪪', prompt: "My driver's license is expiring, how do I update it?" },
 ];
 
 // ============================================================
-// LOAD CONVERSATION HISTORY
+// CONVERSATION HISTORY
 // ============================================================
 
 export async function loadConversation(conversationId: string): Promise<AIMessage[]> {
@@ -645,12 +615,13 @@ export async function loadConversation(conversationId: string): Promise<AIMessag
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true });
 
-  return (data || []).map((m: any) => ({
+  const rows = (data ?? []) as unknown as AIMessageRow[];
+  return rows.map((m) => ({
     id: m.id,
     role: m.role,
     content: m.content,
     timestamp: m.created_at,
-    actionTaken: m.actions_taken,
+    actionTaken: m.actions_taken ?? undefined,
   }));
 }
 
@@ -660,15 +631,16 @@ export async function loadRecentConversations(driverId: string): Promise<AIConve
     .select('*')
     .eq('driver_id', driverId)
     .order('last_message_at', { ascending: false })
-    .limit(20) as any;
+    .limit(20);
 
-  return (data || []).map((c: any) => ({
+  const rows = (data ?? []) as unknown as AIConversationRow[];
+  return rows.map((c) => ({
     id: c.id,
     driverId: c.driver_id,
     messages: [],
-    category: c.category,
-    status: c.status,
+    category: c.category as AICategory,
+    status: c.status as 'open' | 'resolved' | 'escalated',
     createdAt: c.created_at,
-    resolvedAt: c.resolved_at,
+    resolvedAt: c.resolved_at ?? undefined,
   }));
 }

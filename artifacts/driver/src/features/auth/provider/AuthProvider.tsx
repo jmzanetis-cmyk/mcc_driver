@@ -9,6 +9,7 @@ import { supabase } from '@/services/supabase/client';
 import { useAuthStore, type DriverProfile } from '@/store/authStore';
 import { logger } from '@/services/telemetry/logger';
 import { recoverRideState, replayOfflineActions } from '@/services/offline/recovery';
+import type { DriverRow, PartnerRow } from '@/services/supabase/types';
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
   const setSession = useAuthStore((s) => s.setSession);
@@ -64,41 +65,44 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       .from('drivers')
       .select('*')
       .eq('user_id', userId)
-      .single() as any;
+      .single();
 
     if (error || !data) {
       setDriver(null);
       return null;
     }
 
+    const driver = data as unknown as DriverRow;
+
     // Get partner name if applicable
     let partnerName: string | undefined;
-    if (data.partner_id) {
-      const { data: partner } = await supabase
+    if (driver.partner_id) {
+      const { data: partnerData } = await supabase
         .from('transportation_partners')
         .select('company_name')
-        .eq('id', data.partner_id)
-        .single() as any;
+        .eq('id', driver.partner_id)
+        .single();
+      const partner = partnerData as unknown as PartnerRow | null;
       partnerName = partner?.company_name;
     }
 
     const profile: DriverProfile = {
-      id: data.id,
-      userId: data.user_id,
-      firstName: data.first_name,
-      lastName: data.last_name,
-      email: data.email,
-      phone: data.phone,
-      status: data.status,
-      profilePhotoUrl: data.profile_photo_url ?? undefined,
-      partnerId: data.partner_id ?? undefined,
+      id: driver.id,
+      userId: driver.user_id,
+      firstName: driver.first_name,
+      lastName: driver.last_name,
+      email: driver.email,
+      phone: driver.phone,
+      status: driver.status,
+      profilePhotoUrl: driver.profile_photo_url ?? undefined,
+      partnerId: driver.partner_id ?? undefined,
       partnerName,
-      isOnline: data.is_online,
-      canDriveMemberVehicle: data.can_drive_member_vehicle,
-      totalRidesCompleted: data.total_rides_completed,
-      averageRating: data.average_rating,
-      completionRate: data.completion_rate,
-      stripeAccountId: data.stripe_account_id ?? undefined,
+      isOnline: driver.is_online,
+      canDriveMemberVehicle: driver.can_drive_member_vehicle,
+      totalRidesCompleted: driver.total_rides_completed,
+      averageRating: driver.average_rating,
+      completionRate: driver.completion_rate,
+      stripeAccountId: driver.stripe_account_id ?? undefined,
     };
 
     setDriver(profile);

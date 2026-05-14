@@ -1,11 +1,6 @@
-// ============================================================
-// MCC Driver — useEarnings Hook (Refactored)
-// ============================================================
-// TanStack Query for data fetching with caching + auto-refresh.
-// ============================================================
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import type { AssignmentRow, RideRow } from '@/services/supabase/types';
 
 export interface EarningsSummary {
   today: number;
@@ -31,6 +26,15 @@ export interface RideEarning {
   distanceMiles: number;
 }
 
+interface AssignmentWithRide extends AssignmentRow {
+  rides: RideRow | null;
+}
+
+interface DriverStats {
+  average_rating: number;
+  total_rides_completed: number;
+}
+
 async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSummary; recentRides: RideEarning[] }> {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -51,26 +55,29 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
     .eq('driver_id', driverId)
     .eq('status', 'completed')
     .order('completed_at', { ascending: false })
-    .limit(100) as any;
+    .limit(100);
 
-  const { data: driver } = await supabase
+  const { data: driverData } = await supabase
     .from('drivers')
     .select('average_rating, total_rides_completed')
     .eq('id', driverId)
-    .single() as any;
+    .single();
+
+  const driver = driverData as unknown as DriverStats | null;
+  const rows = (assignments ?? []) as unknown as AssignmentWithRide[];
 
   let today = 0, thisWeek = 0, allTime = 0;
   let ridesToday = 0, ridesThisWeek = 0;
   const rides: RideEarning[] = [];
 
-  for (const a of assignments || []) {
-    const ride = (a as any).rides;
+  for (const a of rows) {
+    const ride = a.rides;
     if (!ride) continue;
 
-    const payout = a.driver_payout_amount || 0;
-    const tip = ride.tip_amount || 0;
+    const payout = a.driver_payout_amount ?? 0;
+    const tip = ride.tip_amount ?? 0;
     const total = payout + tip;
-    const completedAt = ride.completed_at || a.completed_at;
+    const completedAt = ride.completed_at ?? a.completed_at ?? '';
 
     allTime += total;
     if (completedAt >= todayStart) { today += total; ridesToday++; }
@@ -82,12 +89,12 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
       tier: ride.tier,
       pickupAddress: ride.pickup_address,
       dropoffAddress: ride.dropoff_address,
-      fare: ride.actual_fare || 0,
+      fare: ride.actual_fare ?? 0,
       driverPayout: payout,
       tip,
-      rating: ride.member_rating,
+      rating: ride.member_rating ?? undefined,
       completedAt,
-      distanceMiles: ride.actual_distance_miles || 0,
+      distanceMiles: ride.actual_distance_miles ?? 0,
     });
   }
 
@@ -98,8 +105,8 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
       allTime: Math.round(allTime * 100) / 100,
       ridesToday,
       ridesThisWeek,
-      ridesAllTime: driver?.total_rides_completed || (assignments?.length ?? 0),
-      averageRating: driver?.average_rating || 5.0,
+      ridesAllTime: driver?.total_rides_completed ?? (assignments?.length ?? 0),
+      averageRating: driver?.average_rating ?? 5.0,
     },
     recentRides: rides,
   };
@@ -110,8 +117,8 @@ export function useEarnings(driverId: string | null) {
     queryKey: ['earnings', driverId],
     queryFn: () => fetchEarnings(driverId!),
     enabled: !!driverId,
-    staleTime: 60_000, // Cache for 1 minute
-    refetchInterval: 120_000, // Auto-refresh every 2 min
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
   return {

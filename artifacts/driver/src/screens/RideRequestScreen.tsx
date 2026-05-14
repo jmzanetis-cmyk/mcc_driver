@@ -1,22 +1,17 @@
-// @ts-nocheck — v1 screen, will be reworked for v2 dispatch store shape
-// ============================================================
-// MCC Driver — Ride Request Modal
-// ============================================================
-// Full-screen overlay when an incoming ride arrives.
-// Shows scenario details, countdown timer, accept/decline.
-// ============================================================
-
 import React, { useState } from 'react';
 import { type IncomingRideRequest } from '@/hooks/useRideRequests';
 import { Button, CountdownTimer, InfoRow, Card } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
-  getRoleDescription, shortenAddress, formatDateTime,
+  getRoleDescription, shortenAddress,
 } from '@/utils/formatters';
+import { useDispatchStore } from '@/store/dispatchStore';
+
+type DispatchOffer = ReturnType<typeof useDispatchStore.getState>;
 
 interface RideRequestModalProps {
-  request: IncomingRideRequest;
+  request: DispatchOffer;
   onAccept: () => Promise<void>;
   onDecline: () => void;
   onExpired: () => void;
@@ -38,7 +33,15 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
     tier_4_full_concierge: colors.navy,
   };
 
-  const tierColor = tierColors[request.tier] || colors.navy;
+  const tier = request.tier ?? '';
+  const tierColor = tierColors[tier] ?? colors.navy;
+  const scenario = request.scenario ?? '';
+  const pickupAddress = request.pickupAddress ?? '';
+  const dropoffAddress = request.dropoffAddress ?? '';
+  const estimatedFare = request.estimatedFare ?? 0;
+  const estimatedDistance = request.estimatedDistance ?? 0;
+  const responseDeadline = request.responseDeadline ?? new Date(Date.now() + 30000).toISOString();
+  const role = request.role ?? 'primary';
 
   return (
     <div style={{
@@ -76,7 +79,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
               NEW RIDE REQUEST
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginTop: 4 }}>
-              {getScenarioLabel(request.scenario)}
+              {getScenarioLabel(scenario)}
             </div>
             <div style={{
               display: 'inline-block', marginTop: 6,
@@ -84,11 +87,11 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
               background: tierColor, padding: '3px 10px',
               borderRadius: borderRadius.full,
             }}>
-              {getTierLabel(request.tier)}
+              {getTierLabel(tier)}
             </div>
           </div>
           <CountdownTimer
-            deadline={request.responseDeadline}
+            deadline={responseDeadline}
             onExpired={onExpired}
             size={72}
           />
@@ -103,10 +106,10 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
             Estimated Earnings
           </div>
           <div style={{ fontSize: 32, fontWeight: 700, color: colors.textWhite, marginTop: 4 }}>
-            {formatCurrency(request.estimatedFare * 0.85)}
+            {formatCurrency(estimatedFare * 0.85)}
           </div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
-            {formatCurrency(request.estimatedFare)} fare × 85% driver share
+            {formatCurrency(estimatedFare)} fare × 85% driver share
           </div>
         </div>
 
@@ -116,27 +119,25 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
             Your Role
           </div>
           <div style={{ fontSize: 15, fontWeight: 600, color: colors.navy }}>
-            {request.role === 'chase' ? '🚗 Chase Driver' : '🚘 Primary Driver'}
+            {role === 'chase' ? '🚗 Chase Driver' : '🚘 Primary Driver'}
           </div>
           <div style={{ fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
             {getRoleDescription(
-              request.role,
+              role,
               request.drivesMemberVehicle,
               request.carriesPassenger,
-              request.memberVehicleDescription
-                ? request.memberVehicleDescription
-                : undefined
+              request.memberVehicleDescription ?? undefined
             )}
           </div>
         </Card>
 
         {/* Route details */}
         <Card style={{ marginBottom: 12 }} padding={14}>
-          <InfoRow icon="📍" label="Pickup" value={shortenAddress(request.pickupAddress)} />
+          <InfoRow icon="📍" label="Pickup" value={shortenAddress(pickupAddress)} />
           <div style={{ borderTop: `1px dashed ${colors.borderLight}` }} />
-          <InfoRow icon="🏁" label="Drop-off" value={shortenAddress(request.dropoffAddress)} />
+          <InfoRow icon="🏁" label="Drop-off" value={shortenAddress(dropoffAddress)} />
           <div style={{ borderTop: `1px dashed ${colors.borderLight}` }} />
-          <InfoRow icon="📏" label="Distance" value={formatDistance(request.estimatedDistance)} />
+          <InfoRow icon="📏" label="Distance" value={formatDistance(estimatedDistance)} />
         </Card>
 
         {/* Member vehicle info (for vehicle shuttle scenarios) */}
@@ -148,41 +149,8 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
             <div style={{ fontSize: 15, fontWeight: 600, color: colors.navy }}>
               {request.memberVehicleDescription}
             </div>
-            {request.memberVehiclePlate && (
-              <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }}>
-                Plate: {request.memberVehiclePlate}
-              </div>
-            )}
           </Card>
         )}
-
-        {/* Scheduled ride notice */}
-        {request.isScheduled && request.scheduledPickupAt && (
-          <div style={{
-            background: colors.infoBg, borderRadius: borderRadius.sm,
-            padding: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <span style={{ fontSize: 16 }}>📅</span>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: colors.info }}>Scheduled Ride</div>
-              <div style={{ fontSize: 13, color: colors.info }}>{formatDateTime(request.scheduledPickupAt)}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Channel badge */}
-        <div style={{
-          display: 'flex', gap: 8, marginBottom: 20, justifyContent: 'center',
-        }}>
-          <span style={{
-            fontSize: 11, fontWeight: 600,
-            color: request.channel === 'direct' ? colors.info : colors.gold,
-            background: request.channel === 'direct' ? colors.infoBg : colors.warningBg,
-            padding: '3px 10px', borderRadius: borderRadius.full,
-          }}>
-            {request.channel === 'direct' ? '🔵 Direct Request' : '🏢 Provider Network'}
-          </span>
-        </div>
 
         {/* Accept / Decline buttons */}
         <div style={{ display: 'flex', gap: 12 }}>

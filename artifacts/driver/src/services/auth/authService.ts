@@ -1,10 +1,5 @@
-// ============================================================
-// MCC Driver — Auth Service
-// ============================================================
-// Phone OTP authentication via Supabase Auth + Twilio
-// ============================================================
-
 import { supabase } from '@/services/supabase/client';
+import type { DriverRow, PartnerRow } from '@/services/supabase/types';
 
 export interface DriverProfile {
   id: string;
@@ -24,26 +19,15 @@ export interface DriverProfile {
   stripeAccountId?: string;
 }
 
-/**
- * Send OTP to phone number
- */
 export async function sendOTP(phone: string): Promise<{ success: boolean; error?: string }> {
   const { error } = await supabase.auth.signInWithOtp({
     phone,
-    options: {
-      shouldCreateUser: true,
-    },
+    options: { shouldCreateUser: true },
   });
-
-  if (error) {
-    return { success: false, error: error.message };
-  }
+  if (error) return { success: false, error: error.message };
   return { success: true };
 }
 
-/**
- * Verify OTP code
- */
 export async function verifyOTP(phone: string, code: string): Promise<{ success: boolean; isNewDriver: boolean; error?: string }> {
   const { data, error } = await supabase.auth.verifyOtp({
     phone,
@@ -51,37 +35,30 @@ export async function verifyOTP(phone: string, code: string): Promise<{ success:
     type: 'sms',
   });
 
-  if (error) {
-    return { success: false, isNewDriver: false, error: error.message };
-  }
+  if (error) return { success: false, isNewDriver: false, error: error.message };
 
-  // Check if this user already has a driver profile
   const { data: driver } = await supabase
     .from('drivers')
     .select('id')
     .eq('user_id', data.user?.id)
-    .single() as any;
+    .single();
 
-  return {
-    success: true,
-    isNewDriver: !driver,
-  };
+  return { success: true, isNewDriver: !driver };
 }
 
-/**
- * Get the current driver profile
- */
 export async function getDriverProfile(): Promise<DriverProfile | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: driver, error } = await supabase
+  const { data, error } = await supabase
     .from('drivers')
     .select('*')
     .eq('user_id', user.id)
-    .single() as any;
+    .single();
 
-  if (error || !driver) return null;
+  if (error || !data) return null;
+
+  const driver = data as unknown as DriverRow;
 
   return {
     id: driver.id,
@@ -91,21 +68,18 @@ export async function getDriverProfile(): Promise<DriverProfile | null> {
     email: driver.email,
     phone: driver.phone,
     status: driver.status,
-    profilePhotoUrl: driver.profile_photo_url,
-    partnerId: driver.partner_id,
+    profilePhotoUrl: driver.profile_photo_url ?? undefined,
+    partnerId: driver.partner_id ?? undefined,
     isOnline: driver.is_online,
     canDriveMemberVehicle: driver.can_drive_member_vehicle,
     totalRidesCompleted: driver.total_rides_completed,
     averageRating: driver.average_rating,
     completionRate: driver.completion_rate,
-    stripeAccountId: driver.stripe_account_id,
+    stripeAccountId: driver.stripe_account_id ?? undefined,
   };
 }
 
-/**
- * Create a new driver application
- */
-export async function createDriverApplication(data: {
+export async function createDriverApplication(applicationData: {
   firstName: string;
   lastName: string;
   email: string;
@@ -125,63 +99,51 @@ export async function createDriverApplication(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Not authenticated' };
 
-  // If partner invite code provided, look up partner
   let partnerId: string | null = null;
-  if (data.partnerInviteCode) {
-    const { data: partner } = await supabase
+  if (applicationData.partnerInviteCode) {
+    const { data: partnerData } = await supabase
       .from('transportation_partners')
       .select('id')
-      .eq('invite_code', data.partnerInviteCode)
-      .single() as any;
-
-    if (partner) {
-      partnerId = partner.id;
-    }
+      .eq('invite_code', applicationData.partnerInviteCode)
+      .single();
+    const partner = partnerData as unknown as Pick<PartnerRow, 'id'> | null;
+    if (partner) partnerId = partner.id;
   }
 
-  const { data: driver, error } = await supabase
+  const { data, error } = await supabase
     .from('drivers')
     .insert({
       user_id: user.id,
-      first_name: data.firstName,
-      last_name: data.lastName,
-      email: data.email,
-      phone: data.phone,
-      date_of_birth: data.dateOfBirth,
-      drivers_license_number: data.driversLicenseNumber,
-      drivers_license_state: data.driversLicenseState,
-      drivers_license_expiry: data.driversLicenseExpiry,
-      vehicle_make: data.vehicleMake,
-      vehicle_model: data.vehicleModel,
-      vehicle_year: data.vehicleYear,
-      vehicle_color: data.vehicleColor,
-      vehicle_plate: data.vehiclePlate,
-      profile_photo_url: data.profilePhotoUrl,
+      first_name: applicationData.firstName,
+      last_name: applicationData.lastName,
+      email: applicationData.email,
+      phone: applicationData.phone,
+      date_of_birth: applicationData.dateOfBirth,
+      drivers_license_number: applicationData.driversLicenseNumber,
+      drivers_license_state: applicationData.driversLicenseState,
+      drivers_license_expiry: applicationData.driversLicenseExpiry,
+      vehicle_make: applicationData.vehicleMake,
+      vehicle_model: applicationData.vehicleModel,
+      vehicle_year: applicationData.vehicleYear,
+      vehicle_color: applicationData.vehicleColor,
+      vehicle_plate: applicationData.vehiclePlate,
+      profile_photo_url: applicationData.profilePhotoUrl,
       partner_id: partnerId,
       status: 'pending_approval',
     })
     .select('id')
-    .single() as any;
+    .single();
 
-  if (error) {
-    return { success: false, error: error.message };
-  }
+  if (error) return { success: false, error: error.message };
 
-  return { success: true, driverId: driver?.id };
+  const inserted = data as unknown as { id: string } | null;
+  return { success: true, driverId: inserted?.id };
 }
 
-/**
- * Sign out
- */
 export async function signOut(): Promise<void> {
-  // Set driver offline before signing out
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
-    await supabase
-      .from('drivers')
-      .update({ is_online: false })
-      .eq('user_id', user.id);
+    await supabase.from('drivers').update({ is_online: false }).eq('user_id', user.id);
   }
-
   await supabase.auth.signOut();
 }

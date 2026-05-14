@@ -1,13 +1,7 @@
-// ============================================================
-// MCC Driver — useAuth Hook (Zustand wrapper)
-// ============================================================
-// Thin wrapper around useAuthStore that provides the same API
-// the screens expect: { driver, signOut, refreshDriver, ... }
-// ============================================================
-
 import { useCallback } from 'react';
 import { useAuthStore, type DriverProfile } from '@/store/authStore';
 import { supabase } from '@/services/supabase/client';
+import type { DriverRow, PartnerRow } from '@/services/supabase/types';
 
 export { type DriverProfile } from '@/store/authStore';
 
@@ -34,36 +28,38 @@ export function useAuth() {
       .from('drivers')
       .select('*')
       .eq('user_id', user.id)
-      .single() as any;
+      .single();
 
     if (data) {
+      const row = data as unknown as DriverRow;
       let partnerName: string | undefined;
-      if (data.partner_id) {
-        const { data: partner } = await supabase
+      if (row.partner_id) {
+        const { data: partnerData } = await supabase
           .from('transportation_partners')
           .select('company_name')
-          .eq('id', data.partner_id)
-          .single() as any;
+          .eq('id', row.partner_id)
+          .single();
+        const partner = partnerData as unknown as PartnerRow | null;
         partnerName = partner?.company_name;
       }
 
       setDriver({
-        id: data.id,
-        userId: data.user_id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        email: data.email,
-        phone: data.phone,
-        status: data.status,
-        profilePhotoUrl: data.profile_photo_url ?? undefined,
-        partnerId: data.partner_id ?? undefined,
+        id: row.id,
+        userId: row.user_id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        email: row.email,
+        phone: row.phone,
+        status: row.status,
+        profilePhotoUrl: row.profile_photo_url ?? undefined,
+        partnerId: row.partner_id ?? undefined,
         partnerName,
-        isOnline: data.is_online,
-        canDriveMemberVehicle: data.can_drive_member_vehicle,
-        totalRidesCompleted: data.total_rides_completed,
-        averageRating: data.average_rating,
-        completionRate: data.completion_rate,
-        stripeAccountId: data.stripe_account_id ?? undefined,
+        isOnline: row.is_online,
+        canDriveMemberVehicle: row.can_drive_member_vehicle,
+        totalRidesCompleted: row.total_rides_completed,
+        averageRating: row.average_rating,
+        completionRate: row.completion_rate,
+        stripeAccountId: row.stripe_account_id ?? undefined,
       });
     }
   }, [user, setDriver]);

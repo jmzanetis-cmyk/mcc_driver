@@ -1,4 +1,3 @@
-// @ts-nocheck — v1 screen, null handling will be tightened during polish
 // ============================================================
 // MCC Driver — Navigate Screen
 // ============================================================
@@ -194,10 +193,10 @@ export function NavigateScreen() {
           </div>
           <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>
             {getRoleDescription(
-              activeRide.role,
+              activeRide.role ?? 'primary',
               activeRide.drivesMemberVehicle,
               activeRide.carriesPassenger,
-              activeRide.memberVehicleDescription,
+              activeRide.memberVehicleDescription ?? undefined,
             )}
           </div>
         </div>

@@ -1,13 +1,8 @@
-// ============================================================
-// MCC Driver — useDriverStatus Hook (Refactored)
-// ============================================================
-// Uses Zustand store + centralized GPS management.
-// ============================================================
-
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { useDriverStatusStore } from '@/store/driverStatusStore';
 import { logger } from '@/services/telemetry/logger';
+import type { DriverRow } from '@/services/supabase/types';
 
 export function useDriverStatus(driverId: string | null) {
   const store = useDriverStatusStore();
@@ -15,7 +10,6 @@ export function useDriverStatus(driverId: string | null) {
   const broadcastRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLocRef = useRef<{ lat: number; lng: number; heading: number } | null>(null);
 
-  // Fetch initial status
   useEffect(() => {
     if (!driverId) return;
 
@@ -24,14 +18,15 @@ export function useDriverStatus(driverId: string | null) {
         .from('drivers')
         .select('is_online, current_lat, current_lng')
         .eq('id', driverId)
-        .single() as any;
+        .single();
 
       if (data) {
-        store.setOnline(data.is_online);
-        if (data.current_lat && data.current_lng) {
-          store.setLocation(data.current_lat, data.current_lng);
+        const row = data as unknown as Pick<DriverRow, 'is_online' | 'current_lat' | 'current_lng'>;
+        store.setOnline(row.is_online);
+        if (row.current_lat && row.current_lng) {
+          store.setLocation(row.current_lat, row.current_lng);
         }
-        if (data.is_online) startLocationTracking();
+        if (row.is_online) startLocationTracking();
       }
     })();
 
@@ -49,7 +44,7 @@ export function useDriverStatus(driverId: string | null) {
         const loc = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          heading: pos.coords.heading || 0,
+          heading: pos.coords.heading ?? 0,
         };
         lastLocRef.current = loc;
         store.setLocation(loc.lat, loc.lng);
