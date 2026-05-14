@@ -103,9 +103,16 @@ export function InstantPayScreen() {
                   {lastResult.success ? '✓ Payout initiated!' : '✗ Payout failed'}
                 </div>
                 {lastResult.success ? (
-                  <div style={{ fontSize: 13, color: colors.success, marginTop: 4 }}>
-                    {formatCurrency(lastResult.netAmount!)} on its way • {lastResult.arrivalTime}
-                  </div>
+                  <>
+                    <div style={{ fontSize: 13, color: colors.success, marginTop: 4 }}>
+                      {formatCurrency(lastResult.netAmount!)} on its way • {lastResult.arrivalTime}
+                    </div>
+                    {lastResult.warning && (
+                      <div style={{ fontSize: 12, color: colors.warning, marginTop: 4 }}>
+                        ⚠️ {lastResult.warning}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div style={{ fontSize: 13, color: colors.error, marginTop: 4 }}>
                     {lastResult.error}
@@ -158,24 +165,29 @@ export function InstantPayScreen() {
               </button>
             </div>
             {useCustomAmount && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 24, fontWeight: 700, color: colors.navy }}>$</span>
-                <input
-                  type="number"
-                  value={customAmount}
-                  onChange={e => setCustomAmount(e.target.value)}
-                  placeholder={balance.available.toFixed(2)}
-                  min={MINIMUM_CASHOUT}
-                  max={balance.available}
-                  step="0.01"
-                  style={{
-                    flex: 1, padding: '10px 14px', fontSize: 24, fontWeight: 700,
-                    border: `2px solid ${colors.gold}`, borderRadius: borderRadius.md,
-                    background: colors.bgPrimary, color: colors.navy,
-                    outline: 'none', fontFamily: 'inherit',
-                  }}
-                />
-              </div>
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 24, fontWeight: 700, color: colors.navy }}>$</span>
+                  <input
+                    type="number"
+                    value={customAmount}
+                    onChange={e => setCustomAmount(e.target.value)}
+                    placeholder={balance.available.toFixed(2)}
+                    min={MINIMUM_CASHOUT}
+                    max={balance.available}
+                    step="0.01"
+                    style={{
+                      flex: 1, padding: '10px 14px', fontSize: 24, fontWeight: 700,
+                      border: `2px solid ${colors.gold}`, borderRadius: borderRadius.md,
+                      background: colors.bgPrimary, color: colors.navy,
+                      outline: 'none', fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 8 }}>
+                  Payouts are allocated by completed trip — the disbursed amount may be slightly less than entered if trip amounts don't add up exactly.
+                </div>
+              </>
             )}
           </Card>
         )}

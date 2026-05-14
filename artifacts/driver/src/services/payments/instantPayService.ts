@@ -21,6 +21,8 @@ export interface PayoutResult {
   payoutId?: string;
   error?: string;
   errorCode?: string;
+  /** Non-fatal warning: payout was initiated but a secondary step had an issue. */
+  warning?: string;
 }
 
 export interface PayoutHistoryItem {
@@ -168,11 +170,47 @@ export async function executeInstantPayout(
     };
   }
 
-  const cashOutAmount = requestedAmount
-    ? Math.min(requestedAmount, balance.available)
-    : balance.available;
+  // Budget ceiling: clamp requested amount to what's actually available.
+  const budgetCents = Math.round(
+    (requestedAmount ? Math.min(requestedAmount, balance.available) : balance.available) * 100
+  );
 
-  if (cashOutAmount < MINIMUM_CASHOUT) {
+  // Fetch unpaid assignments sorted oldest-first for deterministic allocation.
+  const { data: unpaidAssignments, error: fetchError } = await supabase
+    .from('driver_assignments')
+    .select('id, driver_payout_amount')
+    .eq('driver_id', driverId)
+    .eq('status', 'completed')
+    .eq('payout_status', 'unpaid')
+    .order('completed_at', { ascending: true });
+
+  if (fetchError) {
+    return { success: false, error: 'Failed to read earnings. Please try again.', errorCode: 'DB_ERROR' };
+  }
+
+  // Select assignments that fit fully within the budget (check BEFORE adding).
+  // allocatedCents tracks the exact sum of chosen assignments so the payout
+  // record is always for exactly the amount being marked paid — no mismatch.
+  const assignmentIdsToPay: string[] = [];
+  let remaining = budgetCents;
+  let allocatedCents = 0;
+  for (const row of unpaidAssignments ?? []) {
+    if (remaining <= 0) break;
+    const rowCents = Math.round(
+      ((row as unknown as { driver_payout_amount: number | null }).driver_payout_amount ?? 0) * 100
+    );
+    if (rowCents > 0 && rowCents <= remaining) {
+      assignmentIdsToPay.push((row as unknown as { id: string }).id);
+      remaining -= rowCents;
+      allocatedCents += rowCents;
+    }
+  }
+
+  // Use the actual allocated amount (not the requested amount) for the payout
+  // record so the ledger is always consistent with what's being marked paid.
+  const allocatedAmount = allocatedCents / 100;
+
+  if (allocatedAmount < MINIMUM_CASHOUT) {
     return {
       success: false,
       error: `Minimum cash-out is $${MINIMUM_CASHOUT.toFixed(2)}. You have $${balance.available.toFixed(2)} available.`,
@@ -181,7 +219,7 @@ export async function executeInstantPayout(
   }
 
   const fee = INSTANT_PAY_FEE;
-  const netAmount = Math.round((cashOutAmount - fee) * 100) / 100;
+  const netAmount = Math.round((allocatedAmount - fee) * 100) / 100;
 
   if (netAmount <= 0) {
     return {
@@ -193,10 +231,10 @@ export async function executeInstantPayout(
 
   const payoutId = crypto.randomUUID();
 
-  const { error: dbError } = await supabase.from('driver_payouts').insert({
+  const { error: insertError } = await supabase.from('driver_payouts').insert({
     id: payoutId,
     driver_id: driverId,
-    amount: cashOutAmount,
+    amount: allocatedAmount,
     net_payout: netAmount,
     platform_fee: fee,
     method: 'instant',
@@ -204,18 +242,34 @@ export async function executeInstantPayout(
     requested_at: new Date().toISOString(),
   });
 
-  if (dbError) {
+  if (insertError) {
     return { success: false, error: 'Failed to process payout. Please try again.', errorCode: 'DB_ERROR' };
   }
 
-  await supabase
-    .from('driver_assignments')
-    .update({ payout_status: 'paid', payout_id: payoutId })
-    .eq('driver_id', driverId)
-    .eq('status', 'completed')
-    .eq('payout_status', 'unpaid');
+  if (assignmentIdsToPay.length > 0) {
+    const { error: updateError } = await supabase
+      .from('driver_assignments')
+      .update({ payout_status: 'paid', payout_id: payoutId })
+      .in('id', assignmentIdsToPay)
+      .eq('driver_id', driverId); // defense-in-depth: scope update to this driver
 
-  return { success: true, amount: cashOutAmount, fee, netAmount, arrivalTime: 'Within minutes', payoutId };
+    if (updateError) {
+      // The payout record was successfully written. Return success: true so the
+      // driver does NOT retry (which would create a duplicate payout). Surface
+      // a non-fatal warning so the UI can prompt them to contact support.
+      return {
+        success: true,
+        amount: allocatedAmount,
+        fee,
+        netAmount,
+        arrivalTime: 'Within minutes',
+        payoutId,
+        warning: 'Payout initiated. Your earnings records could not be updated automatically — please contact support to reconcile.',
+      };
+    }
+  }
+
+  return { success: true, amount: allocatedAmount, fee, netAmount, arrivalTime: 'Within minutes', payoutId };
 }
 
 export async function executeStandardPayout(driverId: string): Promise<PayoutResult> {
@@ -231,7 +285,7 @@ export async function executeStandardPayout(driverId: string): Promise<PayoutRes
 
   const payoutId = crypto.randomUUID();
 
-  await supabase.from('driver_payouts').insert({
+  const { error: dbError } = await supabase.from('driver_payouts').insert({
     id: payoutId,
     driver_id: driverId,
     amount: balance.available,
@@ -243,12 +297,30 @@ export async function executeStandardPayout(driverId: string): Promise<PayoutRes
     requested_at: new Date().toISOString(),
   });
 
-  await supabase
+  if (dbError) {
+    return { success: false, error: 'Failed to schedule payout. Please try again.', errorCode: 'DB_ERROR' };
+  }
+
+  const { error: updateError } = await supabase
     .from('driver_assignments')
     .update({ payout_status: 'paid', payout_id: payoutId })
     .eq('driver_id', driverId)
     .eq('status', 'completed')
     .eq('payout_status', 'unpaid');
+
+  if (updateError) {
+    // Payout record was written; return success: true so the driver does not
+    // retry and create a duplicate. Surface a warning for support reconciliation.
+    return {
+      success: true,
+      amount: balance.available,
+      fee: 0,
+      netAmount: balance.available,
+      arrivalTime: '2-3 business days',
+      payoutId,
+      warning: 'Payout scheduled. Your earnings records could not be updated automatically — please contact support to reconcile.',
+    };
+  }
 
   return {
     success: true,

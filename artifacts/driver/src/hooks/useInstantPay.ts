@@ -3,6 +3,7 @@
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   getInstantPayBalance,
   executeInstantPayout,
@@ -14,6 +15,7 @@ import {
 } from '@/services/payments/instantPayService';
 
 export function useInstantPay(driverId: string | null) {
+  const queryClient = useQueryClient();
   const [balance, setBalance] = useState<InstantPayBalance | null>(null);
   const [history, setHistory] = useState<PayoutHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,12 +49,16 @@ export function useInstantPay(driverId: string | null) {
     setLastResult(result);
     setIsProcessing(false);
 
+    // Always refresh balance/history and invalidate earnings after any payout
+    // attempt that reached the server — success: true covers both clean success
+    // and the partial-success (ASSIGNMENT_UPDATE_ERROR) warning case.
     if (result.success) {
       await refresh();
+      queryClient.invalidateQueries({ queryKey: ['earnings', driverId] });
     }
 
     return result;
-  }, [driverId, refresh]);
+  }, [driverId, refresh, queryClient]);
 
   const cashOutStandard = useCallback(async () => {
     if (!driverId) return;
@@ -63,12 +69,16 @@ export function useInstantPay(driverId: string | null) {
     setLastResult(result);
     setIsProcessing(false);
 
+    // Always refresh balance/history and invalidate earnings after any payout
+    // attempt that reached the server — success: true covers both clean success
+    // and the partial-success (ASSIGNMENT_UPDATE_ERROR) warning case.
     if (result.success) {
       await refresh();
+      queryClient.invalidateQueries({ queryKey: ['earnings', driverId] });
     }
 
     return result;
-  }, [driverId, refresh]);
+  }, [driverId, refresh, queryClient]);
 
   const clearResult = useCallback(() => {
     setLastResult(null);
