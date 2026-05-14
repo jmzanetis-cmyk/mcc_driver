@@ -50,6 +50,10 @@ export function SignInScreen() {
     if (result.success) {
       if (result.isNewDriver) {
         navigate('/apply');
+      } else if (result.driverStatus === 'pending_approval') {
+        navigate('/pending');
+      } else if (result.driverStatus === 'suspended' || result.driverStatus === 'deactivated') {
+        navigate('/');
       } else {
         navigate('/home');
       }

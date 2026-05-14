@@ -28,7 +28,15 @@ export async function sendOTP(phone: string): Promise<{ success: boolean; error?
   return { success: true };
 }
 
-export async function verifyOTP(phone: string, code: string): Promise<{ success: boolean; isNewDriver: boolean; error?: string }> {
+export async function verifyOTP(
+  phone: string,
+  code: string,
+): Promise<{
+  success: boolean;
+  isNewDriver: boolean;
+  driverStatus?: 'pending_approval' | 'active' | 'inactive' | 'suspended' | 'deactivated';
+  error?: string;
+}> {
   const { data, error } = await supabase.auth.verifyOtp({
     phone,
     token: code,
@@ -39,11 +47,14 @@ export async function verifyOTP(phone: string, code: string): Promise<{ success:
 
   const { data: driver } = await supabase
     .from('drivers')
-    .select('id')
+    .select('id, status')
     .eq('user_id', data.user?.id)
     .single();
 
-  return { success: true, isNewDriver: !driver };
+  if (!driver) return { success: true, isNewDriver: true };
+
+  const row = driver as unknown as { id: string; status: 'pending_approval' | 'active' | 'inactive' | 'suspended' | 'deactivated' };
+  return { success: true, isNewDriver: false, driverStatus: row.status };
 }
 
 export async function getDriverProfile(): Promise<DriverProfile | null> {
