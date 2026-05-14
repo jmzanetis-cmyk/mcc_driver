@@ -76,9 +76,11 @@ function FileUploadRow({
         ? fileState.error ?? 'Upload failed'
         : fileState.state === 'uploading'
           ? 'Uploading…'
-          : existing
-            ? 'On file — tap to replace'
-            : 'Not uploaded — tap to add';
+          : hasNewFile
+            ? 'Ready to upload — tap Replace to change'
+            : existing
+              ? 'On file — tap to replace'
+              : 'Not uploaded — tap to add';
 
   return (
     <div style={{
