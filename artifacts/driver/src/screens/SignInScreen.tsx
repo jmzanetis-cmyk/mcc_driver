@@ -64,14 +64,31 @@ export function SignInScreen() {
       justifyContent: 'center', padding: 24, background: colors.navy,
     }}>
       {/* Logo area */}
-      <div style={{ textAlign: 'center', marginBottom: 48 }}>
+      <div style={{ textAlign: 'center', marginBottom: 40 }}>
         <img
           src="/driver/mcc-logo.png"
           alt="My Car Concierge"
-          style={{ width: 160, height: 160, objectFit: 'contain', margin: '0 auto 8px', display: 'block' }}
+          style={{ width: 172, height: 172, objectFit: 'contain', margin: '0 auto', display: 'block' }}
         />
-        <p style={{ fontSize: 14, color: colors.gold, marginTop: 0 }}>
-          Driver App
+
+        {/* Gold rule + wordmark */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10, marginBottom: 10 }}>
+          <div style={{ height: 1, width: 40, background: `linear-gradient(to right, transparent, ${colors.gold})` }} />
+          <span style={{ color: colors.gold, fontSize: 9, letterSpacing: '0.28em', fontWeight: 700, textTransform: 'uppercase' }}>
+            ✦
+          </span>
+          <div style={{ height: 1, width: 40, background: `linear-gradient(to left, transparent, ${colors.gold})` }} />
+        </div>
+
+        <p style={{
+          margin: 0,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.35em',
+          textTransform: 'uppercase',
+          color: 'rgba(201,152,46,0.9)',
+        }}>
+          Driver Portal
         </p>
       </div>
 

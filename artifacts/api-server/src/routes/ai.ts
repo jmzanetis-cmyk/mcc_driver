@@ -16,28 +16,63 @@ interface ChatMessage {
 interface ChatRequestBody {
   system: string;
   messages: ChatMessage[];
-  driverId?: string;
 }
 
-// Simple in-memory rate limiter: max 20 requests per driver per minute
+interface SupabaseUser {
+  id: string;
+  email?: string;
+  phone?: string;
+}
+
+// ── Supabase JWT verification ─────────────────────────────────────────────────
+// Calls /auth/v1/user with the bearer token — Supabase validates signature,
+// expiry, and audience server-side. Returns the user on success, null on failure.
+async function verifySupabaseToken(token: string): Promise<SupabaseUser | null> {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    logger.warn("VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not set — cannot verify JWT");
+    return null;
+  }
+
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: supabaseAnonKey,
+      },
+    });
+
+    if (!res.ok) return null;
+
+    const user = (await res.json()) as SupabaseUser;
+    if (!user?.id) return null;
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+// ── Rate limiter ──────────────────────────────────────────────────────────────
+// Max 20 requests per authenticated user per minute
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
-function checkRateLimit(key: string, maxRequests = 20, windowMs = 60_000): boolean {
+function checkRateLimit(userId: string, maxRequests = 20, windowMs = 60_000): boolean {
   const now = Date.now();
-  const entry = rateLimitMap.get(key);
+  const entry = rateLimitMap.get(userId);
 
   if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    rateLimitMap.set(userId, { count: 1, resetAt: now + windowMs });
     return true;
   }
 
   if (entry.count >= maxRequests) return false;
-
   entry.count++;
   return true;
 }
 
-// Clean up stale rate limit entries every 5 minutes
+// Prune stale entries every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of rateLimitMap.entries()) {
@@ -45,6 +80,7 @@ setInterval(() => {
   }
 }, 300_000);
 
+// ── Route ─────────────────────────────────────────────────────────────────────
 router.post("/ai/chat", async (req: Request, res: Response) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -52,10 +88,18 @@ router.post("/ai/chat", async (req: Request, res: Response) => {
     return;
   }
 
-  // Require Authorization header (Supabase JWT) — validate that it's present
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({ error: "Unauthorized — authentication required" });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+
+  // Verify the token is a valid, non-expired Supabase JWT
+  const user = await verifySupabaseToken(token);
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized — invalid or expired token" });
     return;
   }
 
@@ -65,9 +109,8 @@ router.post("/ai/chat", async (req: Request, res: Response) => {
     return;
   }
 
-  // Rate limit per auth token (first 32 chars as key)
-  const rateLimitKey = authHeader.slice(7, 39);
-  if (!checkRateLimit(rateLimitKey)) {
+  // Rate limit keyed on the verified user ID (not token substring)
+  if (!checkRateLimit(user.id)) {
     res.status(429).json({ error: "Too many requests — please wait before sending more messages" });
     return;
   }
