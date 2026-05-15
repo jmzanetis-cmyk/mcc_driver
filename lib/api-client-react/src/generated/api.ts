@@ -23,18 +23,24 @@ import type {
   AssignmentActionResponse,
   CompleteRideRequest,
   CreateRideAlongDriverRequest,
+  CreateTandemJobRequest,
   DispatchRideRequest,
   DispatchRideResponse,
   ErrorResponse,
   HealthStatus,
   ListAdminDriversParams,
   ListAdminRideAlongDriversParams,
+  LookupTandemPartnerParams,
+  PartnerLookupResult,
   RideAlongDriverRecord,
   RideCompletionResult,
+  SetKnownPartnerRequest,
   StripeAccountLink,
   StripeAccountStatus,
+  TandemJobRecord,
   UpdateRideAlongDriverRequest,
   UpdateStageRequest,
+  UpdateTandemModeRequest,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1625,4 +1631,539 @@ export const useRejectDriver = <
   TContext
 > => {
   return useMutation(getRejectDriverMutationOptions(options));
+};
+
+/**
+ * @summary Create a tandem job for a ride
+ */
+export const getCreateTandemJobUrl = () => {
+  return `/api/tandem-jobs`;
+};
+
+export const createTandemJob = async (
+  createTandemJobRequest: CreateTandemJobRequest,
+  options?: RequestInit,
+): Promise<TandemJobRecord> => {
+  return customFetch<TandemJobRecord>(getCreateTandemJobUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTandemJobRequest),
+  });
+};
+
+export const getCreateTandemJobMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTandemJob>>,
+    TError,
+    { data: BodyType<CreateTandemJobRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTandemJob>>,
+  TError,
+  { data: BodyType<CreateTandemJobRequest> },
+  TContext
+> => {
+  const mutationKey = ["createTandemJob"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTandemJob>>,
+    { data: BodyType<CreateTandemJobRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTandemJob(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTandemJobMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTandemJob>>
+>;
+export type CreateTandemJobMutationBody = BodyType<CreateTandemJobRequest>;
+export type CreateTandemJobMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a tandem job for a ride
+ */
+export const useCreateTandemJob = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTandemJob>>,
+    TError,
+    { data: BodyType<CreateTandemJobRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTandemJob>>,
+  TError,
+  { data: BodyType<CreateTandemJobRequest> },
+  TContext
+> => {
+  return useMutation(getCreateTandemJobMutationOptions(options));
+};
+
+/**
+ * @summary Validate a potential known partner by email
+ */
+export const getLookupTandemPartnerUrl = (
+  params: LookupTandemPartnerParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tandem-jobs/lookup-partner?${stringifiedParams}`
+    : `/api/tandem-jobs/lookup-partner`;
+};
+
+export const lookupTandemPartner = async (
+  params: LookupTandemPartnerParams,
+  options?: RequestInit,
+): Promise<PartnerLookupResult> => {
+  return customFetch<PartnerLookupResult>(getLookupTandemPartnerUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getLookupTandemPartnerQueryKey = (
+  params?: LookupTandemPartnerParams,
+) => {
+  return [
+    `/api/tandem-jobs/lookup-partner`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getLookupTandemPartnerQueryOptions = <
+  TData = Awaited<ReturnType<typeof lookupTandemPartner>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: LookupTandemPartnerParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof lookupTandemPartner>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getLookupTandemPartnerQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof lookupTandemPartner>>
+  > = ({ signal }) =>
+    lookupTandemPartner(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof lookupTandemPartner>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type LookupTandemPartnerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof lookupTandemPartner>>
+>;
+export type LookupTandemPartnerQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Validate a potential known partner by email
+ */
+
+export function useLookupTandemPartner<
+  TData = Awaited<ReturnType<typeof lookupTandemPartner>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: LookupTandemPartnerParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof lookupTandemPartner>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getLookupTandemPartnerQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a tandem job by ID
+ */
+export const getGetTandemJobUrl = (tandemJobId: string) => {
+  return `/api/tandem-jobs/${tandemJobId}`;
+};
+
+export const getTandemJob = async (
+  tandemJobId: string,
+  options?: RequestInit,
+): Promise<TandemJobRecord> => {
+  return customFetch<TandemJobRecord>(getGetTandemJobUrl(tandemJobId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTandemJobQueryKey = (tandemJobId: string) => {
+  return [`/api/tandem-jobs/${tandemJobId}`] as const;
+};
+
+export const getGetTandemJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTandemJob>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  tandemJobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTandemJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTandemJobQueryKey(tandemJobId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTandemJob>>> = ({
+    signal,
+  }) => getTandemJob(tandemJobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tandemJobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTandemJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTandemJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTandemJob>>
+>;
+export type GetTandemJobQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a tandem job by ID
+ */
+
+export function useGetTandemJob<
+  TData = Awaited<ReturnType<typeof getTandemJob>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  tandemJobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTandemJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTandemJobQueryOptions(tandemJobId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update the tandem mode for a job
+ */
+export const getUpdateTandemJobModeUrl = (tandemJobId: string) => {
+  return `/api/tandem-jobs/${tandemJobId}/mode`;
+};
+
+export const updateTandemJobMode = async (
+  tandemJobId: string,
+  updateTandemModeRequest: UpdateTandemModeRequest,
+  options?: RequestInit,
+): Promise<TandemJobRecord> => {
+  return customFetch<TandemJobRecord>(getUpdateTandemJobModeUrl(tandemJobId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateTandemModeRequest),
+  });
+};
+
+export const getUpdateTandemJobModeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTandemJobMode>>,
+    TError,
+    { tandemJobId: string; data: BodyType<UpdateTandemModeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTandemJobMode>>,
+  TError,
+  { tandemJobId: string; data: BodyType<UpdateTandemModeRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateTandemJobMode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTandemJobMode>>,
+    { tandemJobId: string; data: BodyType<UpdateTandemModeRequest> }
+  > = (props) => {
+    const { tandemJobId, data } = props ?? {};
+
+    return updateTandemJobMode(tandemJobId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTandemJobModeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTandemJobMode>>
+>;
+export type UpdateTandemJobModeMutationBody = BodyType<UpdateTandemModeRequest>;
+export type UpdateTandemJobModeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update the tandem mode for a job
+ */
+export const useUpdateTandemJobMode = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTandemJobMode>>,
+    TError,
+    { tandemJobId: string; data: BodyType<UpdateTandemModeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTandemJobMode>>,
+  TError,
+  { tandemJobId: string; data: BodyType<UpdateTandemModeRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateTandemJobModeMutationOptions(options));
+};
+
+/**
+ * @summary Set a known partner for a tandem job (Mode A)
+ */
+export const getSetKnownPartnerUrl = (tandemJobId: string) => {
+  return `/api/tandem-jobs/${tandemJobId}/known-partner`;
+};
+
+export const setKnownPartner = async (
+  tandemJobId: string,
+  setKnownPartnerRequest: SetKnownPartnerRequest,
+  options?: RequestInit,
+): Promise<TandemJobRecord> => {
+  return customFetch<TandemJobRecord>(getSetKnownPartnerUrl(tandemJobId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setKnownPartnerRequest),
+  });
+};
+
+export const getSetKnownPartnerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setKnownPartner>>,
+    TError,
+    { tandemJobId: string; data: BodyType<SetKnownPartnerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setKnownPartner>>,
+  TError,
+  { tandemJobId: string; data: BodyType<SetKnownPartnerRequest> },
+  TContext
+> => {
+  const mutationKey = ["setKnownPartner"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setKnownPartner>>,
+    { tandemJobId: string; data: BodyType<SetKnownPartnerRequest> }
+  > = (props) => {
+    const { tandemJobId, data } = props ?? {};
+
+    return setKnownPartner(tandemJobId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetKnownPartnerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setKnownPartner>>
+>;
+export type SetKnownPartnerMutationBody = BodyType<SetKnownPartnerRequest>;
+export type SetKnownPartnerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Set a known partner for a tandem job (Mode A)
+ */
+export const useSetKnownPartner = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setKnownPartner>>,
+    TError,
+    { tandemJobId: string; data: BodyType<SetKnownPartnerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setKnownPartner>>,
+  TError,
+  { tandemJobId: string; data: BodyType<SetKnownPartnerRequest> },
+  TContext
+> => {
+  return useMutation(getSetKnownPartnerMutationOptions(options));
+};
+
+/**
+ * @summary Remove the known partner from a tandem job
+ */
+export const getRemoveKnownPartnerUrl = (tandemJobId: string) => {
+  return `/api/tandem-jobs/${tandemJobId}/known-partner`;
+};
+
+export const removeKnownPartner = async (
+  tandemJobId: string,
+  options?: RequestInit,
+): Promise<TandemJobRecord> => {
+  return customFetch<TandemJobRecord>(getRemoveKnownPartnerUrl(tandemJobId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveKnownPartnerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeKnownPartner>>,
+    TError,
+    { tandemJobId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeKnownPartner>>,
+  TError,
+  { tandemJobId: string },
+  TContext
+> => {
+  const mutationKey = ["removeKnownPartner"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeKnownPartner>>,
+    { tandemJobId: string }
+  > = (props) => {
+    const { tandemJobId } = props ?? {};
+
+    return removeKnownPartner(tandemJobId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveKnownPartnerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeKnownPartner>>
+>;
+
+export type RemoveKnownPartnerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove the known partner from a tandem job
+ */
+export const useRemoveKnownPartner = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeKnownPartner>>,
+    TError,
+    { tandemJobId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeKnownPartner>>,
+  TError,
+  { tandemJobId: string },
+  TContext
+> => {
+  return useMutation(getRemoveKnownPartnerMutationOptions(options));
 };

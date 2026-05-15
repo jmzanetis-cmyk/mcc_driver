@@ -40,16 +40,23 @@ interface DispatchState {
   startedAt: string | null;
   cancellationReason: string | null;
 
+  // Tandem job fields (Phase 2+)
+  tandemRequired: boolean;
+  tandemFee: number | null;
+  tandemJobId: string | null;
+  tandemModeConfirmed: boolean;
+
   // Set when the server/member/admin cancels an accepted ride — intentionally
   // NOT reset by clearDispatch so the UI can show a notification after state clears.
   serverCancelled: boolean;
 
   // Actions
-  setOffer: (payload: Omit<DispatchState, 'stage' | 'startedAt' | 'cancellationReason' | 'serverCancelled' | 'setOffer' | 'setStage' | 'setCancelled' | 'clearDispatch' | 'setServerCancelled'>) => void;
+  setOffer: (payload: Omit<DispatchState, 'stage' | 'startedAt' | 'cancellationReason' | 'serverCancelled' | 'setOffer' | 'setStage' | 'setCancelled' | 'clearDispatch' | 'setServerCancelled' | 'setTandemJob'>) => void;
   setStage: (stage: DispatchStage, extra?: Partial<DispatchState>) => void;
   setCancelled: (reason?: string) => void;
   clearDispatch: () => void;
   setServerCancelled: (value: boolean) => void;
+  setTandemJob: (tandemJobId: string) => void;
 }
 
 const INITIAL = {
@@ -73,6 +80,10 @@ const INITIAL = {
   responseDeadline: null as string | null,
   startedAt: null as string | null,
   cancellationReason: null as string | null,
+  tandemRequired: false,
+  tandemFee: null as number | null,
+  tandemJobId: null as string | null,
+  tandemModeConfirmed: false,
 };
 
 export const useDispatchStore = create<DispatchState>((set) => ({
@@ -89,4 +100,6 @@ export const useDispatchStore = create<DispatchState>((set) => ({
   clearDispatch: () => set(INITIAL),
 
   setServerCancelled: (value) => set({ serverCancelled: value }),
+
+  setTandemJob: (tandemJobId) => set({ tandemJobId, tandemModeConfirmed: true }),
 }));

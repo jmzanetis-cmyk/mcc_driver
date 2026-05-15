@@ -5,6 +5,7 @@ import ridesRouter from "./rides";
 import adminRouter from "./admin";
 import rideAlongDriversRouter from "./rideAlongDrivers";
 import stripeConnectRouter from "./stripeConnect";
+import tandemJobsRouter from "./tandemJobs";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(ridesRouter);
 router.use(adminRouter);
 router.use(rideAlongDriversRouter);
 router.use(stripeConnectRouter);
+router.use(tandemJobsRouter);
 
 export default router;

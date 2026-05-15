@@ -152,6 +152,36 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
           </Card>
         )}
 
+        {/* Tandem Required badge + fee */}
+        {request.tandemRequired && (
+          <Card style={{ marginBottom: 12, border: `1.5px solid ${colors.gold}`, background: 'rgba(201,152,46,0.06)' }} padding={14}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: colors.navy,
+                    background: colors.gold, padding: '2px 8px',
+                    borderRadius: borderRadius.full, letterSpacing: 0.5,
+                  }}>
+                    TANDEM REQUIRED
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: colors.textMuted }}>
+                  You'll select a co-driver mode after accepting
+                </div>
+              </div>
+              {request.tandemFee != null && (
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: colors.gold }}>
+                    +${request.tandemFee}
+                  </div>
+                  <div style={{ fontSize: 10, color: colors.textMuted }}>ride-along fee</div>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Accept / Decline buttons */}
         <div style={{ display: 'flex', gap: 12 }}>
           <Button

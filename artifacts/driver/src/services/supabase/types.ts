@@ -62,6 +62,8 @@ export interface RideRow {
   member_vehicle_make: string | null;
   member_vehicle_model: string | null;
   member_vehicle_color: string | null;
+  tandem_required: boolean | null;
+  tandem_mode: string | null;
 }
 
 export interface AssignmentRow {

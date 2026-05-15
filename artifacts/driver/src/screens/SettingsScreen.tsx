@@ -9,6 +9,9 @@ import { getAvailableNavApps, getNavAppName, type NavApp } from '@/services/navi
 import { PageHeader, Card, Button } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import { getStarDisplay } from '@/utils/formatters';
+import { lookupTandemPartner, type PartnerLookupResult } from '@/services/api/edgeFunctions';
+
+const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 
 export function SettingsScreen() {
   const navigate = useNavigate();
@@ -16,9 +19,21 @@ export function SettingsScreen() {
   const [preferredNav, setPreferredNav] = useState<NavApp>('google_maps');
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
+  // Known Partner state
+  const [partnerEmail, setPartnerEmail] = useState('');
+  const [savedPartner, setSavedPartner] = useState<PartnerLookupResult | null>(null);
+  const [partnerLookupError, setPartnerLookupError] = useState<string | null>(null);
+  const [partnerLookupLoading, setPartnerLookupLoading] = useState(false);
+
   useEffect(() => {
     const saved = localStorage.getItem('mcc_preferred_nav') as NavApp | null;
     if (saved) setPreferredNav(saved);
+
+    // Restore saved partner from localStorage
+    const savedPartnerJson = localStorage.getItem(KNOWN_PARTNER_KEY);
+    if (savedPartnerJson) {
+      try { setSavedPartner(JSON.parse(savedPartnerJson) as PartnerLookupResult); } catch { /* ignore */ }
+    }
   }, []);
 
   const handleNavChange = (app: NavApp) => {
@@ -29,6 +44,31 @@ export function SettingsScreen() {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handlePartnerLookup = async () => {
+    if (!partnerEmail.trim()) return;
+    setPartnerLookupLoading(true);
+    setPartnerLookupError(null);
+    const result = await lookupTandemPartner(partnerEmail.trim());
+    setPartnerLookupLoading(false);
+    if (result.success && result.data) {
+      if (!result.data.eligible) {
+        setPartnerLookupError(`Partner found but not eligible (status: ${result.data.status}, verified: ${result.data.verified})`);
+      } else {
+        setSavedPartner(result.data);
+        localStorage.setItem(KNOWN_PARTNER_KEY, JSON.stringify(result.data));
+        setPartnerEmail('');
+        setPartnerLookupError(null);
+      }
+    } else {
+      setPartnerLookupError(result.error ?? 'Partner not found');
+    }
+  };
+
+  const handleRemovePartner = () => {
+    setSavedPartner(null);
+    localStorage.removeItem(KNOWN_PARTNER_KEY);
   };
 
   if (!driver) return null;
@@ -186,6 +226,109 @@ export function SettingsScreen() {
                 🏦 Set Up Payouts
               </button>
             </>
+          )}
+        </Card>
+
+        {/* Known Tandem Partner */}
+        <SectionLabel>Known Tandem Partner</SectionLabel>
+        <Card style={{ marginBottom: 16 }} padding={14}>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>
+            Save a preferred co-driver for tandem jobs. They must be an MCC-verified ride-along driver.
+          </div>
+
+          {savedPartner ? (
+            <div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 12px', borderRadius: borderRadius.md,
+                background: colors.bgSecondary, marginBottom: 10,
+              }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%',
+                  background: colors.navy, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, fontWeight: 700, color: colors.gold,
+                  flexShrink: 0,
+                }}>
+                  {savedPartner.firstName[0]}{savedPartner.lastName[0]}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>
+                    {savedPartner.firstName} {savedPartner.lastName}
+                  </div>
+                  <div style={{ fontSize: 12, color: colors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {savedPartner.email}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    {savedPartner.verified && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, color: colors.navy,
+                        background: colors.gold, padding: '1px 6px',
+                        borderRadius: borderRadius.full,
+                      }}>
+                        MCC VERIFIED
+                      </span>
+                    )}
+                    <span style={{ fontSize: 11, color: colors.textMuted }}>
+                      ★ {savedPartner.rating.toFixed(1)} · {savedPartner.totalJobs} jobs
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleRemovePartner}
+                style={{
+                  width: '100%', padding: '8px 0',
+                  background: 'none', border: `1px solid ${colors.borderLight}`,
+                  borderRadius: borderRadius.sm, cursor: 'pointer',
+                  fontSize: 13, color: colors.error,
+                }}
+              >
+                Remove Partner
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="email"
+                  placeholder="Partner's email address"
+                  value={partnerEmail}
+                  onChange={(e) => setPartnerEmail(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handlePartnerLookup(); }}
+                  style={{
+                    flex: 1, padding: '10px 12px',
+                    borderRadius: borderRadius.sm,
+                    border: `1px solid ${colors.border}`,
+                    fontSize: 14, background: colors.bgCard,
+                    color: colors.textPrimary, outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={() => void handlePartnerLookup()}
+                  disabled={partnerLookupLoading || !partnerEmail.trim()}
+                  style={{
+                    padding: '10px 16px',
+                    background: colors.navy, border: 'none',
+                    borderRadius: borderRadius.sm, cursor: 'pointer',
+                    fontSize: 13, fontWeight: 600, color: colors.gold,
+                    opacity: partnerLookupLoading || !partnerEmail.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {partnerLookupLoading ? '...' : 'Find'}
+                </button>
+              </div>
+              {partnerLookupError && (
+                <div style={{
+                  marginTop: 8, padding: '8px 12px',
+                  background: colors.errorBg ?? 'rgba(220,53,69,0.08)',
+                  borderRadius: borderRadius.sm,
+                  fontSize: 12, color: colors.error,
+                }}>
+                  {partnerLookupError}
+                </div>
+              )}
+            </div>
           )}
         </Card>
 

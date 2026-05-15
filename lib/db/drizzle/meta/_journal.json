@@ -15,6 +15,13 @@
       "when": 1778862573321,
       "tag": "0001_good_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778863324511,
+      "tag": "0002_lethal_moon_knight",
+      "breakpoints": true
     }
   ]
 }

@@ -229,6 +229,78 @@ export interface AdminRideAlongDriverRecord {
   updatedAt?: string | null;
 }
 
+export type CreateTandemJobRequestTandemMode =
+  (typeof CreateTandemJobRequestTandemMode)[keyof typeof CreateTandemJobRequestTandemMode];
+
+export const CreateTandemJobRequestTandemMode = {
+  A: "A",
+  B: "B",
+  C: "C",
+} as const;
+
+export interface CreateTandemJobRequest {
+  rideId: string;
+  tandemMode: CreateTandemJobRequestTandemMode;
+}
+
+export type UpdateTandemModeRequestTandemMode =
+  (typeof UpdateTandemModeRequestTandemMode)[keyof typeof UpdateTandemModeRequestTandemMode];
+
+export const UpdateTandemModeRequestTandemMode = {
+  A: "A",
+  B: "B",
+  C: "C",
+} as const;
+
+export interface UpdateTandemModeRequest {
+  tandemMode: UpdateTandemModeRequestTandemMode;
+}
+
+export interface SetKnownPartnerRequest {
+  partnerEmail: string;
+}
+
+export type TandemJobRecordTandemMode =
+  (typeof TandemJobRecordTandemMode)[keyof typeof TandemJobRecordTandemMode];
+
+export const TandemJobRecordTandemMode = {
+  A: "A",
+  B: "B",
+  C: "C",
+} as const;
+
+export interface TandemJobRecord {
+  id: string;
+  rideId: string;
+  providerId: string;
+  tandemMode: TandemJobRecordTandemMode;
+  /** @nullable */
+  rideAlongDriverId?: string | null;
+  matchStatus: string;
+  /** @nullable */
+  memberApproved?: boolean | null;
+  /** @nullable */
+  rideAlongFee?: number | null;
+  /** @nullable */
+  createdAt?: string | null;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
+export interface PartnerLookupResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  verified: boolean;
+  status: string;
+  rating: number;
+  totalJobs: number;
+  /** @nullable */
+  profilePhotoPath?: string | null;
+  eligible: boolean;
+}
+
 export type ListAdminRideAlongDriversParams = {
   /**
    * Filter by status
@@ -241,4 +313,8 @@ export type ListAdminDriversParams = {
    * Filter by driver status
    */
   status?: string;
+};
+
+export type LookupTandemPartnerParams = {
+  email: string;
 };

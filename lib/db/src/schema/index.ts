@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, integer, real, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, integer, real, timestamp, uuid, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -74,6 +74,8 @@ export const ridesTable = pgTable("rides", {
   memberVehicleMake: text("member_vehicle_make"),
   memberVehicleModel: text("member_vehicle_model"),
   memberVehicleColor: text("member_vehicle_color"),
+  tandemRequired: boolean("tandem_required").notNull().default(false),
+  tandemMode: text("tandem_mode"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -188,3 +190,46 @@ export const insertRideAlongDriverSchema = createInsertSchema(rideAlongDriversTa
 });
 export type InsertRideAlongDriver = z.infer<typeof insertRideAlongDriverSchema>;
 export type RideAlongDriver = typeof rideAlongDriversTable.$inferSelect;
+
+// ── Tandem Jobs ───────────────────────────────────────────────────────────────
+// Records a tandem pairing decision for a tandem-required ride.
+// Modes: A = Known Partner, B = Platform Match (Phase 3), C = Self-Sufficient.
+// Created when the provider (primary driver) picks their tandem mode post-accept.
+
+export const tandemJobsTable = pgTable("tandem_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  // The ride this tandem job belongs to
+  rideId: uuid("ride_id").notNull().references(() => ridesTable.id),
+
+  // The primary driver who is managing the tandem arrangement
+  providerId: uuid("provider_id").notNull().references(() => driversTable.id),
+
+  // Chosen tandem mode: 'A' | 'B' | 'C'
+  tandemMode: text("tandem_mode").notNull(),
+
+  // Linked ride-along driver (Mode A only; null for B/C)
+  rideAlongDriverId: uuid("ride_along_driver_id").references(() => rideAlongDriversTable.id),
+
+  // Workflow state: pending | pending_match | confirmed | member_pending | cancelled
+  matchStatus: text("match_status").notNull().default("pending"),
+
+  // Whether the member approved this arrangement (Phase 3)
+  memberApproved: boolean("member_approved"),
+
+  // Computed fee for the ride-along partner (based on distance tier)
+  rideAlongFee: real("ride_along_fee"),
+
+  // Check-in timestamps for Phase 4 (QR / GPS confirmation)
+  rideAlongCheckinAt: timestamp("ride_along_checkin_at", { withTimezone: true }),
+  providerCheckinAt: timestamp("provider_checkin_at", { withTimezone: true }),
+
+  // Photo and GPS evidence (Phase 4); stored as JSON text
+  photosJson: jsonb("photos_json"),
+  gpsJson: jsonb("gps_json"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export type TandemJob = typeof tandemJobsTable.$inferSelect;

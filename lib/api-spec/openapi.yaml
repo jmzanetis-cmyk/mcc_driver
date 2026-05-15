@@ -18,6 +18,8 @@ tags:
     description: Ride-Along Driver onboarding and profile management
   - name: stripe
     description: Stripe Connect onboarding and account status
+  - name: tandem
+    description: Tandem job management (Mode A/B/C partner coordination)
 paths:
   /healthz:
     get:
@@ -670,6 +672,212 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /tandem-jobs:
+    post:
+      operationId: createTandemJob
+      tags: [tandem]
+      summary: Create a tandem job for a ride
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTandemJobRequest"
+      responses:
+        "201":
+          description: Tandem job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemJobRecord"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Tandem job already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/lookup-partner:
+    get:
+      operationId: lookupTandemPartner
+      tags: [tandem]
+      summary: Validate a potential known partner by email
+      parameters:
+        - in: query
+          name: email
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Partner lookup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerLookupResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Partner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/{tandemJobId}:
+    get:
+      operationId: getTandemJob
+      tags: [tandem]
+      summary: Get a tandem job by ID
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tandem job record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemJobRecord"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/{tandemJobId}/mode:
+    patch:
+      operationId: updateTandemJobMode
+      tags: [tandem]
+      summary: Update the tandem mode for a job
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTandemModeRequest"
+      responses:
+        "200":
+          description: Updated tandem job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemJobRecord"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/{tandemJobId}/known-partner:
+    post:
+      operationId: setKnownPartner
+      tags: [tandem]
+      summary: Set a known partner for a tandem job (Mode A)
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetKnownPartnerRequest"
+      responses:
+        "200":
+          description: Partner linked to tandem job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemJobRecord"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Partner not eligible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: removeKnownPartner
+      tags: [tandem]
+      summary: Remove the known partner from a tandem job
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Partner removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemJobRecord"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -1141,3 +1349,101 @@ components:
         - rating
         - totalJobs
         - status
+
+    CreateTandemJobRequest:
+      type: object
+      properties:
+        rideId:
+          type: string
+          format: uuid
+        tandemMode:
+          type: string
+          enum: [A, B, C]
+      required: [rideId, tandemMode]
+
+    UpdateTandemModeRequest:
+      type: object
+      properties:
+        tandemMode:
+          type: string
+          enum: [A, B, C]
+      required: [tandemMode]
+
+    SetKnownPartnerRequest:
+      type: object
+      properties:
+        partnerEmail:
+          type: string
+      required: [partnerEmail]
+
+    TandemJobRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        rideId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        tandemMode:
+          type: string
+          enum: [A, B, C]
+        rideAlongDriverId:
+          type: ["string", "null"]
+          format: uuid
+        matchStatus:
+          type: string
+        memberApproved:
+          type: ["boolean", "null"]
+        rideAlongFee:
+          type: ["number", "null"]
+          format: float
+        createdAt:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - rideId
+        - providerId
+        - tandemMode
+        - matchStatus
+
+    PartnerLookupResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        verified:
+          type: boolean
+        status:
+          type: string
+        rating:
+          type: number
+          format: float
+        totalJobs:
+          type: integer
+        profilePhotoPath:
+          type: ["string", "null"]
+        eligible:
+          type: boolean
+      required:
+        - id
+        - firstName
+        - lastName
+        - email
+        - verified
+        - status
+        - rating
+        - totalJobs
+        - eligible

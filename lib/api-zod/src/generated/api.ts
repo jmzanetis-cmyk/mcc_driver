@@ -412,3 +412,119 @@ export const RejectDriverResponse = zod.object({
   driverId: zod.string().uuid(),
   status: zod.string(),
 });
+
+/**
+ * @summary Create a tandem job for a ride
+ */
+export const CreateTandemJobBody = zod.object({
+  rideId: zod.string().uuid(),
+  tandemMode: zod.enum(["A", "B", "C"]),
+});
+
+/**
+ * @summary Validate a potential known partner by email
+ */
+export const LookupTandemPartnerQueryParams = zod.object({
+  email: zod.coerce.string(),
+});
+
+export const LookupTandemPartnerResponse = zod.object({
+  id: zod.string().uuid(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string(),
+  verified: zod.boolean(),
+  status: zod.string(),
+  rating: zod.number(),
+  totalJobs: zod.number(),
+  profilePhotoPath: zod.string().nullish(),
+  eligible: zod.boolean(),
+});
+
+/**
+ * @summary Get a tandem job by ID
+ */
+export const GetTandemJobParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const GetTandemJobResponse = zod.object({
+  id: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+  providerId: zod.string().uuid(),
+  tandemMode: zod.enum(["A", "B", "C"]),
+  rideAlongDriverId: zod.string().uuid().nullish(),
+  matchStatus: zod.string(),
+  memberApproved: zod.boolean().nullish(),
+  rideAlongFee: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Update the tandem mode for a job
+ */
+export const UpdateTandemJobModeParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const UpdateTandemJobModeBody = zod.object({
+  tandemMode: zod.enum(["A", "B", "C"]),
+});
+
+export const UpdateTandemJobModeResponse = zod.object({
+  id: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+  providerId: zod.string().uuid(),
+  tandemMode: zod.enum(["A", "B", "C"]),
+  rideAlongDriverId: zod.string().uuid().nullish(),
+  matchStatus: zod.string(),
+  memberApproved: zod.boolean().nullish(),
+  rideAlongFee: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Set a known partner for a tandem job (Mode A)
+ */
+export const SetKnownPartnerParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const SetKnownPartnerBody = zod.object({
+  partnerEmail: zod.string(),
+});
+
+export const SetKnownPartnerResponse = zod.object({
+  id: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+  providerId: zod.string().uuid(),
+  tandemMode: zod.enum(["A", "B", "C"]),
+  rideAlongDriverId: zod.string().uuid().nullish(),
+  matchStatus: zod.string(),
+  memberApproved: zod.boolean().nullish(),
+  rideAlongFee: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Remove the known partner from a tandem job
+ */
+export const RemoveKnownPartnerParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const RemoveKnownPartnerResponse = zod.object({
+  id: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+  providerId: zod.string().uuid(),
+  tandemMode: zod.enum(["A", "B", "C"]),
+  rideAlongDriverId: zod.string().uuid().nullish(),
+  matchStatus: zod.string(),
+  memberApproved: zod.boolean().nullish(),
+  rideAlongFee: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});

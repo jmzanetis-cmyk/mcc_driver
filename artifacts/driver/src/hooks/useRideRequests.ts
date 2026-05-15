@@ -7,6 +7,13 @@ import { SCENARIO_CONFIG, type RideScenario } from '@/services/rides';
 import { logger } from '@/services/telemetry/logger';
 import type { RideRow, AssignmentRow } from '@/services/supabase/types';
 
+function computeTandemFee(distanceMiles: number): number {
+  if (distanceMiles <= 10) return 25;
+  if (distanceMiles <= 25) return 40;
+  if (distanceMiles <= 50) return 65;
+  return 90;
+}
+
 interface ScenarioAssignmentConfig {
   role: string;
   drivesMemberVehicle: boolean;
@@ -54,6 +61,9 @@ export function useRideRequests(driverId: string | null, isOnline: boolean) {
             ? `${ride.member_vehicle_year} ${ride.member_vehicle_color ?? ''} ${ride.member_vehicle_make} ${ride.member_vehicle_model ?? ''}`.trim()
             : null;
 
+          const tandemRequired = ride.tandem_required ?? false;
+          const tandemFee = tandemRequired ? computeTandemFee(ride.estimated_distance_miles) : null;
+
           dispatch.setOffer({
             rideId: ride.id,
             assignmentId: assignment.id,
@@ -72,6 +82,10 @@ export function useRideRequests(driverId: string | null, isOnline: boolean) {
             drivesMemberVehicle: assignmentConfig?.drivesMemberVehicle ?? false,
             carriesPassenger: assignmentConfig?.carriesPassenger ?? false,
             responseDeadline: assignment.response_deadline,
+            tandemRequired,
+            tandemFee,
+            tandemJobId: null,
+            tandemModeConfirmed: false,
           });
 
           logger.info('ride_request.received', { rideId: ride.id, scenario: ride.scenario });

@@ -22,7 +22,7 @@ interface ApiResult<T = unknown> {
 
 async function callApi<T = unknown>(
   path: string,
-  method: 'POST' | 'PATCH' | 'GET' = 'POST',
+  method: 'POST' | 'PATCH' | 'GET' | 'DELETE' = 'POST',
   body?: Record<string, unknown>
 ): Promise<ApiResult<T>> {
   logger.info('api.call', { path, method });
@@ -188,4 +188,81 @@ export async function getStripeConnectStatus(): Promise<ApiResult<{
  */
 export async function refreshStripeConnectLink(): Promise<ApiResult<{ url: string; accountId: string }>> {
   return callApi<{ url: string; accountId: string }>('/stripe/connect/refresh');
+}
+
+// ── Tandem job API calls ──────────────────────────────────────────────────────
+
+export interface TandemJobRecord {
+  id: string;
+  rideId: string;
+  providerId: string;
+  tandemMode: string;
+  rideAlongDriverId: string | null;
+  matchStatus: string;
+  memberApproved: boolean | null;
+  rideAlongFee: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface PartnerLookupResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  verified: boolean;
+  status: string;
+  rating: number;
+  totalJobs: number;
+  profilePhotoPath: string | null;
+  eligible: boolean;
+}
+
+/**
+ * Create a tandem job for an accepted ride, setting the tandem mode (A, B, or C).
+ */
+export async function createTandemJob(
+  rideId: string,
+  tandemMode: 'A' | 'B' | 'C'
+): Promise<ApiResult<TandemJobRecord>> {
+  return callApi<TandemJobRecord>('/tandem-jobs', 'POST', { rideId, tandemMode });
+}
+
+/**
+ * Update the tandem mode on an existing tandem job record.
+ */
+export async function updateTandemJobMode(
+  tandemJobId: string,
+  tandemMode: 'A' | 'B' | 'C'
+): Promise<ApiResult<TandemJobRecord>> {
+  return callApi<TandemJobRecord>(`/tandem-jobs/${tandemJobId}/mode`, 'PATCH', { tandemMode });
+}
+
+/**
+ * Validate and link a known partner (Mode A) to a tandem job.
+ * The partner must have a verified, active ride-along driver record.
+ */
+export async function setKnownPartner(
+  tandemJobId: string,
+  partnerEmail: string
+): Promise<ApiResult<TandemJobRecord & { partner: PartnerLookupResult }>> {
+  return callApi(`/tandem-jobs/${tandemJobId}/known-partner`, 'POST', { partnerEmail });
+}
+
+/**
+ * Remove the known partner link from a tandem job.
+ */
+export async function removeKnownPartner(tandemJobId: string): Promise<ApiResult<TandemJobRecord>> {
+  return callApi<TandemJobRecord>(`/tandem-jobs/${tandemJobId}/known-partner`, 'DELETE');
+}
+
+/**
+ * Look up a potential tandem partner by email address (settings validation).
+ * Does not modify any tandem job records.
+ */
+export async function lookupTandemPartner(email: string): Promise<ApiResult<PartnerLookupResult>> {
+  return callApi<PartnerLookupResult>(
+    `/tandem-jobs/lookup-partner?email=${encodeURIComponent(email)}`,
+    'GET'
+  );
 }

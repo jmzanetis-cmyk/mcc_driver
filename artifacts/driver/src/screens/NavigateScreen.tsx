@@ -19,6 +19,10 @@ import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
   getRoleDescription, shortenAddress, formatElapsed,
 } from '@/utils/formatters';
+import { createTandemJob, type PartnerLookupResult } from '@/services/api/edgeFunctions';
+
+const KNOWN_PARTNER_KEY = 'mcc_known_partner';
+type TandemMode = 'A' | 'B' | 'C';
 
 export function NavigateScreen() {
   const navigate = useNavigate();
@@ -36,10 +40,28 @@ export function NavigateScreen() {
   const [showCancel, setShowCancel] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
-  // Load preferred nav from localStorage
+  // Tandem mode selector state
+  const [selectedMode, setSelectedMode] = useState<TandemMode | null>(null);
+  const [showModeCSafety, setShowModeCSafety] = useState(false);
+  const [tandemConfirming, setTandemConfirming] = useState(false);
+  const [tandemError, setTandemError] = useState<string | null>(null);
+  const [savedPartner, setSavedPartner] = useState<PartnerLookupResult | null>(null);
+
+  const tandemRequired = useDispatchStore((s) => s.tandemRequired);
+  const tandemFee = useDispatchStore((s) => s.tandemFee);
+  const tandemModeConfirmed = useDispatchStore((s) => s.tandemModeConfirmed);
+  const setTandemJob = useDispatchStore((s) => s.setTandemJob);
+  const rideId = useDispatchStore((s) => s.rideId);
+
+  // Load preferred nav and saved tandem partner from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('mcc_preferred_nav') as NavApp | null;
     if (saved) setPreferredNav(saved);
+
+    const partnerJson = localStorage.getItem(KNOWN_PARTNER_KEY);
+    if (partnerJson) {
+      try { setSavedPartner(JSON.parse(partnerJson) as PartnerLookupResult); } catch { /* ignore */ }
+    }
   }, []);
 
   // Update elapsed time when ride is in progress
@@ -110,6 +132,28 @@ export function NavigateScreen() {
     );
   }
 
+  // ── Tandem Mode Selector ─────────────────────────────────────────────────────
+  const handleConfirmTandemMode = async () => {
+    if (!selectedMode || !rideId) return;
+    if (selectedMode === 'A' && !savedPartner) {
+      setTandemError('Please add a Known Partner in Settings first');
+      return;
+    }
+    if (selectedMode === 'C' && !showModeCSafety) {
+      setShowModeCSafety(true);
+      return;
+    }
+    setTandemConfirming(true);
+    setTandemError(null);
+    const result = await createTandemJob(rideId, selectedMode);
+    setTandemConfirming(false);
+    if (result.success && result.data) {
+      setTandemJob(result.data.id);
+    } else {
+      setTandemError(result.error ?? 'Failed to save tandem mode');
+    }
+  };
+
   if (!activeRide) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -171,6 +215,183 @@ export function NavigateScreen() {
   const stageIndex = ['accepted', 'navigating'].includes(activeRide.stage) ? 0
     : activeRide.stage === 'arrived' ? 1
     : 2;
+
+  // ── Mode C liability dialog ──────────────────────────────────────────────────
+  if (showModeCSafety && selectedMode === 'C') {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9998,
+        background: colors.bgOverlay,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+      }}>
+        <Card style={{ maxWidth: 360, width: '100%' }} padding={28}>
+          <div style={{ fontSize: 32, textAlign: 'center', marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: colors.navy, textAlign: 'center', marginBottom: 12 }}>
+            Self-Sufficient Acknowledgment
+          </div>
+          <div style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
+            By selecting Self-Sufficient (Mode C), you confirm that you will personally manage both vehicles for this tandem job. You accept full liability for any incidents involving the second vehicle and acknowledge that MCC is not responsible for co-driver arrangements made outside the platform.
+          </div>
+          {tandemError && (
+            <div style={{ fontSize: 12, color: colors.error, marginBottom: 12, padding: '8px 12px', background: 'rgba(220,53,69,0.08)', borderRadius: borderRadius.sm }}>
+              {tandemError}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Button onClick={() => { setShowModeCSafety(false); setSelectedMode(null); }} variant="secondary" style={{ flex: 1 }}>
+              Go Back
+            </Button>
+            <Button
+              onClick={() => void handleConfirmTandemMode()}
+              loading={tandemConfirming}
+              variant="danger"
+              style={{ flex: 1 }}
+            >
+              I Agree
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Tandem Mode Selector panel ────────────────────────────────────────────────
+  if (tandemRequired && !tandemModeConfirmed) {
+    const modeCards: { mode: TandemMode; icon: string; label: string; subtitle: string; comingSoon?: boolean }[] = [
+      { mode: 'A', icon: '🤝', label: 'Known Partner', subtitle: 'A pre-approved MCC ride-along driver you designate' },
+      { mode: 'B', icon: '🔍', label: 'Platform Match', subtitle: 'MCC finds a verified co-driver for you', comingSoon: true },
+      { mode: 'C', icon: '🚘', label: 'Self-Sufficient', subtitle: 'You handle both vehicles and accept liability' },
+    ];
+
+    return (
+      <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
+        <PageHeader title="Tandem Setup" />
+        <div style={{ padding: 20, flex: 1 }}>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: colors.navy, marginBottom: 4 }}>
+              This ride requires a co-driver
+            </div>
+            <div style={{ fontSize: 13, color: colors.textMuted }}>
+              Choose how you'd like to arrange the tandem vehicle.
+              {tandemFee != null && (
+                <span style={{ color: colors.gold, fontWeight: 600 }}> Ride-along fee: ${tandemFee}</span>
+              )}
+            </div>
+          </div>
+
+          {modeCards.map(({ mode, icon, label, subtitle, comingSoon }) => {
+            const isSelected = selectedMode === mode;
+            const isDisabled = comingSoon === true;
+            return (
+              <div
+                key={mode}
+                onClick={() => { if (!isDisabled) setSelectedMode(mode); }}
+                style={{
+                  padding: 16, borderRadius: borderRadius.md,
+                  border: `2px solid ${isSelected ? colors.gold : colors.border}`,
+                  background: isSelected ? 'rgba(201,152,46,0.06)' : colors.bgCard,
+                  marginBottom: 12, cursor: isDisabled ? 'default' : 'pointer',
+                  opacity: isDisabled ? 0.55 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ fontSize: 28, flexShrink: 0 }}>{icon}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: colors.navy }}>
+                        Mode {mode} — {label}
+                      </div>
+                      {comingSoon && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, color: colors.textMuted,
+                          background: colors.bgSecondary, padding: '2px 6px',
+                          borderRadius: borderRadius.full, border: `1px solid ${colors.border}`,
+                        }}>
+                          Coming Soon
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                      {subtitle}
+                    </div>
+                    {mode === 'A' && isSelected && (
+                      <div style={{ marginTop: 10 }}>
+                        {savedPartner ? (
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '8px 10px', borderRadius: borderRadius.sm,
+                            background: colors.bgSecondary,
+                          }}>
+                            <div style={{
+                              width: 32, height: 32, borderRadius: '50%',
+                              background: colors.navy, display: 'flex',
+                              alignItems: 'center', justifyContent: 'center',
+                              fontSize: 12, fontWeight: 700, color: colors.gold, flexShrink: 0,
+                            }}>
+                              {savedPartner.firstName[0]}{savedPartner.lastName[0]}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>
+                                {savedPartner.firstName} {savedPartner.lastName}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{
+                                  fontSize: 9, fontWeight: 700, color: colors.navy,
+                                  background: colors.gold, padding: '1px 5px',
+                                  borderRadius: borderRadius.full,
+                                }}>MCC VERIFIED</span>
+                                <span style={{ fontSize: 11, color: colors.textMuted }}>★ {savedPartner.rating.toFixed(1)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{
+                            padding: '10px 12px', borderRadius: borderRadius.sm,
+                            background: colors.warningBg, fontSize: 12, color: colors.warning,
+                          }}>
+                            No partner saved yet. Go to Settings → Known Tandem Partner to add one.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    border: `2px solid ${isSelected ? colors.gold : colors.border}`,
+                    background: isSelected ? colors.gold : 'transparent',
+                    marginTop: 2,
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+
+          {tandemError && (
+            <div style={{
+              padding: '10px 14px', borderRadius: borderRadius.sm,
+              background: 'rgba(220,53,69,0.08)', fontSize: 13, color: colors.error,
+              marginBottom: 16,
+            }}>
+              {tandemError}
+            </div>
+          )}
+
+          <Button
+            onClick={() => void handleConfirmTandemMode()}
+            disabled={!selectedMode || tandemConfirming}
+            loading={tandemConfirming}
+            variant="primary"
+            fullWidth
+            size="lg"
+          >
+            Confirm Mode {selectedMode ?? '—'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
