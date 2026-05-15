@@ -263,6 +263,7 @@ async function cascadeDispatch(
     drives_member_vehicle: assignmentCfg.drivesMemberVehicle,
     carries_passenger: assignmentCfg.carriesPassenger,
     response_deadline: responseDeadline.toISOString(),
+    member_vehicle_description: assignmentCfg.drivesMemberVehicle ? memberVehicleDesc : null,
   });
 
   logger.info({ rideId, nextDriverId, role: declinedAssignment.role }, "cascadeDispatch: re-offered ride to next driver");
