@@ -12,34 +12,6 @@ export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-export interface RideInsert {
-  id: string;
-  scenario: string;
-  tier: string;
-  status: string;
-  member_id?: string | null;
-  pickup_address: string;
-  pickup_lat: number;
-  pickup_lng: number;
-  dropoff_address: string;
-  dropoff_lat: number;
-  dropoff_lng: number;
-  estimated_fare: number;
-  estimated_distance_miles: number;
-  member_vehicle_year?: number | null;
-  member_vehicle_make?: string | null;
-  member_vehicle_model?: string | null;
-  member_vehicle_color?: string | null;
-}
-
-export async function insertRideViaSupabase(values: RideInsert): Promise<void> {
-  const { error } = await supabaseAdmin.from("rides").insert([values]);
-  if (error) {
-    logger.error({ error }, "supabaseAdmin: failed to insert ride");
-    throw new Error(`Supabase ride insert failed: ${error.message}`);
-  }
-}
-
 export interface DriverAssignmentInsert {
   ride_id: string;
   driver_id: string;

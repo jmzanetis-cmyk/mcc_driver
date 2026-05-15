@@ -15,8 +15,7 @@
  * Requires:
  *   DATABASE_URL                — local Postgres connection string (API server)
  *   VITE_SUPABASE_URL           — Supabase project URL
- *   VITE_SUPABASE_ANON_KEY      — Supabase anon key
- *   SUPABASE_SERVICE_ROLE_KEY   — Supabase service role key (admin checks + cleanup)
+ *   SUPABASE_SERVICE_ROLE_KEY   — Supabase service role key (schema check, writes, Realtime)
  *   API server must be running on localhost:80/api
  */
 
