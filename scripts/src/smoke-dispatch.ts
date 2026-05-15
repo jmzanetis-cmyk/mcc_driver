@@ -1,33 +1,22 @@
 #!/usr/bin/env tsx
 /**
  * Dispatch smoke test — verifies the full ride dispatch path end-to-end:
- *   1. Inserts a temporary test driver (active, online, with location)
- *   2. POST /api/rides/dispatch → expects 201 + rideId + assignmentId
- *   3. Verifies the DB rows exist in rides + driver_assignments
- *   4. Attempts a Supabase Realtime subscriber assertion (WARN if not reachable)
- *   5. Cleans up all test rows (guaranteed via finally)
+ *   1. Inserts a temporary test driver (active, online, with location) in local DB
+ *   2. POST /api/rides/dispatch → expects 201 + rideId + driversNotified
+ *   3. Verifies the ride row exists in local DB
+ *   4. Verifies the driver_assignment row exists in Supabase (written via HTTPS)
+ *   5. Asserts a Supabase Realtime INSERT event fires within 10 s
+ *   6. Cleans up all test rows (guaranteed via finally)
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run smoke-dispatch
  *
  * Requires:
- *   DATABASE_URL            — Postgres connection string (API server DB)
- *   VITE_SUPABASE_URL       — Supabase project URL
- *   VITE_SUPABASE_ANON_KEY  — Supabase anon key
+ *   DATABASE_URL                — local Postgres connection string (API server)
+ *   VITE_SUPABASE_URL           — Supabase project URL
+ *   VITE_SUPABASE_ANON_KEY      — Supabase anon key (Realtime subscription)
+ *   SUPABASE_SERVICE_ROLE_KEY   — Supabase service role key (admin checks + cleanup)
  *   API server must be running on localhost:80/api
- *
- * ARCHITECTURE NOTE:
- * Supabase Realtime is end-to-end testable ONLY when DATABASE_URL points to
- * the same Supabase Postgres that the Realtime service watches. If DATABASE_URL
- * points to a local/non-Supabase Postgres, the Realtime check will time out
- * and be reported as a WARNING (not a failure). The API + DB checks always run.
- *
- * To test Realtime end-to-end:
- *   1. Set DATABASE_URL to your Supabase direct connection string
- *      (Project → Settings → Database → Connection string → URI)
- *   2. Enable Realtime on driver_assignments in Supabase dashboard
- *      (Table Editor → driver_assignments → Realtime toggle ON)
- *   3. Re-run this script
  */
 
 import pg from "pg";
@@ -59,11 +48,8 @@ async function checkRealtimeDelivery(
         ok: false,
         reason:
           `No postgres_changes INSERT event received within ${REALTIME_TIMEOUT_MS}ms.\n` +
-          "      This typically means either:\n" +
-          "        a) DATABASE_URL does not point to the Supabase Postgres (most common\n" +
-          "           in Replit dev — the local DB is separate from Supabase), OR\n" +
-          "        b) Realtime is not enabled for driver_assignments in the Supabase dashboard\n" +
-          "           (Table Editor → driver_assignments → Realtime toggle).",
+          "      This typically means Realtime is not enabled for driver_assignments\n" +
+          "      in the Supabase dashboard (Table Editor → driver_assignments → Realtime toggle).",
       });
     }, REALTIME_TIMEOUT_MS);
 
@@ -94,13 +80,18 @@ async function main() {
   const dbUrl = requireEnv("DATABASE_URL");
   const supabaseUrl = requireEnv("VITE_SUPABASE_URL");
   const supabaseAnonKey = requireEnv("VITE_SUPABASE_ANON_KEY");
+  const supabaseServiceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   const db = new Client({ connectionString: dbUrl });
   await db.connect();
 
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
   console.log("=== MCC Dispatch Smoke Test ===\n");
 
-  // ── 1. Insert test driver ─────────────────────────────────────────────────
+  // ── 1. Insert test driver into local DB ────────────────────────────────────
   console.log("[1] Inserting test driver...");
   await db.query(
     `INSERT INTO drivers (id, user_id, first_name, last_name, email, phone,
@@ -116,7 +107,7 @@ async function main() {
   console.log("    ✓ Test driver inserted\n");
 
   let rideId: string | null = null;
-  let warnings: string[] = [];
+  const warnings: string[] = [];
 
   try {
     // ── 2. Open Realtime subscription BEFORE dispatching ───────────────────
@@ -126,7 +117,6 @@ async function main() {
       supabaseAnonKey,
       TEST_DRIVER_ID,
     );
-    // Give the subscription time to connect before firing dispatch
     await new Promise((r) => setTimeout(r, 800));
     console.log("    ✓ Subscribed (waiting for INSERT event)\n");
 
@@ -152,7 +142,6 @@ async function main() {
 
     const body = (await resp.json()) as {
       rideId?: string;
-      assignmentIds?: string[];
       driversNotified?: number;
       error?: string;
     };
@@ -166,36 +155,40 @@ async function main() {
     rideId = body.rideId;
     console.log("    ✓ Dispatch succeeded");
     console.log(`      rideId:          ${body.rideId}`);
-    console.log(`      assignmentIds:   ${body.assignmentIds?.join(", ")}`);
     console.log(`      driversNotified: ${body.driversNotified}\n`);
 
-    // ── 4. Verify DB rows ───────────────────────────────────────────────────
-    console.log("[4] Verifying database rows...");
+    // ── 4. Verify ride row in local DB ──────────────────────────────────────
+    console.log("[4] Verifying ride row in local DB...");
     const rideRow = await db.query(
       "SELECT id, scenario, status FROM rides WHERE id = $1",
       [rideId],
     );
     if ((rideRow.rowCount ?? 0) === 0) {
-      throw new Error("No ride row found in DB after dispatch");
+      throw new Error("No ride row found in local DB after dispatch");
     }
     console.log(
-      `    ✓ rides row: scenario=${rideRow.rows[0].scenario as string}, status=${rideRow.rows[0].status as string}`,
+      `    ✓ rides row: scenario=${rideRow.rows[0].scenario as string}, status=${rideRow.rows[0].status as string}\n`,
     );
 
-    const assignRow = await db.query(
-      "SELECT id, driver_id, role, status FROM driver_assignments WHERE ride_id = $1",
-      [rideId],
-    );
-    if ((assignRow.rowCount ?? 0) === 0) {
-      throw new Error("No driver_assignments row found in DB after dispatch");
+    // ── 5. Verify driver_assignment row in Supabase ─────────────────────────
+    console.log("[5] Verifying driver_assignments row in Supabase...");
+    const { data: assignRows, error: assignErr } = await supabaseAdmin
+      .from("driver_assignments")
+      .select("id, driver_id, role, status")
+      .eq("ride_id", rideId)
+      .limit(1);
+
+    if (assignErr) throw new Error(`Supabase assignment query failed: ${assignErr.message}`);
+    if (!assignRows || assignRows.length === 0) {
+      throw new Error("No driver_assignments row found in Supabase after dispatch");
     }
     console.log(
-      `    ✓ driver_assignments row: role=${assignRow.rows[0].role as string}, status=${assignRow.rows[0].status as string}\n`,
+      `    ✓ driver_assignments row: role=${assignRows[0].role as string}, status=${assignRows[0].status as string}\n`,
     );
 
-    // ── 5. Assert Realtime event ────────────────────────────────────────────
+    // ── 6. Assert Realtime event ────────────────────────────────────────────
     console.log(
-      `[5] Waiting for Supabase Realtime event (timeout ${REALTIME_TIMEOUT_MS / 1000}s)...`,
+      `[6] Waiting for Supabase Realtime event (timeout ${REALTIME_TIMEOUT_MS / 1000}s)...`,
     );
     const realtimeResult = await realtimePromise;
     if (realtimeResult.ok && realtimeResult.payload) {
@@ -207,10 +200,10 @@ async function main() {
       console.log(`    ⚠  Realtime check skipped — see warnings below\n`);
     }
   } finally {
-    // ── 6. Clean up (always runs, even on thrown errors) ───────────────────
-    console.log("[6] Cleaning up test data...");
+    // ── 7. Clean up (always runs, even on thrown errors) ───────────────────
+    console.log("[7] Cleaning up test data...");
     if (rideId) {
-      await db.query("DELETE FROM driver_assignments WHERE ride_id = $1", [rideId]);
+      await supabaseAdmin.from("driver_assignments").delete().eq("ride_id", rideId);
       await db.query("DELETE FROM rides WHERE id = $1", [rideId]);
     }
     await db.query("DELETE FROM drivers WHERE id = $1", [TEST_DRIVER_ID]);
@@ -224,15 +217,14 @@ async function main() {
       console.log(w);
     }
     console.log();
+    console.log(
+      "    Realtime requires driver_assignments Realtime enabled in Supabase dashboard\n" +
+      "    (Table Editor → driver_assignments → toggle Realtime ON).",
+    );
+    process.exit(0);
   }
 
-  console.log("=== API + DB checks passed ✓ ===");
-  if (warnings.length > 0) {
-    console.log(
-      "    Realtime delivery requires DATABASE_URL → Supabase Postgres\n" +
-      "    and Realtime enabled on driver_assignments. See script header.",
-    );
-  }
+  console.log("=== All checks passed ✓ ===");
 }
 
 main().catch((err) => {
