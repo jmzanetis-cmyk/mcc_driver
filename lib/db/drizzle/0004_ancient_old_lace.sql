@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "tandem_jobs_ride_provider_unique" ON "tandem_jobs" USING btree ("ride_id","provider_id");

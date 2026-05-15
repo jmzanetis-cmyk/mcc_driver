@@ -190,6 +190,12 @@ router.post("/tandem-jobs", async (req: Request, res: Response): Promise<void> =
       })
       .returning();
 
+    // Keep rides.tandem_mode in sync with the chosen mode
+    await db
+      .update(ridesTable)
+      .set({ tandemMode })
+      .where(eq(ridesTable.id, rideId));
+
     req.log.info({ tandemJobId: tandemJob!.id, rideId, tandemMode }, "tandem.job.created");
     res.status(201).json(tandemJob);
   } catch (err) {
@@ -274,6 +280,12 @@ router.patch("/tandem-jobs/:id/mode", async (req: Request, res: Response): Promi
       .where(eq(tandemJobsTable.id, existing.id))
       .returning();
 
+    // Keep rides.tandem_mode in sync with the chosen mode
+    await db
+      .update(ridesTable)
+      .set({ tandemMode })
+      .where(eq(ridesTable.id, existing.rideId));
+
     req.log.info({ tandemJobId: existing.id, tandemMode }, "tandem.mode.updated");
     res.json(updated);
   } catch (err) {
@@ -312,6 +324,14 @@ router.post(
       }
       if (tandemJob.providerId !== provider.id) {
         res.status(403).json({ error: "Not your tandem job" });
+        return;
+      }
+
+      if (tandemJob.tandemMode !== "A") {
+        res.status(422).json({
+          error: "Known partner can only be set when tandem mode is A",
+          currentMode: tandemJob.tandemMode,
+        });
         return;
       }
 
