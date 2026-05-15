@@ -19,7 +19,7 @@ import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
   getRoleDescription, shortenAddress, formatElapsed,
 } from '@/utils/formatters';
-import { createTandemJob, type PartnerLookupResult } from '@/services/api/edgeFunctions';
+import { createTandemJob, setKnownPartner, type PartnerLookupResult } from '@/services/api/edgeFunctions';
 
 const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 type TandemMode = 'A' | 'B' | 'C';
@@ -136,7 +136,7 @@ export function NavigateScreen() {
   const handleConfirmTandemMode = async () => {
     if (!selectedMode || !rideId) return;
     if (selectedMode === 'A' && !savedPartner) {
-      setTandemError('Please add a Known Partner in Settings first');
+      setTandemError('Please add a Known Partner in Settings first, then return here');
       return;
     }
     if (selectedMode === 'C' && !showModeCSafety) {
@@ -145,13 +145,29 @@ export function NavigateScreen() {
     }
     setTandemConfirming(true);
     setTandemError(null);
-    const result = await createTandemJob(rideId, selectedMode);
-    setTandemConfirming(false);
-    if (result.success && result.data) {
-      setTandemJob(result.data.id);
-    } else {
-      setTandemError(result.error ?? 'Failed to save tandem mode');
+
+    // Create the tandem job record
+    const createResult = await createTandemJob(rideId, selectedMode);
+    if (!createResult.success || !createResult.data) {
+      setTandemConfirming(false);
+      setTandemError(createResult.error ?? 'Failed to create tandem job');
+      return;
     }
+
+    const tandemJobId = createResult.data.id;
+
+    // Mode A: link the saved known partner to this tandem job on the server
+    if (selectedMode === 'A' && savedPartner) {
+      const linkResult = await setKnownPartner(tandemJobId, savedPartner.email);
+      if (!linkResult.success) {
+        setTandemConfirming(false);
+        setTandemError(linkResult.error ?? 'Failed to link known partner');
+        return;
+      }
+    }
+
+    setTandemConfirming(false);
+    setTandemJob(tandemJobId);
   };
 
   if (!activeRide) {

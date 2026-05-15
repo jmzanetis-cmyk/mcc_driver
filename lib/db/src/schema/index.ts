@@ -43,6 +43,8 @@ export const driversTable = pgTable("drivers", {
   stripeAccountId: text("stripe_account_id"),
   currentLat: real("current_lat"),
   currentLng: real("current_lng"),
+  // Standing preferred tandem partner (ride-along driver ID, set in Settings)
+  preferredPartnerId: uuid("preferred_partner_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

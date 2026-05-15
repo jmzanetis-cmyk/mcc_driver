@@ -1,34 +1,30 @@
-// ============================================================
-// MCC API — Tandem Jobs Router
-// ============================================================
-// Manages tandem job records — created when a tandem-required
-// ride has a driver (provider) who selects their tandem mode:
-//   Mode A — Known Partner (pre-approved MCC ride-along driver)
-//   Mode B — Platform Match (coming in Phase 3)
-//   Mode C — Self-Sufficient (provider drives both vehicles)
-// ============================================================
-
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray, or } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { tandemJobsTable, rideAlongDriversTable, ridesTable, driversTable } from "@workspace/db/schema";
+import {
+  tandemJobsTable,
+  rideAlongDriversTable,
+  ridesTable,
+  driversTable,
+  driverAssignmentsTable,
+} from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { computeRideAlongFee } from "../lib/tandemFee";
 import { verifySupabaseToken, extractBearerToken, type SupabaseUser } from "../lib/adminAuth";
 
 const router: IRouter = Router();
 
-// ── Auth helpers ─────────────────────────────────────────────────────────────
+// ── Auth helpers ──────────────────────────────────────────────────────────────
 
 async function requireUserAuth(req: Request, res: Response): Promise<SupabaseUser | null> {
   const token = extractBearerToken(req);
   if (!token) {
-    res.status(401).json({ error: "Unauthorized — authentication required" });
+    res.status(401).json({ error: "Authentication required" });
     return null;
   }
   const user = await verifySupabaseToken(token);
   if (!user) {
-    res.status(401).json({ error: "Unauthorized — invalid or expired token" });
+    res.status(401).json({ error: "Invalid or expired token" });
     return null;
   }
   return user;
@@ -44,14 +40,77 @@ async function resolveCallerDriver(
     .where(eq(driversTable.userId, user.id))
     .limit(1);
   if (!driver) {
-    res.status(403).json({ error: "Forbidden — no driver profile found" });
+    res.status(403).json({ error: "No driver profile found" });
     return null;
   }
   return driver;
 }
 
-// ── POST /api/tandem-jobs ────────────────────────────────────────────────────
-// Create a tandem job for a ride. Caller must be an active driver (provider).
+// ── Shared helper: resolve a ride-along driver by email OR id ────────────────
+
+async function findRideAlongDriver(emailOrId: string) {
+  // Try as UUID (id field) first; if the value doesn't look like a UUID fall
+  // through to email lookup.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isUuid = UUID_RE.test(emailOrId);
+
+  const [record] = await db
+    .select()
+    .from(rideAlongDriversTable)
+    .where(
+      isUuid
+        ? eq(rideAlongDriversTable.id, emailOrId)
+        : eq(rideAlongDriversTable.email, emailOrId.toLowerCase()),
+    )
+    .limit(1);
+
+  return record ?? null;
+}
+
+// ── IMPORTANT: static paths MUST be registered before parameterised ones ─────
+
+// GET /api/tandem-jobs/lookup-partner?email=xxx  -or-  ?id=xxx
+// Validates a potential partner without modifying any records.
+
+router.get("/tandem-jobs/lookup-partner", async (req: Request, res: Response): Promise<void> => {
+  const user = await requireUserAuth(req, res);
+  if (!user) return;
+
+  const emailParam = String(req.query["email"] ?? "").trim();
+  const idParam = String(req.query["id"] ?? "").trim();
+  const lookup = emailParam || idParam;
+
+  if (!lookup) {
+    res.status(400).json({ error: "Provide 'email' or 'id' query parameter" });
+    return;
+  }
+
+  try {
+    const partnerRecord = await findRideAlongDriver(lookup);
+    if (!partnerRecord) {
+      res.status(404).json({ error: "No MCC ride-along driver found" });
+      return;
+    }
+
+    res.json({
+      id: partnerRecord.id,
+      firstName: partnerRecord.firstName,
+      lastName: partnerRecord.lastName,
+      email: partnerRecord.email,
+      verified: partnerRecord.verified,
+      status: partnerRecord.status,
+      rating: partnerRecord.rating,
+      totalJobs: partnerRecord.totalJobs,
+      profilePhotoPath: partnerRecord.profilePhotoPath,
+      eligible: partnerRecord.verified && partnerRecord.status === "active",
+    });
+  } catch (err) {
+    logger.error({ err }, "tandem.lookup_partner failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /api/tandem-jobs
 
 router.post("/tandem-jobs", async (req: Request, res: Response): Promise<void> => {
   const user = await requireUserAuth(req, res);
@@ -74,12 +133,7 @@ router.post("/tandem-jobs", async (req: Request, res: Response): Promise<void> =
   }
 
   try {
-    const [ride] = await db
-      .select()
-      .from(ridesTable)
-      .where(eq(ridesTable.id, rideId))
-      .limit(1);
-
+    const [ride] = await db.select().from(ridesTable).where(eq(ridesTable.id, rideId)).limit(1);
     if (!ride) {
       res.status(404).json({ error: "Ride not found" });
       return;
@@ -90,15 +144,33 @@ router.post("/tandem-jobs", async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Check for existing tandem job for this ride + provider
+    // Authorisation: caller must hold an accepted assignment for this ride.
+    const [assignment] = await db
+      .select({ id: driverAssignmentsTable.id })
+      .from(driverAssignmentsTable)
+      .where(
+        and(
+          eq(driverAssignmentsTable.rideId, rideId),
+          eq(driverAssignmentsTable.driverId, provider.id),
+          inArray(driverAssignmentsTable.status, ["accepted", "active"]),
+        ),
+      )
+      .limit(1);
+
+    if (!assignment) {
+      res.status(403).json({ error: "You are not the assigned provider for this ride" });
+      return;
+    }
+
+    // Idempotency: return existing record if one already exists.
     const [existing] = await db
-      .select({ id: tandemJobsTable.id })
+      .select()
       .from(tandemJobsTable)
       .where(and(eq(tandemJobsTable.rideId, rideId), eq(tandemJobsTable.providerId, provider.id)))
       .limit(1);
 
     if (existing) {
-      res.status(409).json({ error: "Tandem job already exists for this ride and provider" });
+      res.status(200).json(existing);
       return;
     }
 
@@ -116,7 +188,6 @@ router.post("/tandem-jobs", async (req: Request, res: Response): Promise<void> =
       .returning();
 
     req.log.info({ tandemJobId: tandemJob!.id, rideId, tandemMode }, "tandem.job.created");
-
     res.status(201).json(tandemJob);
   } catch (err) {
     logger.error({ err }, "tandem.create failed");
@@ -124,7 +195,7 @@ router.post("/tandem-jobs", async (req: Request, res: Response): Promise<void> =
   }
 });
 
-// ── GET /api/tandem-jobs/:id ─────────────────────────────────────────────────
+// GET /api/tandem-jobs/:id
 
 router.get("/tandem-jobs/:id", async (req: Request, res: Response): Promise<void> => {
   const user = await requireUserAuth(req, res);
@@ -133,13 +204,11 @@ router.get("/tandem-jobs/:id", async (req: Request, res: Response): Promise<void
   const provider = await resolveCallerDriver(user, res);
   if (!provider) return;
 
-  const id = String(req.params["id"]);
-
   try {
     const [tandemJob] = await db
       .select()
       .from(tandemJobsTable)
-      .where(eq(tandemJobsTable.id, id))
+      .where(eq(tandemJobsTable.id, String(req.params["id"])))
       .limit(1);
 
     if (!tandemJob) {
@@ -148,7 +217,7 @@ router.get("/tandem-jobs/:id", async (req: Request, res: Response): Promise<void
     }
 
     if (tandemJob.providerId !== provider.id) {
-      res.status(403).json({ error: "Forbidden — not your tandem job" });
+      res.status(403).json({ error: "Not your tandem job" });
       return;
     }
 
@@ -159,7 +228,7 @@ router.get("/tandem-jobs/:id", async (req: Request, res: Response): Promise<void
   }
 });
 
-// ── PATCH /api/tandem-jobs/:id/mode ─────────────────────────────────────────
+// PATCH /api/tandem-jobs/:id/mode
 
 router.patch("/tandem-jobs/:id/mode", async (req: Request, res: Response): Promise<void> => {
   const user = await requireUserAuth(req, res);
@@ -168,9 +237,7 @@ router.patch("/tandem-jobs/:id/mode", async (req: Request, res: Response): Promi
   const provider = await resolveCallerDriver(user, res);
   if (!provider) return;
 
-  const id = String(req.params["id"]);
   const { tandemMode } = req.body as { tandemMode?: string };
-
   const VALID_MODES = ["A", "B", "C"] as const;
   if (!tandemMode || !VALID_MODES.includes(tandemMode as "A" | "B" | "C")) {
     res.status(400).json({ error: "tandemMode must be A, B, or C" });
@@ -181,16 +248,15 @@ router.patch("/tandem-jobs/:id/mode", async (req: Request, res: Response): Promi
     const [existing] = await db
       .select()
       .from(tandemJobsTable)
-      .where(eq(tandemJobsTable.id, id))
+      .where(eq(tandemJobsTable.id, String(req.params["id"])))
       .limit(1);
 
     if (!existing) {
       res.status(404).json({ error: "Tandem job not found" });
       return;
     }
-
     if (existing.providerId !== provider.id) {
-      res.status(403).json({ error: "Forbidden — not your tandem job" });
+      res.status(403).json({ error: "Not your tandem job" });
       return;
     }
 
@@ -202,10 +268,10 @@ router.patch("/tandem-jobs/:id/mode", async (req: Request, res: Response): Promi
         matchStatus: tandemMode === "B" ? "pending_match" : "pending",
         updatedAt: new Date(),
       })
-      .where(eq(tandemJobsTable.id, id))
+      .where(eq(tandemJobsTable.id, existing.id))
       .returning();
 
-    req.log.info({ tandemJobId: id, tandemMode }, "tandem.mode.updated");
+    req.log.info({ tandemJobId: existing.id, tandemMode }, "tandem.mode.updated");
     res.json(updated);
   } catch (err) {
     logger.error({ err }, "tandem.mode.update failed");
@@ -213,143 +279,136 @@ router.patch("/tandem-jobs/:id/mode", async (req: Request, res: Response): Promi
   }
 });
 
-// ── POST /api/tandem-jobs/:id/known-partner ──────────────────────────────────
-// Validates partner eligibility (verified ride-along driver), then links them.
+// POST /api/tandem-jobs/:id/known-partner
 
-router.post("/tandem-jobs/:id/known-partner", async (req: Request, res: Response): Promise<void> => {
-  const user = await requireUserAuth(req, res);
-  if (!user) return;
+router.post(
+  "/tandem-jobs/:id/known-partner",
+  async (req: Request, res: Response): Promise<void> => {
+    const user = await requireUserAuth(req, res);
+    if (!user) return;
 
-  const provider = await resolveCallerDriver(user, res);
-  if (!provider) return;
+    const provider = await resolveCallerDriver(user, res);
+    if (!provider) return;
 
-  const id = String(req.params["id"]);
-  const { partnerEmail } = req.body as { partnerEmail?: string };
-
-  if (!partnerEmail) {
-    res.status(400).json({ error: "partnerEmail is required" });
-    return;
-  }
-
-  try {
-    const [tandemJob] = await db
-      .select()
-      .from(tandemJobsTable)
-      .where(eq(tandemJobsTable.id, id))
-      .limit(1);
-
-    if (!tandemJob) {
-      res.status(404).json({ error: "Tandem job not found" });
+    const { partnerEmailOrId } = req.body as { partnerEmailOrId?: string };
+    if (!partnerEmailOrId) {
+      res.status(400).json({ error: "partnerEmailOrId is required" });
       return;
     }
 
-    if (tandemJob.providerId !== provider.id) {
-      res.status(403).json({ error: "Forbidden — not your tandem job" });
-      return;
-    }
+    try {
+      const [tandemJob] = await db
+        .select()
+        .from(tandemJobsTable)
+        .where(eq(tandemJobsTable.id, String(req.params["id"])))
+        .limit(1);
 
-    // Validate partner: must have an active, verified ride-along driver record
-    const [partnerRecord] = await db
-      .select()
-      .from(rideAlongDriversTable)
-      .where(eq(rideAlongDriversTable.email, partnerEmail.toLowerCase()))
-      .limit(1);
+      if (!tandemJob) {
+        res.status(404).json({ error: "Tandem job not found" });
+        return;
+      }
+      if (tandemJob.providerId !== provider.id) {
+        res.status(403).json({ error: "Not your tandem job" });
+        return;
+      }
 
-    if (!partnerRecord) {
-      res.status(404).json({ error: "No MCC ride-along driver found with that email" });
-      return;
-    }
+      const partnerRecord = await findRideAlongDriver(partnerEmailOrId);
+      if (!partnerRecord) {
+        res.status(404).json({ error: "No MCC ride-along driver found" });
+        return;
+      }
+      if (!partnerRecord.verified || partnerRecord.status !== "active") {
+        res.status(422).json({
+          error: "Partner is not verified or not active",
+          partnerStatus: partnerRecord.status,
+          verified: partnerRecord.verified,
+        });
+        return;
+      }
 
-    if (!partnerRecord.verified || partnerRecord.status !== "active") {
-      res.status(422).json({
-        error: "Partner is not yet verified or is not active",
-        partnerStatus: partnerRecord.status,
-        verified: partnerRecord.verified,
+      const [updated] = await db
+        .update(tandemJobsTable)
+        .set({ rideAlongDriverId: partnerRecord.id, matchStatus: "confirmed", updatedAt: new Date() })
+        .where(eq(tandemJobsTable.id, tandemJob.id))
+        .returning();
+
+      req.log.info({ tandemJobId: tandemJob.id, partnerId: partnerRecord.id }, "tandem.known_partner.set");
+      res.json({
+        ...updated,
+        partner: {
+          id: partnerRecord.id,
+          firstName: partnerRecord.firstName,
+          lastName: partnerRecord.lastName,
+          email: partnerRecord.email,
+          verified: partnerRecord.verified,
+          rating: partnerRecord.rating,
+          totalJobs: partnerRecord.totalJobs,
+          profilePhotoPath: partnerRecord.profilePhotoPath,
+        },
       });
-      return;
+    } catch (err) {
+      logger.error({ err }, "tandem.known_partner.set failed");
+      res.status(500).json({ error: "Internal error" });
     }
+  },
+);
 
-    const [updated] = await db
-      .update(tandemJobsTable)
-      .set({ rideAlongDriverId: partnerRecord.id, matchStatus: "confirmed", updatedAt: new Date() })
-      .where(eq(tandemJobsTable.id, id))
-      .returning();
+// DELETE /api/tandem-jobs/:id/known-partner
 
-    req.log.info({ tandemJobId: id, partnerId: partnerRecord.id }, "tandem.known_partner.set");
+router.delete(
+  "/tandem-jobs/:id/known-partner",
+  async (req: Request, res: Response): Promise<void> => {
+    const user = await requireUserAuth(req, res);
+    if (!user) return;
 
-    res.json({
-      ...updated,
-      partner: {
-        id: partnerRecord.id,
-        firstName: partnerRecord.firstName,
-        lastName: partnerRecord.lastName,
-        email: partnerRecord.email,
-        verified: partnerRecord.verified,
-        rating: partnerRecord.rating,
-        totalJobs: partnerRecord.totalJobs,
-        profilePhotoPath: partnerRecord.profilePhotoPath,
-      },
-    });
-  } catch (err) {
-    logger.error({ err }, "tandem.known_partner.set failed");
-    res.status(500).json({ error: "Internal error" });
-  }
-});
+    const provider = await resolveCallerDriver(user, res);
+    if (!provider) return;
 
-// ── DELETE /api/tandem-jobs/:id/known-partner ────────────────────────────────
+    try {
+      const [tandemJob] = await db
+        .select()
+        .from(tandemJobsTable)
+        .where(eq(tandemJobsTable.id, String(req.params["id"])))
+        .limit(1);
 
-router.delete("/tandem-jobs/:id/known-partner", async (req: Request, res: Response): Promise<void> => {
+      if (!tandemJob) {
+        res.status(404).json({ error: "Tandem job not found" });
+        return;
+      }
+      if (tandemJob.providerId !== provider.id) {
+        res.status(403).json({ error: "Not your tandem job" });
+        return;
+      }
+
+      const [updated] = await db
+        .update(tandemJobsTable)
+        .set({ rideAlongDriverId: null, matchStatus: "pending", updatedAt: new Date() })
+        .where(eq(tandemJobsTable.id, tandemJob.id))
+        .returning();
+
+      req.log.info({ tandemJobId: tandemJob.id }, "tandem.known_partner.removed");
+      res.json(updated);
+    } catch (err) {
+      logger.error({ err }, "tandem.known_partner.remove failed");
+      res.status(500).json({ error: "Internal error" });
+    }
+  },
+);
+
+// ── Driver preferred-partner endpoints ────────────────────────────────────────
+// Persists a driver's standing preferred tandem partner to their profile row.
+
+// GET /api/drivers/me/preferred-partner
+
+router.get("/drivers/me/preferred-partner", async (req: Request, res: Response): Promise<void> => {
   const user = await requireUserAuth(req, res);
   if (!user) return;
 
-  const provider = await resolveCallerDriver(user, res);
-  if (!provider) return;
+  const driver = await resolveCallerDriver(user, res);
+  if (!driver) return;
 
-  const id = String(req.params["id"]);
-
-  try {
-    const [tandemJob] = await db
-      .select()
-      .from(tandemJobsTable)
-      .where(eq(tandemJobsTable.id, id))
-      .limit(1);
-
-    if (!tandemJob) {
-      res.status(404).json({ error: "Tandem job not found" });
-      return;
-    }
-
-    if (tandemJob.providerId !== provider.id) {
-      res.status(403).json({ error: "Forbidden — not your tandem job" });
-      return;
-    }
-
-    const [updated] = await db
-      .update(tandemJobsTable)
-      .set({ rideAlongDriverId: null, matchStatus: "pending", updatedAt: new Date() })
-      .where(eq(tandemJobsTable.id, id))
-      .returning();
-
-    req.log.info({ tandemJobId: id }, "tandem.known_partner.removed");
-    res.json(updated);
-  } catch (err) {
-    logger.error({ err }, "tandem.known_partner.remove failed");
-    res.status(500).json({ error: "Internal error" });
-  }
-});
-
-// ── GET /api/tandem-jobs/lookup-partner ──────────────────────────────────────
-// Validates a potential known partner without creating/modifying a tandem job.
-// Used by the Settings UI to preview a partner before they accept a job.
-
-router.get("/tandem-jobs/lookup-partner", async (req: Request, res: Response): Promise<void> => {
-  const user = await requireUserAuth(req, res);
-  if (!user) return;
-
-  const email = String(req.query["email"] ?? "").toLowerCase().trim();
-
-  if (!email) {
-    res.status(400).json({ error: "email query param is required" });
+  if (!driver.preferredPartnerId) {
+    res.status(404).json({ error: "No preferred partner saved" });
     return;
   }
 
@@ -357,11 +416,11 @@ router.get("/tandem-jobs/lookup-partner", async (req: Request, res: Response): P
     const [partnerRecord] = await db
       .select()
       .from(rideAlongDriversTable)
-      .where(eq(rideAlongDriversTable.email, email))
+      .where(eq(rideAlongDriversTable.id, driver.preferredPartnerId))
       .limit(1);
 
     if (!partnerRecord) {
-      res.status(404).json({ error: "No MCC ride-along driver found with that email" });
+      res.status(404).json({ error: "Saved partner record not found" });
       return;
     }
 
@@ -378,9 +437,92 @@ router.get("/tandem-jobs/lookup-partner", async (req: Request, res: Response): P
       eligible: partnerRecord.verified && partnerRecord.status === "active",
     });
   } catch (err) {
-    logger.error({ err }, "tandem.lookup_partner failed");
+    logger.error({ err }, "drivers.preferred_partner.get failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
+
+// POST /api/drivers/me/preferred-partner   body: { partnerEmailOrId }
+
+router.post(
+  "/drivers/me/preferred-partner",
+  async (req: Request, res: Response): Promise<void> => {
+    const user = await requireUserAuth(req, res);
+    if (!user) return;
+
+    const driver = await resolveCallerDriver(user, res);
+    if (!driver) return;
+
+    const { partnerEmailOrId } = req.body as { partnerEmailOrId?: string };
+    if (!partnerEmailOrId) {
+      res.status(400).json({ error: "partnerEmailOrId is required" });
+      return;
+    }
+
+    try {
+      const partnerRecord = await findRideAlongDriver(partnerEmailOrId);
+      if (!partnerRecord) {
+        res.status(404).json({ error: "No MCC ride-along driver found" });
+        return;
+      }
+      if (!partnerRecord.verified || partnerRecord.status !== "active") {
+        res.status(422).json({
+          error: "Partner is not verified or not active",
+          partnerStatus: partnerRecord.status,
+          verified: partnerRecord.verified,
+        });
+        return;
+      }
+
+      await db
+        .update(driversTable)
+        .set({ preferredPartnerId: partnerRecord.id })
+        .where(eq(driversTable.id, driver.id));
+
+      req.log.info({ driverId: driver.id, partnerId: partnerRecord.id }, "driver.preferred_partner.set");
+      res.json({
+        id: partnerRecord.id,
+        firstName: partnerRecord.firstName,
+        lastName: partnerRecord.lastName,
+        email: partnerRecord.email,
+        verified: partnerRecord.verified,
+        status: partnerRecord.status,
+        rating: partnerRecord.rating,
+        totalJobs: partnerRecord.totalJobs,
+        profilePhotoPath: partnerRecord.profilePhotoPath,
+        eligible: true,
+      });
+    } catch (err) {
+      logger.error({ err }, "drivers.preferred_partner.set failed");
+      res.status(500).json({ error: "Internal error" });
+    }
+  },
+);
+
+// DELETE /api/drivers/me/preferred-partner
+
+router.delete(
+  "/drivers/me/preferred-partner",
+  async (req: Request, res: Response): Promise<void> => {
+    const user = await requireUserAuth(req, res);
+    if (!user) return;
+
+    const driver = await resolveCallerDriver(user, res);
+    if (!driver) return;
+
+    try {
+      await db
+        .update(driversTable)
+        .set({ preferredPartnerId: null })
+        .where(eq(driversTable.id, driver.id));
+
+      req.log.info({ driverId: driver.id }, "driver.preferred_partner.cleared");
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error({ err }, "drivers.preferred_partner.clear failed");
+      res.status(500).json({ error: "Internal error" });
+    }
+  },
+);
 
 export default router;

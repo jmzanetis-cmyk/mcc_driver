@@ -9,7 +9,13 @@ import { getAvailableNavApps, getNavAppName, type NavApp } from '@/services/navi
 import { PageHeader, Card, Button } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import { getStarDisplay } from '@/utils/formatters';
-import { lookupTandemPartner, type PartnerLookupResult } from '@/services/api/edgeFunctions';
+import {
+  lookupTandemPartner,
+  getPreferredPartner,
+  savePreferredPartner,
+  clearPreferredPartner,
+  type PartnerLookupResult,
+} from '@/services/api/edgeFunctions';
 
 const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 
@@ -29,11 +35,18 @@ export function SettingsScreen() {
     const saved = localStorage.getItem('mcc_preferred_nav') as NavApp | null;
     if (saved) setPreferredNav(saved);
 
-    // Restore saved partner from localStorage
-    const savedPartnerJson = localStorage.getItem(KNOWN_PARTNER_KEY);
-    if (savedPartnerJson) {
-      try { setSavedPartner(JSON.parse(savedPartnerJson) as PartnerLookupResult); } catch { /* ignore */ }
-    }
+    // Load preferred partner from server; fall back to localStorage cache if offline
+    void getPreferredPartner().then((result) => {
+      if (result.success && result.data) {
+        setSavedPartner(result.data);
+        localStorage.setItem(KNOWN_PARTNER_KEY, JSON.stringify(result.data));
+      } else {
+        const cached = localStorage.getItem(KNOWN_PARTNER_KEY);
+        if (cached) {
+          try { setSavedPartner(JSON.parse(cached) as PartnerLookupResult); } catch { /* ignore */ }
+        }
+      }
+    });
   }, []);
 
   const handleNavChange = (app: NavApp) => {
@@ -47,28 +60,37 @@ export function SettingsScreen() {
   };
 
   const handlePartnerLookup = async () => {
-    if (!partnerEmail.trim()) return;
+    const trimmed = partnerEmail.trim();
+    if (!trimmed) return;
     setPartnerLookupLoading(true);
     setPartnerLookupError(null);
-    const result = await lookupTandemPartner(partnerEmail.trim());
+
+    // Validate + persist to server in one call
+    const result = await savePreferredPartner(trimmed);
     setPartnerLookupLoading(false);
+
     if (result.success && result.data) {
-      if (!result.data.eligible) {
-        setPartnerLookupError(`Partner found but not eligible (status: ${result.data.status}, verified: ${result.data.verified})`);
-      } else {
-        setSavedPartner(result.data);
-        localStorage.setItem(KNOWN_PARTNER_KEY, JSON.stringify(result.data));
-        setPartnerEmail('');
-        setPartnerLookupError(null);
-      }
+      setSavedPartner(result.data);
+      localStorage.setItem(KNOWN_PARTNER_KEY, JSON.stringify(result.data));
+      setPartnerEmail('');
+      setPartnerLookupError(null);
     } else {
-      setPartnerLookupError(result.error ?? 'Partner not found');
+      // Friendly fall-through: look up for preview without saving if save fails
+      const preview = await lookupTandemPartner(trimmed);
+      if (preview.success && preview.data && !preview.data.eligible) {
+        setPartnerLookupError(
+          `Partner found but not eligible — status: ${preview.data.status}, verified: ${String(preview.data.verified)}`,
+        );
+      } else {
+        setPartnerLookupError(result.error ?? 'Partner not found. Enter a valid email or MCC driver ID.');
+      }
     }
   };
 
-  const handleRemovePartner = () => {
+  const handleRemovePartner = async () => {
     setSavedPartner(null);
     localStorage.removeItem(KNOWN_PARTNER_KEY);
+    await clearPreferredPartner();
   };
 
   if (!driver) return null;
@@ -276,7 +298,7 @@ export function SettingsScreen() {
                 </div>
               </div>
               <button
-                onClick={handleRemovePartner}
+                onClick={() => void handleRemovePartner()}
                 style={{
                   width: '100%', padding: '8px 0',
                   background: 'none', border: `1px solid ${colors.borderLight}`,
@@ -292,7 +314,7 @@ export function SettingsScreen() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   type="email"
-                  placeholder="Partner's email address"
+                  placeholder="Email or MCC driver ID"
                   value={partnerEmail}
                   onChange={(e) => setPartnerEmail(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') void handlePartnerLookup(); }}

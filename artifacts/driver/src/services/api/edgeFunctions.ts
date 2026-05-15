@@ -240,13 +240,14 @@ export async function updateTandemJobMode(
 
 /**
  * Validate and link a known partner (Mode A) to a tandem job.
+ * Accepts the partner's email address or MCC ride-along driver ID.
  * The partner must have a verified, active ride-along driver record.
  */
 export async function setKnownPartner(
   tandemJobId: string,
-  partnerEmail: string
+  partnerEmailOrId: string,
 ): Promise<ApiResult<TandemJobRecord & { partner: PartnerLookupResult }>> {
-  return callApi(`/tandem-jobs/${tandemJobId}/known-partner`, 'POST', { partnerEmail });
+  return callApi(`/tandem-jobs/${tandemJobId}/known-partner`, 'POST', { partnerEmailOrId });
 }
 
 /**
@@ -257,12 +258,34 @@ export async function removeKnownPartner(tandemJobId: string): Promise<ApiResult
 }
 
 /**
- * Look up a potential tandem partner by email address (settings validation).
- * Does not modify any tandem job records.
+ * Look up a potential tandem partner by email address or MCC ride-along driver ID.
+ * Does not modify any records.
  */
-export async function lookupTandemPartner(email: string): Promise<ApiResult<PartnerLookupResult>> {
-  return callApi<PartnerLookupResult>(
-    `/tandem-jobs/lookup-partner?email=${encodeURIComponent(email)}`,
-    'GET'
-  );
+export async function lookupTandemPartner(emailOrId: string): Promise<ApiResult<PartnerLookupResult>> {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const param = UUID_RE.test(emailOrId) ? `id=${encodeURIComponent(emailOrId)}` : `email=${encodeURIComponent(emailOrId)}`;
+  return callApi<PartnerLookupResult>(`/tandem-jobs/lookup-partner?${param}`, 'GET');
+}
+
+// ── Driver preferred-partner persistence ─────────────────────────────────────
+
+/**
+ * Fetch the driver's server-persisted preferred tandem partner.
+ */
+export async function getPreferredPartner(): Promise<ApiResult<PartnerLookupResult>> {
+  return callApi<PartnerLookupResult>('/drivers/me/preferred-partner', 'GET');
+}
+
+/**
+ * Validate a partner and save as the driver's preferred tandem partner on the server.
+ */
+export async function savePreferredPartner(partnerEmailOrId: string): Promise<ApiResult<PartnerLookupResult>> {
+  return callApi<PartnerLookupResult>('/drivers/me/preferred-partner', 'POST', { partnerEmailOrId });
+}
+
+/**
+ * Remove the driver's preferred tandem partner from their profile.
+ */
+export async function clearPreferredPartner(): Promise<ApiResult<{ ok: boolean }>> {
+  return callApi<{ ok: boolean }>('/drivers/me/preferred-partner', 'DELETE');
 }
