@@ -18,38 +18,16 @@ import { z } from "zod/v4";
 import { db } from "@workspace/db";
 import { rideAlongDriversTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import {
+  requireAdminAuth,
+  verifySupabaseToken,
+  extractBearerToken,
+  type SupabaseUser,
+} from "../lib/adminAuth";
 
 const router: IRouter = Router();
 
-// ── Auth helpers ────────────────────────────────────────────────────────────
-
-interface SupabaseUser {
-  id: string;
-  email?: string;
-}
-
-async function verifySupabaseToken(token: string): Promise<SupabaseUser | null> {
-  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-  try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: supabaseAnonKey },
-    });
-    if (!res.ok) return null;
-    const user = (await res.json()) as SupabaseUser;
-    if (!user?.id) return null;
-    return user;
-  } catch {
-    return null;
-  }
-}
-
-function extractBearerToken(req: Request): string | null {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith("Bearer ")) return null;
-  return auth.slice(7);
-}
+// ── User auth helper (non-admin) ────────────────────────────────────────────
 
 async function requireUserAuth(req: Request, res: Response): Promise<SupabaseUser | null> {
   const token = extractBearerToken(req);
@@ -60,31 +38,6 @@ async function requireUserAuth(req: Request, res: Response): Promise<SupabaseUse
   const user = await verifySupabaseToken(token);
   if (!user) {
     res.status(401).json({ error: "Unauthorized — invalid or expired token" });
-    return null;
-  }
-  return user;
-}
-
-async function requireAdminAuth(req: Request, res: Response): Promise<SupabaseUser | null> {
-  const token = extractBearerToken(req);
-  if (!token) {
-    res.status(401).json({ error: "Unauthorized — authentication required" });
-    return null;
-  }
-  const user = await verifySupabaseToken(token);
-  if (!user) {
-    res.status(401).json({ error: "Unauthorized — invalid or expired token" });
-    return null;
-  }
-  const adminEmailsEnv = process.env.ADMIN_EMAILS;
-  if (adminEmailsEnv) {
-    const adminEmails = adminEmailsEnv.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-    if (!user.email || !adminEmails.includes(user.email.toLowerCase())) {
-      res.status(403).json({ error: "Forbidden — not an admin" });
-      return null;
-    }
-  } else if (process.env.NODE_ENV === "production") {
-    res.status(403).json({ error: "Forbidden — admin access not configured" });
     return null;
   }
   return user;

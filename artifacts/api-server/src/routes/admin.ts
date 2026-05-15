@@ -11,87 +11,9 @@ import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { driversTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import { requireAdminAuth } from "../lib/adminAuth";
 
 const router: IRouter = Router();
-
-// ── Auth helpers ──────────────────────────────────────────────────────────────
-
-interface SupabaseUser {
-  id: string;
-  email?: string;
-}
-
-async function verifySupabaseToken(token: string): Promise<SupabaseUser | null> {
-  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    logger.warn("Supabase env vars not configured — cannot verify JWT");
-    return null;
-  }
-
-  try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        apikey: supabaseAnonKey,
-      },
-    });
-    if (!res.ok) return null;
-    const user = (await res.json()) as SupabaseUser;
-    if (!user?.id) return null;
-    return user;
-  } catch {
-    return null;
-  }
-}
-
-function extractBearerToken(req: Request): string | null {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith("Bearer ")) return null;
-  return auth.slice(7);
-}
-
-/**
- * Requires the caller to be an authenticated Supabase admin.
- * Admin check: user email must be in ADMIN_EMAILS env var (comma-separated).
- * If ADMIN_EMAILS is not set, falls back to allowing any authenticated user
- * in development, or blocking all in production.
- */
-async function requireAdminAuth(req: Request, res: Response): Promise<SupabaseUser | null> {
-  const token = extractBearerToken(req);
-  if (!token) {
-    res.status(401).json({ error: "Unauthorized — authentication required" });
-    return null;
-  }
-
-  const user = await verifySupabaseToken(token);
-  if (!user) {
-    res.status(401).json({ error: "Unauthorized — invalid or expired token" });
-    return null;
-  }
-
-  const adminEmailsEnv = process.env.ADMIN_EMAILS;
-  if (adminEmailsEnv) {
-    const adminEmails = adminEmailsEnv
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-
-    if (!user.email || !adminEmails.includes(user.email.toLowerCase())) {
-      res.status(403).json({ error: "Forbidden — not an admin" });
-      return null;
-    }
-  } else if (process.env.NODE_ENV === "production") {
-    logger.warn("ADMIN_EMAILS not set — blocking admin access in production");
-    res.status(403).json({ error: "Forbidden — admin access not configured" });
-    return null;
-  } else {
-    logger.warn("ADMIN_EMAILS not set — admin endpoint unprotected in dev mode");
-  }
-
-  return user;
-}
 
 // ── GET /api/admin/drivers ────────────────────────────────────────────────────
 

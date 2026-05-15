@@ -3,6 +3,23 @@ import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+// ── Admin users ──────────────────────────────────────────────────────────────
+// Database-driven admin role list. Replaces the legacy ADMIN_EMAILS env var.
+// Email is stored lowercase and uniquely indexed.
+
+export const adminUsersTable = pgTable(
+  "admin_users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [uniqueIndex("admin_users_email_unique_idx").on(table.email)],
+);
+
+export type AdminUser = typeof adminUsersTable.$inferSelect;
+
 // ── Drivers ──────────────────────────────────────────────────────────────────
 
 export const driversTable = pgTable("drivers", {
