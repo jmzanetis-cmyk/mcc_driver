@@ -7,7 +7,7 @@
 // ============================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, inArray, notInArray, isNotNull, lt, asc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   ridesTable,
@@ -123,6 +123,190 @@ async function resolveCallerDriver(
   }
 
   return driver;
+}
+
+// ── Cascade dispatch helper ───────────────────────────────────────────────────
+// When an assignment is declined or expires, attempt to re-offer the ride to
+// the next available eligible driver for the same role. If no drivers remain,
+// mark the ride as 'dispatch_failed'.
+
+async function cascadeDispatch(
+  rideId: string,
+  declinedAssignment: typeof driverAssignmentsTable.$inferSelect,
+): Promise<void> {
+  // Fetch the ride — bail out if it's already in a terminal state
+  const [ride] = await db
+    .select()
+    .from(ridesTable)
+    .where(eq(ridesTable.id, rideId))
+    .limit(1);
+
+  if (!ride) {
+    logger.warn({ rideId }, "cascadeDispatch: ride not found");
+    return;
+  }
+
+  const terminalStatuses = ["completed", "dispatch_failed", "cancelled"];
+  if (terminalStatuses.includes(ride.status)) {
+    logger.info({ rideId, status: ride.status }, "cascadeDispatch: ride already in terminal state, skipping");
+    return;
+  }
+
+  const config = SCENARIO_CONFIG[ride.scenario];
+  if (!config) {
+    logger.warn({ rideId, scenario: ride.scenario }, "cascadeDispatch: unknown scenario");
+    return;
+  }
+
+  // Find the assignment config entry for this role
+  const assignmentCfg = config.assignments.find((a) => a.role === declinedAssignment.role);
+  if (!assignmentCfg) {
+    logger.warn({ rideId, role: declinedAssignment.role }, "cascadeDispatch: role not found in scenario config");
+    return;
+  }
+
+  // Collect all driver IDs already tried for this ride (any status) to avoid re-offering
+  const priorAssignments = await db
+    .select({ driverId: driverAssignmentsTable.driverId })
+    .from(driverAssignmentsTable)
+    .where(eq(driverAssignmentsTable.rideId, rideId));
+
+  const triedDriverIds = priorAssignments.map((a) => a.driverId);
+
+  // Exclude drivers currently busy on other rides
+  const activeStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];
+  const busyDriverRows = await db
+    .select({ driverId: driverAssignmentsTable.driverId })
+    .from(driverAssignmentsTable)
+    .where(inArray(driverAssignmentsTable.status, activeStatuses));
+
+  const busyOnOtherRides = busyDriverRows
+    .map((r) => r.driverId)
+    .filter((id) => !triedDriverIds.includes(id));
+
+  // Build exclusion list: tried for this ride OR busy elsewhere
+  const excludeIds = Array.from(new Set([...triedDriverIds, ...busyOnOtherRides]));
+
+  // Query for eligible drivers — ordered by totalRidesCompleted ASC (prefer less busy drivers)
+  // then by createdAt ASC for a deterministic, fair tie-break
+  const baseWhere = and(
+    eq(driversTable.isOnline, true),
+    eq(driversTable.status, "active"),
+    isNotNull(driversTable.currentLat),
+    isNotNull(driversTable.currentLng),
+    excludeIds.length > 0 ? notInArray(driversTable.id, excludeIds) : undefined,
+  );
+
+  let eligibleDrivers = await db
+    .select({ id: driversTable.id })
+    .from(driversTable)
+    .where(baseWhere)
+    .orderBy(asc(driversTable.totalRidesCompleted), asc(driversTable.createdAt));
+
+  // If this role requires driving the member's vehicle, restrict to capable drivers only
+  if (assignmentCfg.drivesMemberVehicle) {
+    eligibleDrivers = await db
+      .select({ id: driversTable.id })
+      .from(driversTable)
+      .where(
+        and(
+          baseWhere,
+          eq(driversTable.canDriveMemberVehicle, true),
+        ),
+      )
+      .orderBy(asc(driversTable.totalRidesCompleted), asc(driversTable.createdAt));
+  }
+
+  // Guard: if a pending assignment already exists for this ride+role, skip insertion
+  // (prevents duplicate re-offers from concurrent cascade invocations)
+  const [existingPending] = await db
+    .select({ id: driverAssignmentsTable.id })
+    .from(driverAssignmentsTable)
+    .where(
+      and(
+        eq(driverAssignmentsTable.rideId, rideId),
+        eq(driverAssignmentsTable.role, declinedAssignment.role),
+        eq(driverAssignmentsTable.status, "pending"),
+      ),
+    )
+    .limit(1);
+
+  if (existingPending) {
+    logger.info({ rideId, role: declinedAssignment.role }, "cascadeDispatch: pending assignment already exists, skipping");
+    return;
+  }
+
+  if (eligibleDrivers.length === 0) {
+    logger.info({ rideId }, "cascadeDispatch: no eligible drivers remaining — marking dispatch_failed");
+    await db
+      .update(ridesTable)
+      .set({ status: "dispatch_failed" })
+      .where(eq(ridesTable.id, rideId));
+    return;
+  }
+
+  const nextDriverId = eligibleDrivers[0]!.id;
+  const deadlineSeconds = 30;
+  const responseDeadline = new Date(Date.now() + deadlineSeconds * 1000);
+
+  const memberVehicleDesc =
+    ride.memberVehicleYear && ride.memberVehicleMake
+      ? `${ride.memberVehicleYear} ${ride.memberVehicleColor ?? ""} ${ride.memberVehicleMake} ${ride.memberVehicleModel ?? ""}`.trim()
+      : null;
+
+  await db.insert(driverAssignmentsTable).values({
+    rideId,
+    driverId: nextDriverId,
+    role: declinedAssignment.role,
+    status: "pending",
+    drivesMemberVehicle: assignmentCfg.drivesMemberVehicle,
+    carriesPassenger: assignmentCfg.carriesPassenger,
+    responseDeadline,
+    memberVehicleDescription: assignmentCfg.drivesMemberVehicle ? memberVehicleDesc : null,
+  });
+
+  logger.info({ rideId, nextDriverId, role: declinedAssignment.role }, "cascadeDispatch: re-offered ride to next driver");
+}
+
+// ── Background expiry sweep ───────────────────────────────────────────────────
+// Periodically scans for pending assignments past their responseDeadline and
+// triggers cascadeDispatch so rides are automatically re-offered without any
+// driver action required (covers the case where a driver ignores the countdown).
+
+export function startExpiryWorker(intervalMs = 15_000): NodeJS.Timeout {
+  logger.info({ intervalMs }, "rides.expiryWorker: started");
+
+  const sweep = async () => {
+    try {
+      const now = new Date();
+
+      // Atomically mark all overdue pending assignments as expired in one statement.
+      // The WHERE status='pending' guard prevents double-expiry under concurrent sweeps.
+      const expired = await db
+        .update(driverAssignmentsTable)
+        .set({ status: "expired" })
+        .where(
+          and(
+            eq(driverAssignmentsTable.status, "pending"),
+            lt(driverAssignmentsTable.responseDeadline, now),
+          ),
+        )
+        .returning();
+
+      if (expired.length > 0) {
+        logger.info({ count: expired.length }, "rides.expiryWorker: expired overdue assignments");
+      }
+
+      // Cascade each expired assignment to the next available driver
+      for (const assignment of expired) {
+        await cascadeDispatch(assignment.rideId, assignment);
+      }
+    } catch (err) {
+      logger.error({ err }, "rides.expiryWorker: sweep error");
+    }
+  };
+
+  return setInterval(() => { void sweep(); }, intervalMs);
 }
 
 // ── POST /api/rides/dispatch ──────────────────────────────────────────────────
@@ -329,10 +513,25 @@ router.post("/rides/assignments/:assignmentId/accept", async (req: Request, res:
     }
 
     if (new Date() > assignment.responseDeadline) {
-      await db
+      // Atomic update: only succeeds if still pending, preventing double-expiry
+      // if the background sweep fires at the same moment
+      const [expiredRow] = await db
         .update(driverAssignmentsTable)
         .set({ status: "expired" })
-        .where(eq(driverAssignmentsTable.id, assignmentId));
+        .where(
+          and(
+            eq(driverAssignmentsTable.id, assignmentId),
+            eq(driverAssignmentsTable.status, "pending"),
+          ),
+        )
+        .returning();
+
+      // Only cascade if this request won the expiry race (expiredRow is defined)
+      if (expiredRow) {
+        cascadeDispatch(expiredRow.rideId, expiredRow).catch((err) =>
+          logger.error({ err, rideId: expiredRow.rideId }, "cascadeDispatch failed after expiry"),
+        );
+      }
 
       res.status(400).json({ error: "Response deadline has passed" });
       return;
@@ -355,13 +554,34 @@ router.post("/rides/assignments/:assignmentId/accept", async (req: Request, res:
       return;
     }
 
-    // Update ride status when all assignments are accepted
+    // Update ride status when all required assignments are accepted.
+    // We must ignore superseded (rejected/expired) rows from previous cascade attempts
+    // — only "active" assignments (not rejected/expired) count toward driversRequired.
+    const [ride] = await db
+      .select({ scenario: ridesTable.scenario })
+      .from(ridesTable)
+      .where(eq(ridesTable.id, updated.rideId))
+      .limit(1);
+
+    const rideScenario = ride ? SCENARIO_CONFIG[ride.scenario] : null;
+    const driversRequired = rideScenario?.driversRequired ?? 1;
+
     const allAssignments = await db
       .select()
       .from(driverAssignmentsTable)
       .where(eq(driverAssignmentsTable.rideId, updated.rideId));
 
-    const allAccepted = allAssignments.every((a) => a.status === "accepted");
+    // Filter to only the current "active" assignments (exclude superseded rows)
+    const supersededStatuses = ["rejected", "expired"];
+    const activeAssignments = allAssignments.filter(
+      (a) => !supersededStatuses.includes(a.status),
+    );
+
+    // All required drivers have accepted when: active count matches driversRequired
+    // AND every active assignment is in "accepted" status
+    const allAccepted =
+      activeAssignments.length === driversRequired &&
+      activeAssignments.every((a) => a.status === "accepted");
 
     if (allAccepted) {
       await db
@@ -438,6 +658,11 @@ router.post("/rides/assignments/:assignmentId/decline", async (req: Request, res
     }
 
     req.log.info({ assignmentId, rideId: updated.rideId, driverId: driver.id }, "rides.assignment.declined");
+
+    // Cascade to next driver asynchronously — do not block the response
+    cascadeDispatch(updated.rideId, updated).catch((err) =>
+      logger.error({ err, rideId: updated.rideId }, "cascadeDispatch failed after decline"),
+    );
 
     res.json({
       success: true,

@@ -1,4 +1,5 @@
-import { pgTable, text, boolean, integer, real, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, integer, real, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -81,7 +82,11 @@ export const driverAssignmentsTable = pgTable("driver_assignments", {
   payoutStatus: text("payout_status"),
   payoutId: uuid("payout_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("driver_assignments_one_pending_per_ride_role")
+    .on(table.rideId, table.role)
+    .where(sql`${table.status} = 'pending'`),
+]);
 
 export type DriverAssignment = typeof driverAssignmentsTable.$inferSelect;
 
