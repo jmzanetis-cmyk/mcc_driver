@@ -58,3 +58,8 @@ externalPort = 3003
 [[ports]]
 localPort = 19574
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+SUPABASE_DB_REGION = "aws-0-us-east-2"
