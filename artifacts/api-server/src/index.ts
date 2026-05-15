@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startExpiryWorker } from "./routes/rides";
 import { seedAdminsFromEnv } from "./lib/adminAuth";
+import { startWeeklyPayoutScheduler } from "./lib/weeklyPayoutScheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -26,4 +27,5 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   startExpiryWorker();
   void seedAdminsFromEnv();
+  startWeeklyPayoutScheduler();
 });
