@@ -413,6 +413,29 @@ export function ApplicationScreen() {
             </Button>
           )}
         </div>
+
+        {/* Ride-Along Driver alternative path */}
+        {step === 1 && (
+          <div style={{
+            marginTop: 28, paddingTop: 20,
+            borderTop: `1px solid ${colors.border}`,
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 8 }}>
+              Not an MCC provider driver?
+            </div>
+            <button
+              onClick={() => navigate('/ride-along-apply')}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, color: colors.gold,
+                textDecoration: 'underline', padding: 0,
+              }}
+            >
+              Apply as a Ride-Along Driver instead →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

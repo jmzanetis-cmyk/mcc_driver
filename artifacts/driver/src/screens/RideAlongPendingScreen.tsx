@@ -214,6 +214,21 @@ export function RideAlongPendingScreen() {
         </div>
       )}
 
+      {/* Resubmit banner for rejected applicants */}
+      {isRejected && profile && (
+        <div style={{
+          width: '100%', maxWidth: 360, marginBottom: 16,
+          padding: 16, background: colors.errorBg,
+          borderRadius: borderRadius.md, border: `1px solid ${colors.error}30`,
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 13, color: colors.error, marginBottom: 12 }}>
+            You can update your documents and resubmit your application for review.
+          </div>
+          <ResubmitButton profileId={profile.id} onSuccess={fetchProfile} />
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 12 }}>
         <Button onClick={() => void fetchProfile()} variant="secondary" size="sm">
           Check Status
@@ -223,5 +238,55 @@ export function RideAlongPendingScreen() {
         </Button>
       </div>
     </div>
+  );
+}
+
+// ── ResubmitButton ────────────────────────────────────────────────────────────
+// Calls PATCH /ride-along-drivers/:id with empty body to trigger
+// the automatic resubmit logic (inactive → pending_approval).
+
+function ResubmitButton({ profileId, onSuccess }: { profileId: string; onSuccess: () => void }) {
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const handleResubmit = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+      const res = await fetch(`${BASE}/api/ride-along-drivers/${profileId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        setError(body.error ?? 'Failed to resubmit. Please try again.');
+      } else {
+        onSuccess();
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Button onClick={() => void handleResubmit()} loading={loading} size="sm" fullWidth>
+        Resubmit Application
+      </Button>
+      {error && (
+        <div style={{ fontSize: 12, color: colors.error, marginTop: 8 }}>{error}</div>
+      )}
+    </>
   );
 }

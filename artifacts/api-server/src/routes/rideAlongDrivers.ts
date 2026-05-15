@@ -296,6 +296,14 @@ router.patch("/ride-along-drivers/:id", async (req: Request, res: Response): Pro
     const updates: Partial<typeof rideAlongDriversTable.$inferInsert> = {
       updatedAt: new Date(),
     };
+
+    // Resubmit semantics: if a rejected applicant updates their profile,
+    // automatically return them to pending_approval for re-review.
+    if (existing.status === "inactive") {
+      updates.status = "pending_approval";
+      updates.backgroundCheckStatus = "pending";
+    }
+
     if (body.zipCode !== undefined) updates.zipCode = body.zipCode;
     if (body.maxDistanceMiles !== undefined) updates.maxDistanceMiles = body.maxDistanceMiles;
     if (body.licenseNumber !== undefined) updates.licenseNumber = body.licenseNumber;
