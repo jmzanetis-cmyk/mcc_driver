@@ -36,10 +36,12 @@ function requireEnv(name: string): string {
 
 async function checkRealtimeDelivery(
   supabaseUrl: string,
-  supabaseAnonKey: string,
+  supabaseServiceKey: string,
   driverId: string,
 ): Promise<{ ok: boolean; reason?: string; payload?: Record<string, unknown> }> {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
@@ -114,7 +116,7 @@ async function main() {
     console.log("[2] Opening Supabase Realtime subscription...");
     const realtimePromise = checkRealtimeDelivery(
       supabaseUrl,
-      supabaseAnonKey,
+      supabaseServiceKey,
       TEST_DRIVER_ID,
     );
     await new Promise((r) => setTimeout(r, 800));
