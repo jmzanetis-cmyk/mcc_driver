@@ -53,6 +53,29 @@ Drivers sign in with Supabase phone auth, submit a background check application,
 
 _Populate as you build — explicit user instructions worth remembering across sessions._
 
+## Database schema status
+
+All four tables are confirmed present in Supabase Postgres (verified 2026-05-14):
+- `drivers` — driver profiles, status, location, payout info
+- `rides` — ride records with scenario, fare, pickup/dropoff
+- `driver_assignments` — links drivers to rides with status/deadline
+- `driver_payouts` — payout requests and transfer records
+
+`pnpm --filter @workspace/db run push` returned "No changes detected" (schema in sync).
+
+**Supabase Realtime** must be manually enabled for `driver_assignments` in the
+Supabase dashboard (Table Editor → Realtime toggle). Without it, drivers will not
+receive live ride offers even though the API correctly inserts the assignment row.
+
+**Dispatch eligibility requirements** (discovered during smoke testing):
+- Driver `status` must be `'active'` (not `'approved'` or `'pending_approval'`)
+- `is_online` must be `true`
+- `current_lat` and `current_lng` must both be non-null
+
+Run `pnpm --filter @workspace/scripts run smoke-dispatch` (with API server running)
+to verify the full dispatch path — it inserts a test driver, fires dispatch,
+confirms DB rows, then cleans up automatically.
+
 ## Gotchas
 
 - After changing `lib/db/src/schema/index.ts`, run `pnpm --filter @workspace/db run push` to apply schema changes to the database.
