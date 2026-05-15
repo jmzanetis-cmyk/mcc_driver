@@ -82,6 +82,7 @@ export function useActiveRide() {
   }, [dispatch.rideId]);
 
   // Helper to determine if we have an active ride
+  // Includes 'cancelled' so NavigateScreen can show the cancellation overlay
   const hasActiveRide = dispatch.stage !== 'idle' && dispatch.stage !== 'offered';
 
   return {
@@ -105,6 +106,7 @@ export function useActiveRide() {
       drivesMemberVehicle: dispatch.drivesMemberVehicle,
       carriesPassenger: dispatch.carriesPassenger,
       startedAt: dispatch.startedAt,
+      cancellationReason: dispatch.cancellationReason,
     } : null,
 
     // Actions (all through Edge Functions)

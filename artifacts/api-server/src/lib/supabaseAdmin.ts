@@ -38,3 +38,26 @@ export async function insertAssignmentViaSupabase(
     throw new Error(`Supabase insert failed: ${error.message}`);
   }
 }
+
+/**
+ * Update one or more driver_assignment rows via Supabase HTTPS so that
+ * Realtime UPDATE events fire to subscribed driver apps. This is the
+ * counterpart to insertAssignmentViaSupabase — used for status changes
+ * that drivers must receive in real time (e.g. cancellation).
+ */
+export async function updateAssignmentViaSupabase(
+  assignmentIds: string[],
+  values: Record<string, unknown>,
+): Promise<void> {
+  if (assignmentIds.length === 0) return;
+
+  const { error } = await supabaseAdmin
+    .from("driver_assignments")
+    .update(values)
+    .in("id", assignmentIds);
+
+  if (error) {
+    logger.error({ error }, "supabaseAdmin: failed to update driver_assignment");
+    throw new Error(`Supabase update failed: ${error.message}`);
+  }
+}

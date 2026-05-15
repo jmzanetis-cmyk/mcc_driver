@@ -2,13 +2,17 @@
 // MCC Driver — Navigate Screen
 // ============================================================
 // Shows pickup/dropoff info and launches preferred nav app.
-// Also shows in-app mini-map (placeholder for Google Maps embed).
+// Also handles external ride cancellation — when a member or
+// admin cancels after the driver has accepted, a full-screen
+// overlay is shown and the driver is returned to home.
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveRide, type ActiveRideStage } from '@/hooks/useActiveRide';
+import { useRideCancellation } from '@/hooks/useRideCancellation';
 import { useAuth } from '@/hooks/useAuth';
+import { useDispatchStore } from '@/store/dispatchStore';
 import { openNavigation, getNavAppName, type NavApp } from '@/services/navigation/navService';
 import { Button, Card, InfoRow, PageHeader, Spinner } from '@/components';
 import { colors, borderRadius } from '@/theme';
@@ -25,9 +29,15 @@ export function NavigateScreen() {
     completeRide, cancelRide,
   } = useActiveRide();
 
+  const dispatch = useDispatchStore();
+
   const [preferredNav, setPreferredNav] = useState<NavApp>('google_maps');
   const [elapsed, setElapsed] = useState('0:00');
   const [showCancel, setShowCancel] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+
+  // Subscribe to external cancellations for the current assignment
+  useRideCancellation(dispatch.assignmentId);
 
   // Load preferred nav from localStorage
   useEffect(() => {
@@ -44,6 +54,63 @@ export function NavigateScreen() {
     return () => clearInterval(interval);
   }, [activeRide?.startedAt]);
 
+  // Auto-navigate home when ride is externally cancelled
+  useEffect(() => {
+    if (activeRide?.stage !== 'cancelled') return;
+
+    setCountdown(5);
+    const tick = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(tick);
+          dispatch.clearDispatch();
+          navigate('/home');
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(tick);
+  }, [activeRide?.stage]);
+
+  // ── Cancelled overlay ──────────────────────────────────────────────────────
+  if (activeRide?.stage === 'cancelled') {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: colors.bgOverlay,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+      }}>
+        <Card style={{ maxWidth: 360, width: '100%', textAlign: 'center' }} padding={32}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>🚫</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>
+            Ride Cancelled
+          </div>
+          <div style={{ fontSize: 14, color: colors.textMuted, marginBottom: 24 }}>
+            {activeRide.cancellationReason ?? 'This ride has been cancelled.'}
+          </div>
+          <div style={{
+            fontSize: 13, color: colors.textMuted,
+            marginBottom: 20,
+            padding: '8px 16px',
+            background: colors.bgSecondary,
+            borderRadius: borderRadius.md,
+          }}>
+            Returning to home in <strong style={{ color: colors.navy }}>{countdown}s</strong>
+          </div>
+          <Button
+            onClick={() => { dispatch.clearDispatch(); navigate('/home'); }}
+            variant="primary"
+            fullWidth
+          >
+            Go to Home Now
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   if (!activeRide) {
     return (
@@ -65,7 +132,7 @@ export function NavigateScreen() {
   };
 
   type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
-  const stageActions: Record<ActiveRideStage, { label: string; action: () => void; variant: ButtonVariant }> = {
+  const stageActions: Record<Exclude<ActiveRideStage, 'cancelled'>, { label: string; action: () => void; variant: ButtonVariant }> = {
     accepted: {
       label: `Navigate to Pickup (${getNavAppName(preferredNav)})`,
       action: async () => { await startNavigating(); handleOpenNav(); },
@@ -95,7 +162,7 @@ export function NavigateScreen() {
     completed: { label: 'Completed', action: () => {}, variant: 'secondary' },
   };
 
-  const currentAction = stageActions[activeRide.stage];
+  const currentAction = stageActions[activeRide.stage as Exclude<ActiveRideStage, 'cancelled'>];
 
   const stageSteps = [
     { key: 'navigating', label: 'En Route', icon: '🚗' },
@@ -235,18 +302,20 @@ export function NavigateScreen() {
         )}
 
         {/* Main action button */}
-        <Button
-          onClick={currentAction.action}
-          variant={currentAction.variant}
-          fullWidth
-          size="lg"
-          loading={activeRide.stage === 'completing'}
-          disabled={activeRide.stage === 'completing'}
-        >
-          {currentAction.label}
-        </Button>
+        {currentAction && (
+          <Button
+            onClick={currentAction.action}
+            variant={currentAction.variant}
+            fullWidth
+            size="lg"
+            loading={activeRide.stage === 'completing'}
+            disabled={activeRide.stage === 'completing'}
+          >
+            {currentAction.label}
+          </Button>
+        )}
 
-        {/* Cancel option */}
+        {/* Cancel option (driver-initiated) */}
         {['accepted', 'navigating', 'arrived'].includes(activeRide.stage) && (
           <>
             <Button

@@ -15,7 +15,8 @@ export type DispatchStage =
   | 'arrived'       // At pickup location
   | 'in_progress'   // Ride underway
   | 'completing'    // Processing completion
-  | 'completed';    // Done (transient, clears after review)
+  | 'completed'     // Done (transient, clears after review)
+  | 'cancelled';    // Ride cancelled externally (member/admin) after acceptance
 
 interface DispatchState {
   rideId: string | null;
@@ -37,41 +38,46 @@ interface DispatchState {
   carriesPassenger: boolean;
   responseDeadline: string | null;
   startedAt: string | null;
+  cancellationReason: string | null;
 
   // Actions
-  setOffer: (payload: Omit<DispatchState, 'stage' | 'startedAt' | 'setOffer' | 'setStage' | 'clearDispatch'>) => void;
+  setOffer: (payload: Omit<DispatchState, 'stage' | 'startedAt' | 'cancellationReason' | 'setOffer' | 'setStage' | 'setCancelled' | 'clearDispatch'>) => void;
   setStage: (stage: DispatchStage, extra?: Partial<DispatchState>) => void;
+  setCancelled: (reason?: string) => void;
   clearDispatch: () => void;
 }
 
-const INITIAL: Pick<DispatchState, 'rideId' | 'assignmentId' | 'stage' | 'role' | 'scenario' | 'tier' | 'pickupAddress' | 'pickupLat' | 'pickupLng' | 'dropoffAddress' | 'dropoffLat' | 'dropoffLng' | 'estimatedFare' | 'estimatedDistance' | 'memberVehicleDescription' | 'drivesMemberVehicle' | 'carriesPassenger' | 'responseDeadline' | 'startedAt'> = {
-  rideId: null,
-  assignmentId: null,
-  stage: 'idle',
-  role: null,
-  scenario: null,
-  tier: null,
-  pickupAddress: null,
-  pickupLat: null,
-  pickupLng: null,
-  dropoffAddress: null,
-  dropoffLat: null,
-  dropoffLng: null,
-  estimatedFare: null,
-  estimatedDistance: null,
-  memberVehicleDescription: null,
+const INITIAL = {
+  rideId: null as string | null,
+  assignmentId: null as string | null,
+  stage: 'idle' as DispatchStage,
+  role: null as 'primary' | 'chase' | null,
+  scenario: null as string | null,
+  tier: null as string | null,
+  pickupAddress: null as string | null,
+  pickupLat: null as number | null,
+  pickupLng: null as number | null,
+  dropoffAddress: null as string | null,
+  dropoffLat: null as number | null,
+  dropoffLng: null as number | null,
+  estimatedFare: null as number | null,
+  estimatedDistance: null as number | null,
+  memberVehicleDescription: null as string | null,
   drivesMemberVehicle: false,
   carriesPassenger: false,
-  responseDeadline: null,
-  startedAt: null,
+  responseDeadline: null as string | null,
+  startedAt: null as string | null,
+  cancellationReason: null as string | null,
 };
 
 export const useDispatchStore = create<DispatchState>((set) => ({
   ...INITIAL,
 
-  setOffer: (payload) => set({ ...payload, stage: 'offered', startedAt: null }),
+  setOffer: (payload) => set({ ...payload, stage: 'offered', startedAt: null, cancellationReason: null }),
 
   setStage: (stage, extra) => set((s) => ({ ...s, stage, ...extra })),
+
+  setCancelled: (reason) => set((s) => ({ ...s, stage: 'cancelled', cancellationReason: reason ?? null })),
 
   clearDispatch: () => set(INITIAL),
 }));

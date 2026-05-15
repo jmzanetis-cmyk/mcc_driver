@@ -101,14 +101,14 @@ export async function declineRide(assignmentId: string): Promise<ApiResult> {
 }
 
 /**
- * Cancel an active ride via Supabase Edge Function.
- * The Edge Function handles cancellation fees, Stripe rollback, and member notification.
+ * Cancel an active ride via the API server.
+ * Updates ride status to cancelled and notifies assigned drivers via Realtime.
  */
 export async function cancelRide(
   rideId: string,
   reason?: string
 ): Promise<ApiResult> {
-  return invokeEdgeFunction('cancel-ride', { rideId, reason });
+  return callApi(`/rides/${rideId}/cancel`, 'POST', { reason, cancelledBy: 'driver' });
 }
 
 /**

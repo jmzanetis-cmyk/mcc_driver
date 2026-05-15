@@ -17,7 +17,7 @@ import {
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
-import { insertAssignmentViaSupabase } from "../lib/supabaseAdmin";
+import { insertAssignmentViaSupabase, updateAssignmentViaSupabase } from "../lib/supabaseAdmin";
 
 const router: IRouter = Router();
 
@@ -771,6 +771,104 @@ router.patch("/rides/assignments/:assignmentId/stage", async (req: Request, res:
     });
   } catch (err) {
     logger.error({ err }, "rides.stage failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/rides/:rideId/cancel ───────────────────────────────────────────
+// Cancels a ride and notifies all active assigned drivers via Supabase Realtime.
+// Can be called by the driver (driver-initiated cancel) or by a privileged
+// service caller (member/admin cancel) — caller identity is recorded in the log.
+
+router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
+  const rideId = String(req.params["rideId"]);
+  const { reason, cancelledBy } = req.body as { reason?: string; cancelledBy?: string };
+
+  // Privileged callers (admin/service) provide DISPATCH_API_KEY.
+  // Drivers authenticate with their Supabase token.
+  const dispatchKey = process.env.DISPATCH_API_KEY;
+  const providedKey = req.headers["x-api-key"];
+  const isPrivilegedCaller = dispatchKey && providedKey === dispatchKey;
+
+  let driverIdFromAuth: string | null = null;
+  if (!isPrivilegedCaller) {
+    const user = await requireUserAuth(req, res);
+    if (!user) return;
+    const driver = await resolveCallerDriver(user, res);
+    if (!driver) return;
+    driverIdFromAuth = driver.id;
+  }
+
+  try {
+    const [ride] = await db
+      .select()
+      .from(ridesTable)
+      .where(eq(ridesTable.id, rideId))
+      .limit(1);
+
+    if (!ride) {
+      res.status(404).json({ error: "Ride not found" });
+      return;
+    }
+
+    const terminalStatuses = ["completed", "cancelled", "dispatch_failed"];
+    if (terminalStatuses.includes(ride.status)) {
+      res.status(400).json({ error: `Ride is already in terminal state: ${ride.status}` });
+      return;
+    }
+
+    // Fetch all active driver_assignments for this ride
+    const activeAssignmentStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];
+    const activeAssignments = await db
+      .select({ id: driverAssignmentsTable.id, driverId: driverAssignmentsTable.driverId })
+      .from(driverAssignmentsTable)
+      .where(
+        and(
+          eq(driverAssignmentsTable.rideId, rideId),
+          inArray(driverAssignmentsTable.status, activeAssignmentStatuses),
+        ),
+      );
+
+    // If driver-initiated: verify the caller has an assignment on this ride
+    if (driverIdFromAuth) {
+      const owns = activeAssignments.some((a) => a.driverId === driverIdFromAuth);
+      if (!owns) {
+        res.status(403).json({ error: "Forbidden — no active assignment for this ride" });
+        return;
+      }
+    }
+
+    // Update ride status to cancelled in local Postgres
+    await db
+      .update(ridesTable)
+      .set({ status: "cancelled" })
+      .where(eq(ridesTable.id, rideId));
+
+    // Update all active assignments to cancelled in local Postgres
+    if (activeAssignments.length > 0) {
+      await db
+        .update(driverAssignmentsTable)
+        .set({ status: "cancelled" })
+        .where(
+          and(
+            eq(driverAssignmentsTable.rideId, rideId),
+            inArray(driverAssignmentsTable.status, activeAssignmentStatuses),
+          ),
+        );
+
+      // Write the same update to Supabase so Realtime UPDATE events fire to drivers
+      const assignmentIds = activeAssignments.map((a) => a.id);
+      await updateAssignmentViaSupabase(assignmentIds, { status: "cancelled" });
+    }
+
+    req.log.info(
+      { rideId, cancelledBy: cancelledBy ?? driverIdFromAuth ?? "unknown", reason, driversNotified: activeAssignments.length },
+      "rides.cancel.success",
+    );
+
+    res.json({ success: true, rideId, driversNotified: activeAssignments.length });
+  } catch (err) {
+    logger.error({ err }, "rides.cancel failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
