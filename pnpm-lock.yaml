@@ -362,6 +362,9 @@ importers:
 
   artifacts/api-server:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.105.4
+        version: 2.105.4
       '@workspace/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod

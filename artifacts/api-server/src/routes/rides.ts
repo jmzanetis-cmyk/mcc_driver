@@ -17,6 +17,7 @@ import {
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
+import { insertAssignmentViaSupabase, insertRideViaSupabase } from "../lib/supabaseAdmin";
 
 const router: IRouter = Router();
 
@@ -254,15 +255,14 @@ async function cascadeDispatch(
       ? `${ride.memberVehicleYear} ${ride.memberVehicleColor ?? ""} ${ride.memberVehicleMake} ${ride.memberVehicleModel ?? ""}`.trim()
       : null;
 
-  await db.insert(driverAssignmentsTable).values({
-    rideId,
-    driverId: nextDriverId,
+  await insertAssignmentViaSupabase({
+    ride_id: rideId,
+    driver_id: nextDriverId,
     role: declinedAssignment.role,
     status: "pending",
-    drivesMemberVehicle: assignmentCfg.drivesMemberVehicle,
-    carriesPassenger: assignmentCfg.carriesPassenger,
-    responseDeadline,
-    memberVehicleDescription: assignmentCfg.drivesMemberVehicle ? memberVehicleDesc : null,
+    drives_member_vehicle: assignmentCfg.drivesMemberVehicle,
+    carries_passenger: assignmentCfg.carriesPassenger,
+    response_deadline: responseDeadline.toISOString(),
   });
 
   logger.info({ rideId, nextDriverId, role: declinedAssignment.role }, "cascadeDispatch: re-offered ride to next driver");
@@ -442,33 +442,48 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
       })
       .returning();
 
+    await insertRideViaSupabase({
+      id: ride!.id,
+      scenario: body.scenario,
+      tier: body.tier,
+      status: "pending_dispatch",
+      member_id: body.memberId ?? null,
+      pickup_address: body.pickupAddress,
+      pickup_lat: body.pickupLat,
+      pickup_lng: body.pickupLng,
+      dropoff_address: body.dropoffAddress,
+      dropoff_lat: body.dropoffLat,
+      dropoff_lng: body.dropoffLng,
+      estimated_fare: body.estimatedFare,
+      estimated_distance_miles: body.estimatedDistanceMiles,
+      member_vehicle_year: body.memberVehicleYear ?? null,
+      member_vehicle_make: body.memberVehicleMake ?? null,
+      member_vehicle_model: body.memberVehicleModel ?? null,
+      member_vehicle_color: body.memberVehicleColor ?? null,
+    });
+
     const selectedDriverIds = targetDriverIds.slice(0, driversNeeded);
 
     const assignmentValues = config.assignments.map((assignmentCfg, idx) => ({
-      rideId: ride!.id,
-      driverId: selectedDriverIds[idx]!,
+      ride_id: ride!.id,
+      driver_id: selectedDriverIds[idx]!,
       role: assignmentCfg.role,
       status: "pending",
-      drivesMemberVehicle: assignmentCfg.drivesMemberVehicle,
-      carriesPassenger: assignmentCfg.carriesPassenger,
-      responseDeadline,
-      memberVehicleDescription: assignmentCfg.drivesMemberVehicle ? memberVehicleDesc : null,
+      drives_member_vehicle: assignmentCfg.drivesMemberVehicle,
+      carries_passenger: assignmentCfg.carriesPassenger,
+      response_deadline: responseDeadline.toISOString(),
     }));
 
-    const assignments = await db
-      .insert(driverAssignmentsTable)
-      .values(assignmentValues)
-      .returning();
+    await insertAssignmentViaSupabase(assignmentValues);
 
     req.log.info(
-      { rideId: ride!.id, driversNotified: assignments.length },
+      { rideId: ride!.id, driversNotified: assignmentValues.length },
       "rides.dispatch.success",
     );
 
     res.status(201).json({
       rideId: ride!.id,
-      assignmentIds: assignments.map((a) => a.id),
-      driversNotified: assignments.length,
+      driversNotified: assignmentValues.length,
     });
   } catch (err) {
     logger.error({ err }, "rides.dispatch failed");
