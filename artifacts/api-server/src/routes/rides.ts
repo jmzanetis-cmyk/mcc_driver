@@ -838,18 +838,13 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
       }
     }
 
+    // ── Phase 1: Local Postgres writes (must all succeed before Supabase mirrors) ──
+
     // Update ride status to cancelled in local Postgres
     await db
       .update(ridesTable)
       .set({ status: "cancelled" })
       .where(eq(ridesTable.id, rideId));
-
-    // Mirror the ride status change to Supabase Postgres via HTTPS so that
-    // Realtime UPDATE events fire to the driver's useRideCancellation hook.
-    // Requires: ALTER PUBLICATION supabase_realtime ADD TABLE rides;
-    // See scripts/sql/enable-rides-realtime.sql
-    // Error propagates — if this write fails, the driver cannot be notified.
-    await updateRideViaSupabase(rideId, { status: "cancelled" });
 
     // Update all active assignments to cancelled in local Postgres
     if (activeAssignments.length > 0) {
@@ -862,12 +857,29 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
             inArray(driverAssignmentsTable.status, activeAssignmentStatuses),
           ),
         );
-
-      // Write the same update to Supabase so Realtime UPDATE events also fire
-      // for driver_assignments subscribers (belt-and-suspenders notification path)
-      const assignmentIds = activeAssignments.map((a) => a.id);
-      await updateAssignmentViaSupabase(assignmentIds, { status: "cancelled" });
     }
+
+    // ── Phase 2: Supabase mirrors (local state is already consistent) ──
+    // These writes trigger Realtime events to the driver app. If they fail,
+    // the ride is already cancelled in local Postgres — only real-time
+    // notification to the driver is at risk, not data integrity.
+
+    const assignmentIds = activeAssignments.map((a) => a.id);
+    await Promise.allSettled([
+      // Primary: mirrors ride status → fires rides UPDATE via Realtime.
+      // Requires: ALTER PUBLICATION supabase_realtime ADD TABLE rides;
+      // See scripts/sql/enable-rides-realtime.sql
+      updateRideViaSupabase(rideId, { status: "cancelled" }).catch((err) =>
+        logger.warn({ err, rideId }, "rides.cancel: Supabase ride mirror failed — Realtime may not fire"),
+      ),
+      // Fallback: mirrors assignment status → fires driver_assignments UPDATE.
+      // driver_assignments is already in supabase_realtime — works now.
+      assignmentIds.length > 0
+        ? updateAssignmentViaSupabase(assignmentIds, { status: "cancelled" }).catch((err) =>
+            logger.warn({ err, rideId }, "rides.cancel: Supabase assignment mirror failed"),
+          )
+        : Promise.resolve(),
+    ]);
 
     req.log.info(
       { rideId, cancelledBy: cancelledBy ?? driverIdFromAuth ?? "unknown", reason, driversNotified: activeAssignments.length },
