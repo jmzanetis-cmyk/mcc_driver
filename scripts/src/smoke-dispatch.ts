@@ -1,12 +1,13 @@
 #!/usr/bin/env tsx
 /**
  * Dispatch smoke test — verifies the full ride dispatch path end-to-end:
- *   1. Inserts a temporary test driver (active, online, with location) in local DB
- *   2. POST /api/rides/dispatch → expects 201 + rideId + driversNotified
- *   3. Verifies the ride row exists in local DB
- *   4. Verifies the driver_assignment row exists in Supabase (written via HTTPS)
- *   5. Asserts a Supabase Realtime INSERT event fires within 10 s
- *   6. Cleans up all test rows (guaranteed via finally)
+ *   1. Verifies required tables & columns exist in Supabase via REST introspection
+ *   2. Inserts a temporary test driver (active, online, with location) in local DB
+ *   3. POST /api/rides/dispatch → expects 201 + rideId + driversNotified
+ *   4. Verifies the ride row exists in local DB
+ *   5. Verifies the driver_assignment row exists in Supabase (written via HTTPS)
+ *   6. Asserts a Supabase Realtime INSERT event fires within 10 s
+ *   7. Cleans up all test rows (guaranteed via finally)
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run smoke-dispatch
@@ -14,7 +15,7 @@
  * Requires:
  *   DATABASE_URL                — local Postgres connection string (API server)
  *   VITE_SUPABASE_URL           — Supabase project URL
- *   VITE_SUPABASE_ANON_KEY      — Supabase anon key (Realtime subscription)
+ *   VITE_SUPABASE_ANON_KEY      — Supabase anon key
  *   SUPABASE_SERVICE_ROLE_KEY   — Supabase service role key (admin checks + cleanup)
  *   API server must be running on localhost:80/api
  */
@@ -32,6 +33,55 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required env var: ${name}`);
   return value;
+}
+
+/** Verify required tables and key columns exist in Supabase via PostgREST introspection */
+async function verifySupabaseSchema(
+  supabaseUrl: string,
+  serviceKey: string,
+): Promise<void> {
+  const resp = await fetch(`${supabaseUrl}/rest/v1/`, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+  });
+  if (!resp.ok) {
+    throw new Error(`Schema introspection failed: HTTP ${resp.status}`);
+  }
+  const spec = (await resp.json()) as {
+    definitions?: Record<string, { properties?: Record<string, unknown> }>;
+  };
+  const defs = spec.definitions ?? {};
+
+  const required: Record<string, string[]> = {
+    drivers: ["id", "status", "is_online", "current_lat", "current_lng"],
+    rides: ["id", "scenario", "status", "pickup_address", "dropoff_address", "estimated_fare"],
+    driver_assignments: [
+      "id", "ride_id", "driver_id", "role", "status",
+      "dispatched_at", "response_deadline",
+      "member_vehicle_description", "member_vehicle_plate",
+    ],
+    driver_payouts: ["id", "driver_id", "amount", "status"],
+  };
+
+  const missing: string[] = [];
+  for (const [table, cols] of Object.entries(required)) {
+    if (!defs[table]) {
+      missing.push(`  table '${table}' not found in Supabase`);
+      continue;
+    }
+    const props = Object.keys(defs[table].properties ?? {});
+    for (const col of cols) {
+      if (!props.includes(col)) {
+        missing.push(`  column '${table}.${col}' missing`);
+      }
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(`Supabase schema verification failed:\n${missing.join("\n")}`);
+  }
 }
 
 async function checkRealtimeDelivery(
@@ -81,7 +131,7 @@ async function checkRealtimeDelivery(
 async function main() {
   const dbUrl = requireEnv("DATABASE_URL");
   const supabaseUrl = requireEnv("VITE_SUPABASE_URL");
-  const supabaseAnonKey = requireEnv("VITE_SUPABASE_ANON_KEY");
+  requireEnv("VITE_SUPABASE_ANON_KEY");
   const supabaseServiceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   const db = new Client({ connectionString: dbUrl });
@@ -93,8 +143,18 @@ async function main() {
 
   console.log("=== MCC Dispatch Smoke Test ===\n");
 
-  // ── 1. Insert test driver into local DB ────────────────────────────────────
-  console.log("[1] Inserting test driver...");
+  // ── 1. Verify Supabase schema ──────────────────────────────────────────────
+  console.log("[1] Verifying Supabase schema (tables & columns)...");
+  await verifySupabaseSchema(supabaseUrl, supabaseServiceKey);
+  console.log("    ✓ drivers — id, status, is_online, current_lat, current_lng");
+  console.log("    ✓ rides — id, scenario, status, pickup/dropoff, estimated_fare");
+  console.log("    ✓ driver_assignments — id, ride_id, driver_id, role, status,");
+  console.log("                           dispatched_at, response_deadline,");
+  console.log("                           member_vehicle_description, member_vehicle_plate");
+  console.log("    ✓ driver_payouts — id, driver_id, amount, status\n");
+
+  // ── 2. Insert test driver into local DB ────────────────────────────────────
+  console.log("[2] Inserting test driver...");
   await db.query(
     `INSERT INTO drivers (id, user_id, first_name, last_name, email, phone,
                           status, is_online, can_drive_member_vehicle,
@@ -112,18 +172,18 @@ async function main() {
   const warnings: string[] = [];
 
   try {
-    // ── 2. Open Realtime subscription BEFORE dispatching ───────────────────
-    console.log("[2] Opening Supabase Realtime subscription...");
+    // ── 3. Open Realtime subscription BEFORE dispatching ───────────────────
+    console.log("[3] Opening Supabase Realtime subscription...");
     const realtimePromise = checkRealtimeDelivery(
       supabaseUrl,
       supabaseServiceKey,
       TEST_DRIVER_ID,
     );
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 2000));
     console.log("    ✓ Subscribed (waiting for INSERT event)\n");
 
-    // ── 3. POST /api/rides/dispatch ─────────────────────────────────────────
-    console.log("[3] Calling POST /api/rides/dispatch...");
+    // ── 4. POST /api/rides/dispatch ─────────────────────────────────────────
+    console.log("[4] Calling POST /api/rides/dispatch...");
     const resp = await fetch(`${API_BASE}/rides/dispatch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -159,8 +219,8 @@ async function main() {
     console.log(`      rideId:          ${body.rideId}`);
     console.log(`      driversNotified: ${body.driversNotified}\n`);
 
-    // ── 4. Verify ride row in local DB ──────────────────────────────────────
-    console.log("[4] Verifying ride row in local DB...");
+    // ── 5. Verify ride row in local DB ──────────────────────────────────────
+    console.log("[5] Verifying ride row in local DB...");
     const rideRow = await db.query(
       "SELECT id, scenario, status FROM rides WHERE id = $1",
       [rideId],
@@ -172,8 +232,8 @@ async function main() {
       `    ✓ rides row: scenario=${rideRow.rows[0].scenario as string}, status=${rideRow.rows[0].status as string}\n`,
     );
 
-    // ── 5. Verify driver_assignment row in Supabase ─────────────────────────
-    console.log("[5] Verifying driver_assignments row in Supabase...");
+    // ── 6. Verify driver_assignment row in Supabase ─────────────────────────
+    console.log("[6] Verifying driver_assignments row in Supabase...");
     const { data: assignRows, error: assignErr } = await supabaseAdmin
       .from("driver_assignments")
       .select("id, driver_id, role, status")
@@ -188,9 +248,9 @@ async function main() {
       `    ✓ driver_assignments row: role=${assignRows[0].role as string}, status=${assignRows[0].status as string}\n`,
     );
 
-    // ── 6. Assert Realtime event ────────────────────────────────────────────
+    // ── 7. Assert Realtime event ────────────────────────────────────────────
     console.log(
-      `[6] Waiting for Supabase Realtime event (timeout ${REALTIME_TIMEOUT_MS / 1000}s)...`,
+      `[7] Waiting for Supabase Realtime event (timeout ${REALTIME_TIMEOUT_MS / 1000}s)...`,
     );
     const realtimeResult = await realtimePromise;
     if (realtimeResult.ok && realtimeResult.payload) {
@@ -202,8 +262,8 @@ async function main() {
       console.log(`    ⚠  Realtime check skipped — see warnings below\n`);
     }
   } finally {
-    // ── 7. Clean up (always runs, even on thrown errors) ───────────────────
-    console.log("[7] Cleaning up test data...");
+    // ── 8. Clean up (always runs, even on thrown errors) ───────────────────
+    console.log("[8] Cleaning up test data...");
     if (rideId) {
       await supabaseAdmin.from("driver_assignments").delete().eq("ride_id", rideId);
       await db.query("DELETE FROM rides WHERE id = $1", [rideId]);
