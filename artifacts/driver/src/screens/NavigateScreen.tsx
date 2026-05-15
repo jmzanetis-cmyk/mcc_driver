@@ -19,7 +19,7 @@ import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
   getRoleDescription, shortenAddress, formatElapsed,
 } from '@/utils/formatters';
-import { createTandemJob, setKnownPartner, type PartnerLookupResult } from '@/services/api/edgeFunctions';
+import { createTandemJob, updateTandemJobMode, setKnownPartner, type PartnerLookupResult } from '@/services/api/edgeFunctions';
 
 const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 type TandemMode = 'A' | 'B' | 'C';
@@ -50,6 +50,7 @@ export function NavigateScreen() {
   const tandemRequired = useDispatchStore((s) => s.tandemRequired);
   const tandemFee = useDispatchStore((s) => s.tandemFee);
   const tandemModeConfirmed = useDispatchStore((s) => s.tandemModeConfirmed);
+  const existingTandemJobId = useDispatchStore((s) => s.tandemJobId);
   const setTandemJob = useDispatchStore((s) => s.setTandemJob);
   const rideId = useDispatchStore((s) => s.rideId);
 
@@ -146,15 +147,27 @@ export function NavigateScreen() {
     setTandemConfirming(true);
     setTandemError(null);
 
-    // Create the tandem job record
-    const createResult = await createTandemJob(rideId, selectedMode);
-    if (!createResult.success || !createResult.data) {
-      setTandemConfirming(false);
-      setTandemError(createResult.error ?? 'Failed to create tandem job');
-      return;
-    }
+    let tandemJobId: string;
 
-    const tandemJobId = createResult.data.id;
+    if (existingTandemJobId) {
+      // Tandem job already exists — patch the mode instead of creating a duplicate
+      const updateResult = await updateTandemJobMode(existingTandemJobId, selectedMode);
+      if (!updateResult.success || !updateResult.data) {
+        setTandemConfirming(false);
+        setTandemError(updateResult.error ?? 'Failed to update tandem mode');
+        return;
+      }
+      tandemJobId = updateResult.data.id;
+    } else {
+      // First confirmation — create the tandem job record
+      const createResult = await createTandemJob(rideId, selectedMode);
+      if (!createResult.success || !createResult.data) {
+        setTandemConfirming(false);
+        setTandemError(createResult.error ?? 'Failed to create tandem job');
+        return;
+      }
+      tandemJobId = createResult.data.id;
+    }
 
     // Mode A: link the saved known partner to this tandem job on the server
     if (selectedMode === 'A' && savedPartner) {

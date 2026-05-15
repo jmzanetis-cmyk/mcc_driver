@@ -257,7 +257,8 @@ export interface UpdateTandemModeRequest {
 }
 
 export interface SetKnownPartnerRequest {
-  partnerEmail: string;
+  /** Partner email address, ride-along driver UUID, or Supabase user UUID */
+  partnerEmailOrId: string;
 }
 
 export type TandemJobRecordTandemMode =
@@ -316,5 +317,12 @@ export type ListAdminDriversParams = {
 };
 
 export type LookupTandemPartnerParams = {
-  email: string;
+  /**
+   * Partner email address (mutually exclusive with id)
+   */
+  email?: string;
+  /**
+   * Ride-along driver UUID or Supabase user UUID (mutually exclusive with email)
+   */
+  id?: string;
 };

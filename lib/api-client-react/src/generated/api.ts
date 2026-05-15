@@ -1720,10 +1720,10 @@ export const useCreateTandemJob = <
 };
 
 /**
- * @summary Validate a potential known partner by email
+ * @summary Validate a potential known partner by email, ride-along driver ID, or MCC user ID
  */
 export const getLookupTandemPartnerUrl = (
-  params: LookupTandemPartnerParams,
+  params?: LookupTandemPartnerParams,
 ) => {
   const normalizedParams = new URLSearchParams();
 
@@ -1741,7 +1741,7 @@ export const getLookupTandemPartnerUrl = (
 };
 
 export const lookupTandemPartner = async (
-  params: LookupTandemPartnerParams,
+  params?: LookupTandemPartnerParams,
   options?: RequestInit,
 ): Promise<PartnerLookupResult> => {
   return customFetch<PartnerLookupResult>(getLookupTandemPartnerUrl(params), {
@@ -1763,7 +1763,7 @@ export const getLookupTandemPartnerQueryOptions = <
   TData = Awaited<ReturnType<typeof lookupTandemPartner>>,
   TError = ErrorType<ErrorResponse>,
 >(
-  params: LookupTandemPartnerParams,
+  params?: LookupTandemPartnerParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof lookupTandemPartner>>,
@@ -1796,14 +1796,14 @@ export type LookupTandemPartnerQueryResult = NonNullable<
 export type LookupTandemPartnerQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Validate a potential known partner by email
+ * @summary Validate a potential known partner by email, ride-along driver ID, or MCC user ID
  */
 
 export function useLookupTandemPartner<
   TData = Awaited<ReturnType<typeof lookupTandemPartner>>,
   TError = ErrorType<ErrorResponse>,
 >(
-  params: LookupTandemPartnerParams,
+  params?: LookupTandemPartnerParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof lookupTandemPartner>>,

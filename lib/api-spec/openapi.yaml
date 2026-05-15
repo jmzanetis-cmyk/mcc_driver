@@ -713,13 +713,21 @@ paths:
     get:
       operationId: lookupTandemPartner
       tags: [tandem]
-      summary: Validate a potential known partner by email
+      summary: Validate a potential known partner by email, ride-along driver ID, or MCC user ID
       parameters:
         - in: query
           name: email
-          required: true
+          required: false
           schema:
             type: string
+          description: Partner email address (mutually exclusive with id)
+        - in: query
+          name: id
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Ride-along driver UUID or Supabase user UUID (mutually exclusive with email)
       responses:
         "200":
           description: Partner lookup result
@@ -1372,9 +1380,10 @@ components:
     SetKnownPartnerRequest:
       type: object
       properties:
-        partnerEmail:
+        partnerEmailOrId:
           type: string
-      required: [partnerEmail]
+          description: Partner email address, ride-along driver UUID, or Supabase user UUID
+      required: [partnerEmailOrId]
 
     TandemJobRecord:
       type: object

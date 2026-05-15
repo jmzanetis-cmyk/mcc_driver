@@ -7,5 +7,6 @@
  */
 
 export interface SetKnownPartnerRequest {
-  partnerEmail: string;
+  /** Partner email address, ride-along driver UUID, or Supabase user UUID */
+  partnerEmailOrId: string;
 }

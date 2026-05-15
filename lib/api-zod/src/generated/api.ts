@@ -422,10 +422,20 @@ export const CreateTandemJobBody = zod.object({
 });
 
 /**
- * @summary Validate a potential known partner by email
+ * @summary Validate a potential known partner by email, ride-along driver ID, or MCC user ID
  */
 export const LookupTandemPartnerQueryParams = zod.object({
-  email: zod.coerce.string(),
+  email: zod.coerce
+    .string()
+    .optional()
+    .describe("Partner email address (mutually exclusive with id)"),
+  id: zod.coerce
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      "Ride-along driver UUID or Supabase user UUID (mutually exclusive with email)",
+    ),
 });
 
 export const LookupTandemPartnerResponse = zod.object({
@@ -493,7 +503,11 @@ export const SetKnownPartnerParams = zod.object({
 });
 
 export const SetKnownPartnerBody = zod.object({
-  partnerEmail: zod.string(),
+  partnerEmailOrId: zod
+    .string()
+    .describe(
+      "Partner email address, ride-along driver UUID, or Supabase user UUID",
+    ),
 });
 
 export const SetKnownPartnerResponse = zod.object({

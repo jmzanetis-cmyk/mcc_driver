@@ -46,11 +46,11 @@ async function resolveCallerDriver(
   return driver;
 }
 
-// ── Shared helper: resolve a ride-along driver by email OR id ────────────────
+// ── Shared helper: resolve a ride-along driver by email, primary id, OR userId ──
 
 async function findRideAlongDriver(emailOrId: string) {
-  // Try as UUID (id field) first; if the value doesn't look like a UUID fall
-  // through to email lookup.
+  // When the value looks like a UUID we check both `id` (ride_along_drivers PK)
+  // and `userId` (Supabase auth user ID) so callers can supply either identifier.
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const isUuid = UUID_RE.test(emailOrId);
 
@@ -59,7 +59,10 @@ async function findRideAlongDriver(emailOrId: string) {
     .from(rideAlongDriversTable)
     .where(
       isUuid
-        ? eq(rideAlongDriversTable.id, emailOrId)
+        ? or(
+            eq(rideAlongDriversTable.id, emailOrId),
+            eq(rideAlongDriversTable.userId, emailOrId),
+          )
         : eq(rideAlongDriversTable.email, emailOrId.toLowerCase()),
     )
     .limit(1);

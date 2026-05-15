@@ -7,5 +7,12 @@
  */
 
 export type LookupTandemPartnerParams = {
-  email: string;
+  /**
+   * Partner email address (mutually exclusive with id)
+   */
+  email?: string;
+  /**
+   * Ride-along driver UUID or Supabase user UUID (mutually exclusive with email)
+   */
+  id?: string;
 };
