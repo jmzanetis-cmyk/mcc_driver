@@ -129,7 +129,7 @@ const createSchema = z.object({
   insuranceDocumentPath: z.string().optional(),
   insuranceExpiry: futureDate.optional(),
   profilePhotoPath: z.string().optional(),
-  agreementSigned: z.boolean().optional(),
+  agreementSigned: z.literal(true, { error: "You must agree to the Ride-Along Driver terms to submit your application" }),
 });
 
 const updateSchema = z.object({
