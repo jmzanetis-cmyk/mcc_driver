@@ -61,3 +61,27 @@ export async function updateAssignmentViaSupabase(
     throw new Error(`Supabase update failed: ${error.message}`);
   }
 }
+
+/**
+ * Update a ride row in Supabase Postgres via HTTPS so that Realtime
+ * UPDATE events fire to subscribed driver apps (useRideCancellation).
+ * Must be called alongside any local Drizzle write to keep Supabase in
+ * sync and ensure the driver app receives the real-time notification.
+ *
+ * Prerequisite: the rides table must be in the supabase_realtime
+ * publication — see scripts/sql/enable-rides-realtime.sql.
+ */
+export async function updateRideViaSupabase(
+  rideId: string,
+  values: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("rides")
+    .update(values)
+    .eq("id", rideId);
+
+  if (error) {
+    logger.error({ error, rideId }, "supabaseAdmin: failed to update ride");
+    throw new Error(`Supabase ride update failed: ${error.message}`);
+  }
+}

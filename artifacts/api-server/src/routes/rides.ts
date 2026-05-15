@@ -17,7 +17,7 @@ import {
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
-import { insertAssignmentViaSupabase, updateAssignmentViaSupabase } from "../lib/supabaseAdmin";
+import { insertAssignmentViaSupabase, updateAssignmentViaSupabase, updateRideViaSupabase } from "../lib/supabaseAdmin";
 
 const router: IRouter = Router();
 
@@ -844,6 +844,14 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
       .set({ status: "cancelled" })
       .where(eq(ridesTable.id, rideId));
 
+    // Mirror the ride status change to Supabase Postgres via HTTPS so that
+    // Realtime UPDATE events fire to the driver's useRideCancellation hook.
+    // Requires: ALTER PUBLICATION supabase_realtime ADD TABLE rides;
+    // See scripts/sql/enable-rides-realtime.sql
+    await updateRideViaSupabase(rideId, { status: "cancelled" }).catch((err) =>
+      logger.warn({ err, rideId }, "rides.cancel: Supabase ride mirror failed (Realtime may not fire)"),
+    );
+
     // Update all active assignments to cancelled in local Postgres
     if (activeAssignments.length > 0) {
       await db
@@ -856,7 +864,8 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
           ),
         );
 
-      // Write the same update to Supabase so Realtime UPDATE events fire to drivers
+      // Write the same update to Supabase so Realtime UPDATE events also fire
+      // for driver_assignments subscribers (belt-and-suspenders notification path)
       const assignmentIds = activeAssignments.map((a) => a.id);
       await updateAssignmentViaSupabase(assignmentIds, { status: "cancelled" });
     }

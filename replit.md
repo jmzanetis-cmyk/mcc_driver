@@ -43,9 +43,9 @@ A real-time driver portal for My Car Concierge — a premium vehicle concierge s
 
 ## Architecture decisions
 
-- **Split DB write strategy for Realtime**: The API server uses Drizzle ORM (via local `DATABASE_URL`) for all transactional ride operations (reads, status updates, ride insert). However, `driver_assignments` inserts and cancellation updates go through the Supabase JS admin client (HTTPS + service role key) so they land in Supabase Postgres and trigger Realtime events to drivers — direct Postgres connections from Replit's network to Supabase are blocked.
-- **Supabase Realtime for push delivery**: The driver app subscribes to `postgres_changes` on the `driver_assignments` table. Ride offer delivery uses INSERT events filtered by `driver_id`; ride cancellation detection uses UPDATE events filtered by `id=eq.{assignmentId}`. Do NOT subscribe to the `rides` table for cancellation — rides are written to local Postgres only, so Supabase Realtime would never fire for those changes.
-- **Cancellation flow**: `POST /api/rides/:rideId/cancel` updates both local Postgres (ride + assignment rows via Drizzle) AND Supabase (assignment rows via `updateAssignmentViaSupabase()`). The Supabase write fires a Realtime UPDATE to the driver. `useRideCancellation` in the driver app catches it, calls `setCancelled()` + `setServerCancelled(true)`, and `ActiveRideWatcher` auto-navigates home.
+- **Split DB write strategy for Realtime**: The API server uses Drizzle ORM (via local `DATABASE_URL`) for all transactional ride operations (reads, status updates, ride insert). However, `driver_assignments` inserts AND ride cancellation status changes go through the Supabase JS admin client (HTTPS + service role key) so they land in Supabase Postgres and trigger Realtime events to drivers — direct Postgres connections from Replit's network to Supabase are blocked.
+- **Supabase Realtime for push delivery**: The driver app subscribes to `postgres_changes` on two tables: `driver_assignments` (INSERT events, filtered by `driver_id`, for new ride offers) and `rides` (UPDATE events, filtered by `id=eq.{rideId}`, for ride cancellation). Both tables must be in the `supabase_realtime` publication.
+- **Cancellation flow**: `POST /api/rides/:rideId/cancel` updates both local Postgres (ride + assignment rows via Drizzle) AND Supabase (ride row via `updateRideViaSupabase()`, assignment rows via `updateAssignmentViaSupabase()`). The Supabase ride write fires a Realtime UPDATE to the driver's `useRideCancellation` hook, which calls `setCancelled()` + `setServerCancelled(true)`, and `ActiveRideWatcher` auto-navigates home.
 - **API server for state transitions**: All ride mutations (accept, decline, stage update, complete) go through the API server rather than direct client updates. This enables atomic accept with deadline checking and prevents race conditions where two drivers accept simultaneously.
 - **Zustand dispatch store as single source of truth**: The entire ride lifecycle state (idle → offered → accepted → navigating → arrived → in_progress → completing → completed) lives in a single Zustand store, shared between HomeScreen, NavigateScreen, and RideCompleteScreen without prop drilling.
 - **SCENARIO_CONFIG mirrored on client and server**: The ride scenario definitions (which role drives the member vehicle, how many drivers required, etc.) exist in both `artifacts/driver/src/services/rides/index.ts` and `artifacts/api-server/src/lib/scenarioConfig.ts` to avoid a cross-artifact dependency.
@@ -78,7 +78,8 @@ Missing enum values were added to Supabase via SQL editor (2026-05-15):
 - `driver_assignment_status`: added declined, expired
 - `driver_status`: added approved
 - `driver_assignments` columns added: member_vehicle_description, member_vehicle_plate
-- Realtime enabled: `ALTER PUBLICATION supabase_realtime ADD TABLE driver_assignments`
+- Realtime enabled on driver_assignments: `ALTER PUBLICATION supabase_realtime ADD TABLE driver_assignments`
+- **TODO**: Run `ALTER PUBLICATION supabase_realtime ADD TABLE rides;` in the Supabase SQL editor to enable cancellation Realtime. Script: `scripts/sql/enable-rides-realtime.sql`
 
 **Dispatch eligibility requirements**:
 - Driver `status` must be `'active'`
@@ -94,10 +95,10 @@ to verify the full dispatch path end-to-end — confirmed passing as of 2026-05-
 - After changing `lib/db/src/schema/index.ts`, run `pnpm --filter @workspace/db run push` to apply schema changes to local Postgres.
 - After changing `lib/api-spec/openapi.yaml`, run `pnpm --filter @workspace/api-spec run codegen` to regenerate types and hooks.
 - `driver_assignments` inserts MUST go through `insertAssignmentViaSupabase` (not Drizzle) so Realtime INSERT events fire for new ride offers.
-- `driver_assignments` cancellation updates MUST go through `updateAssignmentViaSupabase` so Realtime UPDATE events fire for ride cancellations.
-- Do NOT subscribe `useRideCancellation` to the `rides` table. Ride rows are only written to local Postgres — Supabase Realtime cannot see those changes.
+- Ride cancellations MUST call `updateRideViaSupabase()` to mirror the status to Supabase so Realtime UPDATE fires on the `rides` table. The `updateAssignmentViaSupabase()` call is a belt-and-suspenders secondary path.
 - Direct Postgres connections from Replit to Supabase are blocked (network). All Supabase writes go via HTTPS using the service role key.
 - Supabase Realtime is enabled on `driver_assignments` via the supabase_realtime publication. Do not remove it.
+- **`rides` table must also be added to the publication** for cancellation detection to work. Run `scripts/sql/enable-rides-realtime.sql` once in the Supabase SQL editor.
 
 ## Pointers
 

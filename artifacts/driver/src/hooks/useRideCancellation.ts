@@ -1,20 +1,21 @@
 // ============================================================
 // MCC Driver — useRideCancellation Hook
 // ============================================================
-// Subscribes to Supabase Realtime UPDATE events on the
-// driver_assignments table (not rides) for the driver's
-// current assignment. When the assignment status changes to
-// 'cancelled', it means the ride was cancelled externally
-// (by the member, admin, or system).
+// Subscribes to Supabase Realtime UPDATE events on the rides
+// table for the driver's current ride. When the ride status
+// changes to 'cancelled' (member, admin, or system), it sets
+// the dispatch store to the 'cancelled' stage so NavigateScreen
+// shows an overlay, and sets serverCancelled so ActiveRideWatcher
+// auto-navigates the driver back to home.
 //
-// Architecture note: The API server's cancel route writes
-// ride mutations to LOCAL Postgres via Drizzle, which cannot
-// trigger Supabase Realtime events. However it also calls
-// updateAssignmentViaSupabase() which writes the assignment
-// status change to Supabase via HTTPS (service role key) —
-// this IS visible to Supabase Realtime. So we subscribe to
-// driver_assignments, which is already in the supabase_realtime
-// publication, rather than rides (which is not wired to Supabase).
+// Prerequisites (one-time Supabase setup):
+//   ALTER PUBLICATION supabase_realtime ADD TABLE rides;
+// See scripts/sql/enable-rides-realtime.sql for the full script.
+//
+// Write path: The API server's cancel route writes the ride status
+// change to Supabase via supabaseAdmin (HTTPS + service role key),
+// which triggers this Realtime event. Local-only Drizzle writes
+// do NOT trigger Realtime — the Supabase admin write is required.
 // ============================================================
 
 import { useEffect } from 'react';
@@ -25,7 +26,6 @@ import { clearRideState } from '@/services/offline/storage';
 import { logger } from '@/services/telemetry/logger';
 
 export function useRideCancellation() {
-  const assignmentId = useDispatchStore((s) => s.assignmentId);
   const rideId = useDispatchStore((s) => s.rideId);
   const stage = useDispatchStore((s) => s.stage);
   const setCancelled = useDispatchStore((s) => s.setCancelled);
@@ -35,9 +35,9 @@ export function useRideCancellation() {
     // Only watch for cancellations once the driver has accepted a ride
     const isActive =
       stage !== 'idle' && stage !== 'offered' && stage !== 'completed' && stage !== 'cancelled';
-    if (!assignmentId || !isActive) return;
+    if (!rideId || !isActive) return;
 
-    const channelKey = `assignment-cancellation-${assignmentId}`;
+    const channelKey = `ride-cancellation-${rideId}`;
 
     const channel = supabase
       .channel(channelKey)
@@ -46,17 +46,17 @@ export function useRideCancellation() {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'driver_assignments',
-          filter: `id=eq.${assignmentId}`,
+          table: 'rides',
+          filter: `id=eq.${rideId}`,
         },
         async (payload) => {
           const updated = payload.new as { id: string; status: string };
           if (updated.status !== 'cancelled') return;
 
-          logger.info('ride.server_cancelled', { assignmentId, rideId });
+          logger.info('ride.server_cancelled', { rideId });
 
           // Clear persisted offline ride state
-          if (rideId) await clearRideState(rideId);
+          await clearRideState(rideId);
 
           // Set stage to 'cancelled' so NavigateScreen shows its countdown overlay
           setCancelled('This ride has been cancelled by the member or dispatcher.');
@@ -73,5 +73,5 @@ export function useRideCancellation() {
     return () => {
       realtimeManager.unsubscribe(channelKey);
     };
-  }, [assignmentId, stage]);
+  }, [rideId, stage]);
 }
