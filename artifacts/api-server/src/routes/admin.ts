@@ -2,8 +2,8 @@
 // MCC API — Admin Router
 // ============================================================
 // Handles admin operations: listing, approving, and rejecting
-// driver applications. Protected by Supabase JWT + ADMIN_EMAILS
-// environment variable check.
+// driver applications. Protected by Supabase JWT + a database-
+// backed admin role check (admin_users table) — see lib/adminAuth.ts.
 // ============================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
