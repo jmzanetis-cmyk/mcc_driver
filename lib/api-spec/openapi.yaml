@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: rides
     description: Ride dispatch and lifecycle operations
+  - name: admin
+    description: Admin operations for driver application management
 paths:
   /healthz:
     get:
@@ -235,6 +237,122 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/drivers:
+    get:
+      operationId: listAdminDrivers
+      tags: [admin]
+      summary: List drivers filtered by status
+      description: |
+        Returns driver application records for admin review.
+        Requires admin authentication (Bearer token + ADMIN_EMAILS check).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            default: pending_approval
+          description: Filter by driver status
+      responses:
+        "200":
+          description: Driver list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminDriverRecord"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/drivers/{driverId}/approve:
+    post:
+      operationId: approveDriver
+      tags: [admin]
+      summary: Approve a driver application
+      description: Sets the driver's status to active.
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Driver approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Driver not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/drivers/{driverId}/reject:
+    post:
+      operationId: rejectDriver
+      tags: [admin]
+      summary: Reject a driver application
+      description: Sets the driver's status to inactive.
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Driver rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Driver not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -399,3 +517,63 @@ components:
         - rideId
         - finalFare
         - driverPayout
+
+    AdminDriverRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        status:
+          type: string
+        licenseDocumentPath:
+          type: ["string", "null"]
+        insuranceDocumentPath:
+          type: ["string", "null"]
+        profilePhotoUrl:
+          type: ["string", "null"]
+        backgroundCheckPassed:
+          type: boolean
+        canDriveMemberVehicle:
+          type: boolean
+        totalRidesCompleted:
+          type: integer
+        averageRating:
+          type: number
+          format: float
+        createdAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - firstName
+        - lastName
+        - email
+        - phone
+        - status
+        - backgroundCheckPassed
+        - canDriveMemberVehicle
+        - totalRidesCompleted
+        - averageRating
+
+    AdminActionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        driverId:
+          type: string
+          format: uuid
+        status:
+          type: string
+      required:
+        - success
+        - driverId
+        - status

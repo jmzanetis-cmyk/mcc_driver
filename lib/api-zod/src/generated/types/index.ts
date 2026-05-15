@@ -6,12 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./adminActionResult";
+export * from "./adminDriverRecord";
 export * from "./assignmentActionResponse";
 export * from "./completeRideRequest";
 export * from "./dispatchRideRequest";
 export * from "./dispatchRideResponse";
 export * from "./errorResponse";
 export * from "./healthStatus";
+export * from "./listAdminDriversParams";
 export * from "./rideCompletionResult";
 export * from "./updateStageRequest";
 export * from "./updateStageRequestStage";

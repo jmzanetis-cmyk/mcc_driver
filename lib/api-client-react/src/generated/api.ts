@@ -17,12 +17,15 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminActionResult,
+  AdminDriverRecord,
   AssignmentActionResponse,
   CompleteRideRequest,
   DispatchRideRequest,
   DispatchRideResponse,
   ErrorResponse,
   HealthStatus,
+  ListAdminDriversParams,
   RideCompletionResult,
   UpdateStageRequest,
 } from "./api.schemas";
@@ -566,4 +569,274 @@ export const useCompleteRide = <
   TContext
 > => {
   return useMutation(getCompleteRideMutationOptions(options));
+};
+
+/**
+ * Returns driver application records for admin review.
+Requires admin authentication (Bearer token + ADMIN_EMAILS check).
+
+ * @summary List drivers filtered by status
+ */
+export const getListAdminDriversUrl = (params?: ListAdminDriversParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/drivers?${stringifiedParams}`
+    : `/api/admin/drivers`;
+};
+
+export const listAdminDrivers = async (
+  params?: ListAdminDriversParams,
+  options?: RequestInit,
+): Promise<AdminDriverRecord[]> => {
+  return customFetch<AdminDriverRecord[]>(getListAdminDriversUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminDriversQueryKey = (
+  params?: ListAdminDriversParams,
+) => {
+  return [`/api/admin/drivers`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminDriversQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminDrivers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAdminDriversParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminDrivers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminDriversQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminDrivers>>
+  > = ({ signal }) => listAdminDrivers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminDrivers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminDriversQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminDrivers>>
+>;
+export type ListAdminDriversQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List drivers filtered by status
+ */
+
+export function useListAdminDrivers<
+  TData = Awaited<ReturnType<typeof listAdminDrivers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAdminDriversParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminDrivers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminDriversQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Sets the driver's status to active.
+ * @summary Approve a driver application
+ */
+export const getApproveDriverUrl = (driverId: string) => {
+  return `/api/admin/drivers/${driverId}/approve`;
+};
+
+export const approveDriver = async (
+  driverId: string,
+  options?: RequestInit,
+): Promise<AdminActionResult> => {
+  return customFetch<AdminActionResult>(getApproveDriverUrl(driverId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getApproveDriverMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveDriver>>,
+    TError,
+    { driverId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveDriver>>,
+  TError,
+  { driverId: string },
+  TContext
+> => {
+  const mutationKey = ["approveDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveDriver>>,
+    { driverId: string }
+  > = (props) => {
+    const { driverId } = props ?? {};
+
+    return approveDriver(driverId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveDriver>>
+>;
+
+export type ApproveDriverMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Approve a driver application
+ */
+export const useApproveDriver = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveDriver>>,
+    TError,
+    { driverId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveDriver>>,
+  TError,
+  { driverId: string },
+  TContext
+> => {
+  return useMutation(getApproveDriverMutationOptions(options));
+};
+
+/**
+ * Sets the driver's status to inactive.
+ * @summary Reject a driver application
+ */
+export const getRejectDriverUrl = (driverId: string) => {
+  return `/api/admin/drivers/${driverId}/reject`;
+};
+
+export const rejectDriver = async (
+  driverId: string,
+  options?: RequestInit,
+): Promise<AdminActionResult> => {
+  return customFetch<AdminActionResult>(getRejectDriverUrl(driverId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRejectDriverMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectDriver>>,
+    TError,
+    { driverId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectDriver>>,
+  TError,
+  { driverId: string },
+  TContext
+> => {
+  const mutationKey = ["rejectDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectDriver>>,
+    { driverId: string }
+  > = (props) => {
+    const { driverId } = props ?? {};
+
+    return rejectDriver(driverId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectDriver>>
+>;
+
+export type RejectDriverMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Reject a driver application
+ */
+export const useRejectDriver = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectDriver>>,
+    TError,
+    { driverId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectDriver>>,
+  TError,
+  { driverId: string },
+  TContext
+> => {
+  return useMutation(getRejectDriverMutationOptions(options));
 };

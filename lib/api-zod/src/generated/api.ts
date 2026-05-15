@@ -132,3 +132,64 @@ export const CompleteRideResponse = zod.object({
   finalFare: zod.number(),
   driverPayout: zod.number(),
 });
+
+/**
+ * Returns driver application records for admin review.
+Requires admin authentication (Bearer token + ADMIN_EMAILS check).
+
+ * @summary List drivers filtered by status
+ */
+export const listAdminDriversQueryStatusDefault = `pending_approval`;
+
+export const ListAdminDriversQueryParams = zod.object({
+  status: zod.coerce
+    .string()
+    .default(listAdminDriversQueryStatusDefault)
+    .describe("Filter by driver status"),
+});
+
+export const ListAdminDriversResponseItem = zod.object({
+  id: zod.string().uuid(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
+  status: zod.string(),
+  licenseDocumentPath: zod.string().nullish(),
+  insuranceDocumentPath: zod.string().nullish(),
+  profilePhotoUrl: zod.string().nullish(),
+  backgroundCheckPassed: zod.boolean(),
+  canDriveMemberVehicle: zod.boolean(),
+  totalRidesCompleted: zod.number(),
+  averageRating: zod.number(),
+  createdAt: zod.string().nullish(),
+});
+export const ListAdminDriversResponse = zod.array(ListAdminDriversResponseItem);
+
+/**
+ * Sets the driver's status to active.
+ * @summary Approve a driver application
+ */
+export const ApproveDriverParams = zod.object({
+  driverId: zod.coerce.string().uuid(),
+});
+
+export const ApproveDriverResponse = zod.object({
+  success: zod.boolean(),
+  driverId: zod.string().uuid(),
+  status: zod.string(),
+});
+
+/**
+ * Sets the driver's status to inactive.
+ * @summary Reject a driver application
+ */
+export const RejectDriverParams = zod.object({
+  driverId: zod.coerce.string().uuid(),
+});
+
+export const RejectDriverResponse = zod.object({
+  success: zod.boolean(),
+  driverId: zod.string().uuid(),
+  status: zod.string(),
+});

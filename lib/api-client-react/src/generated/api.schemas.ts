@@ -75,3 +75,37 @@ export interface RideCompletionResult {
   finalFare: number;
   driverPayout: number;
 }
+
+export interface AdminDriverRecord {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  status: string;
+  /** @nullable */
+  licenseDocumentPath?: string | null;
+  /** @nullable */
+  insuranceDocumentPath?: string | null;
+  /** @nullable */
+  profilePhotoUrl?: string | null;
+  backgroundCheckPassed: boolean;
+  canDriveMemberVehicle: boolean;
+  totalRidesCompleted: number;
+  averageRating: number;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface AdminActionResult {
+  success: boolean;
+  driverId: string;
+  status: string;
+}
+
+export type ListAdminDriversParams = {
+  /**
+   * Filter by driver status
+   */
+  status?: string;
+};
