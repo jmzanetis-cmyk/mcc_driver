@@ -103,6 +103,118 @@ export interface AdminActionResult {
   status: string;
 }
 
+export interface CreateRideAlongDriverRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  zipCode?: string | null;
+  maxDistanceMiles?: number;
+  licenseNumber?: string | null;
+  licenseState?: string | null;
+  licenseExpiry?: string | null;
+  licenseDocumentPath?: string | null;
+  insuranceDocumentPath?: string | null;
+  insuranceExpiry?: string | null;
+  profilePhotoPath?: string | null;
+  agreementSigned?: boolean | null;
+}
+
+export interface UpdateRideAlongDriverRequest {
+  zipCode?: string | null;
+  maxDistanceMiles?: number;
+  licenseNumber?: string | null;
+  licenseState?: string | null;
+  licenseExpiry?: string | null;
+  licenseDocumentPath?: string | null;
+  insuranceDocumentPath?: string | null;
+  insuranceExpiry?: string | null;
+  profilePhotoPath?: string | null;
+  agreementSigned?: boolean | null;
+}
+
+export interface RideAlongDriverRecord {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  /** @nullable */
+  zipCode?: string | null;
+  maxDistanceMiles: number;
+  /** @nullable */
+  licenseNumber?: string | null;
+  /** @nullable */
+  licenseState?: string | null;
+  /** @nullable */
+  licenseExpiry?: string | null;
+  /** @nullable */
+  licenseDocumentPath?: string | null;
+  /** @nullable */
+  insuranceDocumentPath?: string | null;
+  /** @nullable */
+  insuranceExpiry?: string | null;
+  /** pending | passed | failed */
+  backgroundCheckStatus: string;
+  verified: boolean;
+  /** @nullable */
+  profilePhotoPath?: string | null;
+  /** @nullable */
+  agreementSignedAt?: string | null;
+  rating: number;
+  totalJobs: number;
+  status: string;
+  /** @nullable */
+  createdAt?: string | null;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
+export interface AdminRideAlongDriverRecord {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  /** @nullable */
+  zipCode?: string | null;
+  maxDistanceMiles: number;
+  /** @nullable */
+  licenseNumber?: string | null;
+  /** @nullable */
+  licenseState?: string | null;
+  /** @nullable */
+  licenseExpiry?: string | null;
+  /** @nullable */
+  licenseDocumentPath?: string | null;
+  /** @nullable */
+  insuranceDocumentPath?: string | null;
+  /** @nullable */
+  insuranceExpiry?: string | null;
+  backgroundCheckStatus: string;
+  verified: boolean;
+  /** @nullable */
+  profilePhotoPath?: string | null;
+  /** @nullable */
+  agreementSignedAt?: string | null;
+  rating: number;
+  totalJobs: number;
+  status: string;
+  /** @nullable */
+  createdAt?: string | null;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
+export type ListAdminRideAlongDriversParams = {
+  /**
+   * Filter by status
+   */
+  status?: string;
+};
+
 export type ListAdminDriversParams = {
   /**
    * Filter by driver status

@@ -119,3 +119,55 @@ export const driverPayoutsTable = pgTable("driver_payouts", {
 });
 
 export type DriverPayout = typeof driverPayoutsTable.$inferSelect;
+
+// ── Ride-Along Drivers ────────────────────────────────────────────────────────
+// Ride-Along Drivers are a separate gig role from regular MCC Drivers.
+// They accompany a primary MCC Driver on a tandem job (Phase 2+).
+// This table tracks their onboarding, document verification, and status.
+
+export const rideAlongDriversTable = pgTable("ride_along_drivers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().unique(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  zipCode: text("zip_code"),
+  maxDistanceMiles: integer("max_distance_miles").notNull().default(20),
+
+  // License
+  licenseNumber: text("license_number"),
+  licenseState: text("license_state"),
+  licenseExpiry: text("license_expiry"),
+  licenseDocumentPath: text("license_document_path"),
+
+  // Insurance
+  insuranceDocumentPath: text("insurance_document_path"),
+  insuranceExpiry: text("insurance_expiry"),
+
+  // Verification
+  backgroundCheckStatus: text("background_check_status").notNull().default("pending"),
+  verified: boolean("verified").notNull().default(false),
+  profilePhotoPath: text("profile_photo_path"),
+
+  // Agreement
+  agreementSignedAt: timestamp("agreement_signed_at", { withTimezone: true }),
+
+  // Performance
+  rating: real("rating").notNull().default(5.0),
+  totalJobs: integer("total_jobs").notNull().default(0),
+
+  // Lifecycle
+  status: text("status").notNull().default("pending_approval"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertRideAlongDriverSchema = createInsertSchema(rideAlongDriversTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertRideAlongDriver = z.infer<typeof insertRideAlongDriverSchema>;
+export type RideAlongDriver = typeof rideAlongDriversTable.$inferSelect;

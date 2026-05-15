@@ -160,6 +160,21 @@ export default function Drivers() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+        {/* Tab navigation */}
+        <div className="flex gap-1 border-b">
+          <button
+            className="px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary"
+          >
+            MCC Drivers
+          </button>
+          <button
+            onClick={() => setLocation('/ride-along-drivers')}
+            className="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Ride-Along Drivers
+          </button>
+        </div>
+
         {/* Page title + summary */}
         <div className="flex items-start justify-between">
           <div>

@@ -14,6 +14,8 @@ tags:
     description: Ride dispatch and lifecycle operations
   - name: admin
     description: Admin operations for driver application management
+  - name: ride-along
+    description: Ride-Along Driver onboarding and profile management
 paths:
   /healthz:
     get:
@@ -232,6 +234,227 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Ride or assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ride-along-drivers:
+    post:
+      operationId: createRideAlongDriver
+      tags: [ride-along]
+      summary: Create a Ride-Along Driver application
+      description: |
+        Creates a new Ride-Along Driver profile for the authenticated user.
+        Returns 409 if the user already has a profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRideAlongDriverRequest"
+      responses:
+        "201":
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RideAlongDriverRecord"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Profile already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ride-along-drivers/me:
+    get:
+      operationId: getRideAlongDriverMe
+      tags: [ride-along]
+      summary: Get the authenticated user's Ride-Along Driver profile
+      responses:
+        "200":
+          description: Profile found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RideAlongDriverRecord"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No profile found for this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ride-along-drivers/{id}:
+    patch:
+      operationId: updateRideAlongDriver
+      tags: [ride-along]
+      summary: Update a Ride-Along Driver profile
+      description: Used by the driver to update documents or resubmit after rejection.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRideAlongDriverRequest"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RideAlongDriverRecord"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not your profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/ride-along-drivers:
+    get:
+      operationId: listAdminRideAlongDrivers
+      tags: [admin]
+      summary: List Ride-Along Driver applications for admin review
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            default: pending_approval
+          description: Filter by status
+      responses:
+        "200":
+          description: List of Ride-Along Driver records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminRideAlongDriverRecord"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/ride-along-drivers/{id}/approve:
+    post:
+      operationId: approveRideAlongDriver
+      tags: [admin]
+      summary: Approve a Ride-Along Driver application
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/ride-along-drivers/{id}/reject:
+    post:
+      operationId: rejectRideAlongDriver
+      tags: [admin]
+      summary: Reject a Ride-Along Driver application
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
@@ -576,4 +799,215 @@ components:
       required:
         - success
         - driverId
+        - status
+
+    CreateRideAlongDriverRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        zipCode:
+          type: string
+          nullable: true
+        maxDistanceMiles:
+          type: integer
+          default: 20
+        licenseNumber:
+          type: string
+          nullable: true
+        licenseState:
+          type: string
+          nullable: true
+        licenseExpiry:
+          type: string
+          nullable: true
+        licenseDocumentPath:
+          type: string
+          nullable: true
+        insuranceDocumentPath:
+          type: string
+          nullable: true
+        insuranceExpiry:
+          type: string
+          nullable: true
+        profilePhotoPath:
+          type: string
+          nullable: true
+        agreementSigned:
+          type: boolean
+          nullable: true
+      required:
+        - firstName
+        - lastName
+        - email
+        - phone
+
+    UpdateRideAlongDriverRequest:
+      type: object
+      properties:
+        zipCode:
+          type: string
+          nullable: true
+        maxDistanceMiles:
+          type: integer
+        licenseNumber:
+          type: string
+          nullable: true
+        licenseState:
+          type: string
+          nullable: true
+        licenseExpiry:
+          type: string
+          nullable: true
+        licenseDocumentPath:
+          type: string
+          nullable: true
+        insuranceDocumentPath:
+          type: string
+          nullable: true
+        insuranceExpiry:
+          type: string
+          nullable: true
+        profilePhotoPath:
+          type: string
+          nullable: true
+        agreementSigned:
+          type: boolean
+          nullable: true
+
+    RideAlongDriverRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        zipCode:
+          type: ["string", "null"]
+        maxDistanceMiles:
+          type: integer
+        licenseNumber:
+          type: ["string", "null"]
+        licenseState:
+          type: ["string", "null"]
+        licenseExpiry:
+          type: ["string", "null"]
+        licenseDocumentPath:
+          type: ["string", "null"]
+        insuranceDocumentPath:
+          type: ["string", "null"]
+        insuranceExpiry:
+          type: ["string", "null"]
+        backgroundCheckStatus:
+          type: string
+          description: "pending | passed | failed"
+        verified:
+          type: boolean
+        profilePhotoPath:
+          type: ["string", "null"]
+        agreementSignedAt:
+          type: ["string", "null"]
+        rating:
+          type: number
+          format: float
+        totalJobs:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - userId
+        - firstName
+        - lastName
+        - email
+        - phone
+        - maxDistanceMiles
+        - backgroundCheckStatus
+        - verified
+        - rating
+        - totalJobs
+        - status
+
+    AdminRideAlongDriverRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        zipCode:
+          type: ["string", "null"]
+        maxDistanceMiles:
+          type: integer
+        licenseNumber:
+          type: ["string", "null"]
+        licenseState:
+          type: ["string", "null"]
+        licenseExpiry:
+          type: ["string", "null"]
+        licenseDocumentPath:
+          type: ["string", "null"]
+        insuranceDocumentPath:
+          type: ["string", "null"]
+        insuranceExpiry:
+          type: ["string", "null"]
+        backgroundCheckStatus:
+          type: string
+        verified:
+          type: boolean
+        profilePhotoPath:
+          type: ["string", "null"]
+        agreementSignedAt:
+          type: ["string", "null"]
+        rating:
+          type: number
+          format: float
+        totalJobs:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - userId
+        - firstName
+        - lastName
+        - email
+        - phone
+        - maxDistanceMiles
+        - backgroundCheckStatus
+        - verified
+        - rating
+        - totalJobs
         - status

@@ -19,14 +19,19 @@ import type {
 import type {
   AdminActionResult,
   AdminDriverRecord,
+  AdminRideAlongDriverRecord,
   AssignmentActionResponse,
   CompleteRideRequest,
+  CreateRideAlongDriverRequest,
   DispatchRideRequest,
   DispatchRideResponse,
   ErrorResponse,
   HealthStatus,
   ListAdminDriversParams,
+  ListAdminRideAlongDriversParams,
+  RideAlongDriverRecord,
   RideCompletionResult,
+  UpdateRideAlongDriverRequest,
   UpdateStageRequest,
 } from "./api.schemas";
 
@@ -569,6 +574,537 @@ export const useCompleteRide = <
   TContext
 > => {
   return useMutation(getCompleteRideMutationOptions(options));
+};
+
+/**
+ * Creates a new Ride-Along Driver profile for the authenticated user.
+Returns 409 if the user already has a profile.
+
+ * @summary Create a Ride-Along Driver application
+ */
+export const getCreateRideAlongDriverUrl = () => {
+  return `/api/ride-along-drivers`;
+};
+
+export const createRideAlongDriver = async (
+  createRideAlongDriverRequest: CreateRideAlongDriverRequest,
+  options?: RequestInit,
+): Promise<RideAlongDriverRecord> => {
+  return customFetch<RideAlongDriverRecord>(getCreateRideAlongDriverUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRideAlongDriverRequest),
+  });
+};
+
+export const getCreateRideAlongDriverMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRideAlongDriver>>,
+    TError,
+    { data: BodyType<CreateRideAlongDriverRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRideAlongDriver>>,
+  TError,
+  { data: BodyType<CreateRideAlongDriverRequest> },
+  TContext
+> => {
+  const mutationKey = ["createRideAlongDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRideAlongDriver>>,
+    { data: BodyType<CreateRideAlongDriverRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createRideAlongDriver(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRideAlongDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRideAlongDriver>>
+>;
+export type CreateRideAlongDriverMutationBody =
+  BodyType<CreateRideAlongDriverRequest>;
+export type CreateRideAlongDriverMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a Ride-Along Driver application
+ */
+export const useCreateRideAlongDriver = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRideAlongDriver>>,
+    TError,
+    { data: BodyType<CreateRideAlongDriverRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRideAlongDriver>>,
+  TError,
+  { data: BodyType<CreateRideAlongDriverRequest> },
+  TContext
+> => {
+  return useMutation(getCreateRideAlongDriverMutationOptions(options));
+};
+
+/**
+ * @summary Get the authenticated user's Ride-Along Driver profile
+ */
+export const getGetRideAlongDriverMeUrl = () => {
+  return `/api/ride-along-drivers/me`;
+};
+
+export const getRideAlongDriverMe = async (
+  options?: RequestInit,
+): Promise<RideAlongDriverRecord> => {
+  return customFetch<RideAlongDriverRecord>(getGetRideAlongDriverMeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRideAlongDriverMeQueryKey = () => {
+  return [`/api/ride-along-drivers/me`] as const;
+};
+
+export const getGetRideAlongDriverMeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRideAlongDriverMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRideAlongDriverMe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRideAlongDriverMeQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRideAlongDriverMe>>
+  > = ({ signal }) => getRideAlongDriverMe({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRideAlongDriverMe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRideAlongDriverMeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRideAlongDriverMe>>
+>;
+export type GetRideAlongDriverMeQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the authenticated user's Ride-Along Driver profile
+ */
+
+export function useGetRideAlongDriverMe<
+  TData = Awaited<ReturnType<typeof getRideAlongDriverMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRideAlongDriverMe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRideAlongDriverMeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Used by the driver to update documents or resubmit after rejection.
+ * @summary Update a Ride-Along Driver profile
+ */
+export const getUpdateRideAlongDriverUrl = (id: string) => {
+  return `/api/ride-along-drivers/${id}`;
+};
+
+export const updateRideAlongDriver = async (
+  id: string,
+  updateRideAlongDriverRequest: UpdateRideAlongDriverRequest,
+  options?: RequestInit,
+): Promise<RideAlongDriverRecord> => {
+  return customFetch<RideAlongDriverRecord>(getUpdateRideAlongDriverUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateRideAlongDriverRequest),
+  });
+};
+
+export const getUpdateRideAlongDriverMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRideAlongDriver>>,
+    TError,
+    { id: string; data: BodyType<UpdateRideAlongDriverRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateRideAlongDriver>>,
+  TError,
+  { id: string; data: BodyType<UpdateRideAlongDriverRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateRideAlongDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateRideAlongDriver>>,
+    { id: string; data: BodyType<UpdateRideAlongDriverRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateRideAlongDriver(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateRideAlongDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateRideAlongDriver>>
+>;
+export type UpdateRideAlongDriverMutationBody =
+  BodyType<UpdateRideAlongDriverRequest>;
+export type UpdateRideAlongDriverMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update a Ride-Along Driver profile
+ */
+export const useUpdateRideAlongDriver = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRideAlongDriver>>,
+    TError,
+    { id: string; data: BodyType<UpdateRideAlongDriverRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateRideAlongDriver>>,
+  TError,
+  { id: string; data: BodyType<UpdateRideAlongDriverRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateRideAlongDriverMutationOptions(options));
+};
+
+/**
+ * @summary List Ride-Along Driver applications for admin review
+ */
+export const getListAdminRideAlongDriversUrl = (
+  params?: ListAdminRideAlongDriversParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/ride-along-drivers?${stringifiedParams}`
+    : `/api/admin/ride-along-drivers`;
+};
+
+export const listAdminRideAlongDrivers = async (
+  params?: ListAdminRideAlongDriversParams,
+  options?: RequestInit,
+): Promise<AdminRideAlongDriverRecord[]> => {
+  return customFetch<AdminRideAlongDriverRecord[]>(
+    getListAdminRideAlongDriversUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminRideAlongDriversQueryKey = (
+  params?: ListAdminRideAlongDriversParams,
+) => {
+  return [
+    `/api/admin/ride-along-drivers`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAdminRideAlongDriversQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminRideAlongDrivers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAdminRideAlongDriversParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminRideAlongDrivers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminRideAlongDriversQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminRideAlongDrivers>>
+  > = ({ signal }) =>
+    listAdminRideAlongDrivers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminRideAlongDrivers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminRideAlongDriversQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminRideAlongDrivers>>
+>;
+export type ListAdminRideAlongDriversQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List Ride-Along Driver applications for admin review
+ */
+
+export function useListAdminRideAlongDrivers<
+  TData = Awaited<ReturnType<typeof listAdminRideAlongDrivers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAdminRideAlongDriversParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminRideAlongDrivers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminRideAlongDriversQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Approve a Ride-Along Driver application
+ */
+export const getApproveRideAlongDriverUrl = (id: string) => {
+  return `/api/admin/ride-along-drivers/${id}/approve`;
+};
+
+export const approveRideAlongDriver = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AdminActionResult> => {
+  return customFetch<AdminActionResult>(getApproveRideAlongDriverUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getApproveRideAlongDriverMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveRideAlongDriver>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveRideAlongDriver>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["approveRideAlongDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveRideAlongDriver>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return approveRideAlongDriver(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveRideAlongDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveRideAlongDriver>>
+>;
+
+export type ApproveRideAlongDriverMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Approve a Ride-Along Driver application
+ */
+export const useApproveRideAlongDriver = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveRideAlongDriver>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveRideAlongDriver>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getApproveRideAlongDriverMutationOptions(options));
+};
+
+/**
+ * @summary Reject a Ride-Along Driver application
+ */
+export const getRejectRideAlongDriverUrl = (id: string) => {
+  return `/api/admin/ride-along-drivers/${id}/reject`;
+};
+
+export const rejectRideAlongDriver = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AdminActionResult> => {
+  return customFetch<AdminActionResult>(getRejectRideAlongDriverUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRejectRideAlongDriverMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectRideAlongDriver>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectRideAlongDriver>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["rejectRideAlongDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectRideAlongDriver>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return rejectRideAlongDriver(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectRideAlongDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectRideAlongDriver>>
+>;
+
+export type RejectRideAlongDriverMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Reject a Ride-Along Driver application
+ */
+export const useRejectRideAlongDriver = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectRideAlongDriver>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectRideAlongDriver>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getRejectRideAlongDriverMutationOptions(options));
 };
 
 /**

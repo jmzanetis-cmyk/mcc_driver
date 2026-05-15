@@ -134,6 +134,176 @@ export const CompleteRideResponse = zod.object({
 });
 
 /**
+ * Creates a new Ride-Along Driver profile for the authenticated user.
+Returns 409 if the user already has a profile.
+
+ * @summary Create a Ride-Along Driver application
+ */
+export const createRideAlongDriverBodyMaxDistanceMilesDefault = 20;
+
+export const CreateRideAlongDriverBody = zod.object({
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
+  zipCode: zod.string().nullish(),
+  maxDistanceMiles: zod
+    .number()
+    .default(createRideAlongDriverBodyMaxDistanceMilesDefault),
+  licenseNumber: zod.string().nullish(),
+  licenseState: zod.string().nullish(),
+  licenseExpiry: zod.string().nullish(),
+  licenseDocumentPath: zod.string().nullish(),
+  insuranceDocumentPath: zod.string().nullish(),
+  insuranceExpiry: zod.string().nullish(),
+  profilePhotoPath: zod.string().nullish(),
+  agreementSigned: zod.boolean().nullish(),
+});
+
+/**
+ * @summary Get the authenticated user's Ride-Along Driver profile
+ */
+export const GetRideAlongDriverMeResponse = zod.object({
+  id: zod.string().uuid(),
+  userId: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
+  zipCode: zod.string().nullish(),
+  maxDistanceMiles: zod.number(),
+  licenseNumber: zod.string().nullish(),
+  licenseState: zod.string().nullish(),
+  licenseExpiry: zod.string().nullish(),
+  licenseDocumentPath: zod.string().nullish(),
+  insuranceDocumentPath: zod.string().nullish(),
+  insuranceExpiry: zod.string().nullish(),
+  backgroundCheckStatus: zod.string().describe("pending | passed | failed"),
+  verified: zod.boolean(),
+  profilePhotoPath: zod.string().nullish(),
+  agreementSignedAt: zod.string().nullish(),
+  rating: zod.number(),
+  totalJobs: zod.number(),
+  status: zod.string(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * Used by the driver to update documents or resubmit after rejection.
+ * @summary Update a Ride-Along Driver profile
+ */
+export const UpdateRideAlongDriverParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateRideAlongDriverBody = zod.object({
+  zipCode: zod.string().nullish(),
+  maxDistanceMiles: zod.number().optional(),
+  licenseNumber: zod.string().nullish(),
+  licenseState: zod.string().nullish(),
+  licenseExpiry: zod.string().nullish(),
+  licenseDocumentPath: zod.string().nullish(),
+  insuranceDocumentPath: zod.string().nullish(),
+  insuranceExpiry: zod.string().nullish(),
+  profilePhotoPath: zod.string().nullish(),
+  agreementSigned: zod.boolean().nullish(),
+});
+
+export const UpdateRideAlongDriverResponse = zod.object({
+  id: zod.string().uuid(),
+  userId: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
+  zipCode: zod.string().nullish(),
+  maxDistanceMiles: zod.number(),
+  licenseNumber: zod.string().nullish(),
+  licenseState: zod.string().nullish(),
+  licenseExpiry: zod.string().nullish(),
+  licenseDocumentPath: zod.string().nullish(),
+  insuranceDocumentPath: zod.string().nullish(),
+  insuranceExpiry: zod.string().nullish(),
+  backgroundCheckStatus: zod.string().describe("pending | passed | failed"),
+  verified: zod.boolean(),
+  profilePhotoPath: zod.string().nullish(),
+  agreementSignedAt: zod.string().nullish(),
+  rating: zod.number(),
+  totalJobs: zod.number(),
+  status: zod.string(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary List Ride-Along Driver applications for admin review
+ */
+export const listAdminRideAlongDriversQueryStatusDefault = `pending_approval`;
+
+export const ListAdminRideAlongDriversQueryParams = zod.object({
+  status: zod.coerce
+    .string()
+    .default(listAdminRideAlongDriversQueryStatusDefault)
+    .describe("Filter by status"),
+});
+
+export const ListAdminRideAlongDriversResponseItem = zod.object({
+  id: zod.string().uuid(),
+  userId: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
+  zipCode: zod.string().nullish(),
+  maxDistanceMiles: zod.number(),
+  licenseNumber: zod.string().nullish(),
+  licenseState: zod.string().nullish(),
+  licenseExpiry: zod.string().nullish(),
+  licenseDocumentPath: zod.string().nullish(),
+  insuranceDocumentPath: zod.string().nullish(),
+  insuranceExpiry: zod.string().nullish(),
+  backgroundCheckStatus: zod.string(),
+  verified: zod.boolean(),
+  profilePhotoPath: zod.string().nullish(),
+  agreementSignedAt: zod.string().nullish(),
+  rating: zod.number(),
+  totalJobs: zod.number(),
+  status: zod.string(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListAdminRideAlongDriversResponse = zod.array(
+  ListAdminRideAlongDriversResponseItem,
+);
+
+/**
+ * @summary Approve a Ride-Along Driver application
+ */
+export const ApproveRideAlongDriverParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const ApproveRideAlongDriverResponse = zod.object({
+  success: zod.boolean(),
+  driverId: zod.string().uuid(),
+  status: zod.string(),
+});
+
+/**
+ * @summary Reject a Ride-Along Driver application
+ */
+export const RejectRideAlongDriverParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const RejectRideAlongDriverResponse = zod.object({
+  success: zod.boolean(),
+  driverId: zod.string().uuid(),
+  status: zod.string(),
+});
+
+/**
  * Returns driver application records for admin review.
 Requires admin authentication (Bearer token + ADMIN_EMAILS check).
 

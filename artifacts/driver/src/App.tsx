@@ -12,6 +12,8 @@ import { ActiveRideWatcher } from '@/components/ActiveRideWatcher';
 import { SignInScreen } from '@/screens/SignInScreen';
 import { ApplicationScreen } from '@/screens/ApplicationScreen';
 import { PendingScreen } from '@/screens/PendingScreen';
+import { RideAlongApplyScreen } from '@/screens/RideAlongApplyScreen';
+import { RideAlongPendingScreen } from '@/screens/RideAlongPendingScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { NavigateScreen } from '@/screens/NavigateScreen';
 import { RideCompleteScreen } from '@/screens/RideCompleteScreen';
@@ -91,6 +93,8 @@ export default function App() {
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/apply" element={<ApplicationScreen />} />
             <Route path="/pending" element={<PendingScreen />} />
+            <Route path="/ride-along-apply" element={<RideAlongApplyScreen />} />
+            <Route path="/ride-along-pending" element={<RideAlongPendingScreen />} />
             <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/navigate" element={<ProtectedRoute><NavigateScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/complete" element={<ProtectedRoute><RideCompleteScreen /></ProtectedRoute>} />
