@@ -32,7 +32,7 @@ A real-time driver portal for My Car Concierge — a premium vehicle concierge s
 - `lib/api-spec/openapi.yaml` — OpenAPI contract (source of truth for API shape)
 - `artifacts/api-server/src/routes/rides.ts` — Ride dispatch, accept, decline, stage update, complete
 - `artifacts/api-server/src/lib/supabaseAdmin.ts` — Supabase admin client + insertAssignmentViaSupabase + updateAssignmentViaSupabase
-- `artifacts/driver/src/hooks/useRideCancellation.ts` — Realtime UPDATE subscription on driver_assignments for cancellation detection
+- `artifacts/driver/src/hooks/useRideCancellation.ts` — Realtime UPDATE subscription on rides (primary) + driver_assignments (fallback) for cancellation detection
 - `artifacts/driver/src/components/ActiveRideWatcher.tsx` — app-level component that mounts useRideCancellation and auto-navigates home on cancellation
 - `artifacts/api-server/src/lib/scenarioConfig.ts` — Server-side ride scenario definitions
 - `artifacts/driver/src/hooks/useRideRequests.ts` — Supabase Realtime subscription for live ride requests
@@ -79,7 +79,7 @@ Missing enum values were added to Supabase via SQL editor (2026-05-15):
 - `driver_status`: added approved
 - `driver_assignments` columns added: member_vehicle_description, member_vehicle_plate
 - Realtime enabled on driver_assignments: `ALTER PUBLICATION supabase_realtime ADD TABLE driver_assignments`
-- **TODO**: Run `ALTER PUBLICATION supabase_realtime ADD TABLE rides;` in the Supabase SQL editor to enable cancellation Realtime. Script: `scripts/sql/enable-rides-realtime.sql`
+- **Required one-time setup** (not yet confirmed): `ALTER PUBLICATION supabase_realtime ADD TABLE rides;` — run in the Supabase SQL editor. Script: `scripts/sql/enable-rides-realtime.sql`. The `driver_assignments` fallback path in `useRideCancellation` delivers cancellation notifications without this step.
 
 **Dispatch eligibility requirements**:
 - Driver `status` must be `'active'`

@@ -848,9 +848,8 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
     // Realtime UPDATE events fire to the driver's useRideCancellation hook.
     // Requires: ALTER PUBLICATION supabase_realtime ADD TABLE rides;
     // See scripts/sql/enable-rides-realtime.sql
-    await updateRideViaSupabase(rideId, { status: "cancelled" }).catch((err) =>
-      logger.warn({ err, rideId }, "rides.cancel: Supabase ride mirror failed (Realtime may not fire)"),
-    );
+    // Error propagates — if this write fails, the driver cannot be notified.
+    await updateRideViaSupabase(rideId, { status: "cancelled" });
 
     // Update all active assignments to cancelled in local Postgres
     if (activeAssignments.length > 0) {
