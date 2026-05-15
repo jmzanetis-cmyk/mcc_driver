@@ -40,11 +40,16 @@ interface DispatchState {
   startedAt: string | null;
   cancellationReason: string | null;
 
+  // Set when the server/member/admin cancels an accepted ride — intentionally
+  // NOT reset by clearDispatch so the UI can show a notification after state clears.
+  serverCancelled: boolean;
+
   // Actions
-  setOffer: (payload: Omit<DispatchState, 'stage' | 'startedAt' | 'cancellationReason' | 'setOffer' | 'setStage' | 'setCancelled' | 'clearDispatch'>) => void;
+  setOffer: (payload: Omit<DispatchState, 'stage' | 'startedAt' | 'cancellationReason' | 'serverCancelled' | 'setOffer' | 'setStage' | 'setCancelled' | 'clearDispatch' | 'setServerCancelled'>) => void;
   setStage: (stage: DispatchStage, extra?: Partial<DispatchState>) => void;
   setCancelled: (reason?: string) => void;
   clearDispatch: () => void;
+  setServerCancelled: (value: boolean) => void;
 }
 
 const INITIAL = {
@@ -72,12 +77,16 @@ const INITIAL = {
 
 export const useDispatchStore = create<DispatchState>((set) => ({
   ...INITIAL,
+  serverCancelled: false,
 
-  setOffer: (payload) => set({ ...payload, stage: 'offered', startedAt: null, cancellationReason: null }),
+  setOffer: (payload) => set({ ...payload, stage: 'offered', startedAt: null, cancellationReason: null, serverCancelled: false }),
 
   setStage: (stage, extra) => set((s) => ({ ...s, stage, ...extra })),
 
   setCancelled: (reason) => set((s) => ({ ...s, stage: 'cancelled', cancellationReason: reason ?? null })),
 
+  // serverCancelled is intentionally preserved across clearDispatch
   clearDispatch: () => set(INITIAL),
+
+  setServerCancelled: (value) => set({ serverCancelled: value }),
 }));

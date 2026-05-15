@@ -1,12 +1,16 @@
 // ============================================================
 // MCC Driver — useRideCancellation Hook
 // ============================================================
-// Subscribes to Supabase Realtime UPDATE events on the
-// driver_assignments table for the driver's current assignment.
-// When the assignment status changes to 'cancelled' (triggered
-// by a member or admin cancelling the ride), the dispatch store
-// is set to the 'cancelled' stage so NavigateScreen can show
-// an appropriate overlay.
+// Subscribes to Supabase Realtime updates on the active ride
+// row. When the ride status changes to 'cancelled' (by the
+// member, admin, or system), it sets the store to the
+// 'cancelled' stage (so NavigateScreen can show its overlay)
+// and also sets serverCancelled (so ActiveRideWatcher can
+// navigate home if the driver is on a different screen).
+//
+// Prerequisite: The `rides` table must be added to the
+// supabase_realtime publication in Supabase:
+//   ALTER PUBLICATION supabase_realtime ADD TABLE rides;
 // ============================================================
 
 import { useEffect } from 'react';
@@ -16,14 +20,19 @@ import { useDispatchStore } from '@/store/dispatchStore';
 import { clearRideState } from '@/services/offline/storage';
 import { logger } from '@/services/telemetry/logger';
 
-export function useRideCancellation(assignmentId: string | null) {
-  const dispatch = useDispatchStore();
+export function useRideCancellation() {
+  const rideId = useDispatchStore((s) => s.rideId);
+  const stage = useDispatchStore((s) => s.stage);
+  const setCancelled = useDispatchStore((s) => s.setCancelled);
+  const setServerCancelled = useDispatchStore((s) => s.setServerCancelled);
 
   useEffect(() => {
-    // Only watch when there's an active assignment to watch
-    if (!assignmentId) return;
+    // Only watch for cancellations once the driver has accepted a ride
+    const isActive =
+      stage !== 'idle' && stage !== 'offered' && stage !== 'completed' && stage !== 'cancelled';
+    if (!rideId || !isActive) return;
 
-    const channelKey = `ride-cancellation-${assignmentId}`;
+    const channelKey = `ride-cancellation-${rideId}`;
 
     const channel = supabase
       .channel(channelKey)
@@ -32,23 +41,25 @@ export function useRideCancellation(assignmentId: string | null) {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'driver_assignments',
-          filter: `id=eq.${assignmentId}`,
+          table: 'rides',
+          filter: `id=eq.${rideId}`,
         },
-        (payload) => {
-          const updated = payload.new as { status?: string };
+        async (payload) => {
+          const updated = payload.new as { id: string; status: string };
           if (updated.status !== 'cancelled') return;
 
-          logger.info('ride.cancelled_externally', { assignmentId });
+          logger.info('ride.server_cancelled', { rideId });
 
-          // Clear any offline ride state before updating the store
-          const rideId = useDispatchStore.getState().rideId;
-          if (rideId) {
-            clearRideState(rideId).catch(() => {});
-          }
+          // Clear persisted offline ride state
+          await clearRideState(rideId);
 
-          dispatch.setCancelled('Member or admin cancelled this ride');
-        },
+          // Set stage to 'cancelled' so NavigateScreen shows its countdown overlay
+          setCancelled('This ride has been cancelled by the member or dispatcher.');
+
+          // Also set serverCancelled so ActiveRideWatcher can navigate home
+          // when the driver is on a screen other than NavigateScreen
+          setServerCancelled(true);
+        }
       )
       .subscribe();
 
@@ -57,5 +68,5 @@ export function useRideCancellation(assignmentId: string | null) {
     return () => {
       realtimeManager.unsubscribe(channelKey);
     };
-  }, [assignmentId]);
+  }, [rideId, stage]);
 }

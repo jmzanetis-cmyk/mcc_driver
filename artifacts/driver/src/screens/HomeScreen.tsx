@@ -8,7 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDriverStatus } from '@/hooks/useDriverStatus';
 import { useRideRequests } from '@/hooks/useRideRequests';
 import { useEarnings } from '@/hooks/useEarnings';
-import { OnlineToggle, Card, StatCard } from '@/components';
+import { useDispatchStore } from '@/store/dispatchStore';
+import { OnlineToggle, Card, StatCard, Button } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import { formatCurrency, getStarDisplay } from '@/utils/formatters';
 import { RideRequestModal } from './RideRequestScreen';
@@ -19,6 +20,9 @@ export function HomeScreen() {
   const { isOnline, isToggling, toggleOnline, currentLat, currentLng } = useDriverStatus(driver?.id || null);
   const { incomingRequest, acceptRide, declineRide, dismissRequest } = useRideRequests(driver?.id || null, isOnline);
   const { summary } = useEarnings(driver?.id || null);
+
+  const serverCancelled = useDispatchStore((s) => s.serverCancelled);
+  const setServerCancelled = useDispatchStore((s) => s.setServerCancelled);
 
   if (!driver) return null;
 
@@ -136,6 +140,33 @@ export function HomeScreen() {
           onDecline={() => declineRide()}
           onExpired={() => dismissRequest()}
         />
+      )}
+
+      {/* Ride cancelled by member/dispatcher notification */}
+      {serverCancelled && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: colors.bgOverlay,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24,
+        }}>
+          <Card style={{ maxWidth: 340, width: '100%' }} padding={28}>
+            <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚫</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: colors.navy, textAlign: 'center', marginBottom: 8 }}>
+              Ride Cancelled
+            </div>
+            <div style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginBottom: 24, lineHeight: 1.5 }}>
+              This ride was cancelled by the member or your dispatcher. You won't be penalised — you're back online and ready for new assignments.
+            </div>
+            <Button
+              onClick={() => setServerCancelled(false)}
+              variant="primary"
+              fullWidth
+            >
+              Got it
+            </Button>
+          </Card>
+        </div>
       )}
     </div>
   );

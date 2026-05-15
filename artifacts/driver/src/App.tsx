@@ -8,6 +8,7 @@ import { Spinner } from '@/components';
 import { colors } from '@/theme';
 import './theme/global.css';
 
+import { ActiveRideWatcher } from '@/components/ActiveRideWatcher';
 import { SignInScreen } from '@/screens/SignInScreen';
 import { ApplicationScreen } from '@/screens/ApplicationScreen';
 import { PendingScreen } from '@/screens/PendingScreen';
@@ -85,6 +86,7 @@ export default function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <QueryProvider>
         <AuthProvider>
+          <ActiveRideWatcher />
           <Routes>
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/apply" element={<ApplicationScreen />} />

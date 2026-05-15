@@ -10,7 +10,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveRide, type ActiveRideStage } from '@/hooks/useActiveRide';
-import { useRideCancellation } from '@/hooks/useRideCancellation';
 import { useAuth } from '@/hooks/useAuth';
 import { useDispatchStore } from '@/store/dispatchStore';
 import { openNavigation, getNavAppName, type NavApp } from '@/services/navigation/navService';
@@ -29,15 +28,13 @@ export function NavigateScreen() {
     completeRide, cancelRide,
   } = useActiveRide();
 
+  // Used by the cancelled overlay to clear dispatch and show cancellation reason
   const dispatch = useDispatchStore();
 
   const [preferredNav, setPreferredNav] = useState<NavApp>('google_maps');
   const [elapsed, setElapsed] = useState('0:00');
   const [showCancel, setShowCancel] = useState(false);
   const [countdown, setCountdown] = useState(5);
-
-  // Subscribe to external cancellations for the current assignment
-  useRideCancellation(dispatch.assignmentId);
 
   // Load preferred nav from localStorage
   useEffect(() => {
@@ -54,7 +51,7 @@ export function NavigateScreen() {
     return () => clearInterval(interval);
   }, [activeRide?.startedAt]);
 
-  // Auto-navigate home when ride is externally cancelled
+  // Auto-navigate home when ride is externally cancelled (countdown)
   useEffect(() => {
     if (activeRide?.stage !== 'cancelled') return;
 
@@ -63,6 +60,7 @@ export function NavigateScreen() {
       setCountdown((c) => {
         if (c <= 1) {
           clearInterval(tick);
+          dispatch.setServerCancelled(false);
           dispatch.clearDispatch();
           navigate('/home');
           return 0;
@@ -101,7 +99,7 @@ export function NavigateScreen() {
             Returning to home in <strong style={{ color: colors.navy }}>{countdown}s</strong>
           </div>
           <Button
-            onClick={() => { dispatch.clearDispatch(); navigate('/home'); }}
+            onClick={() => { dispatch.setServerCancelled(false); dispatch.clearDispatch(); navigate('/home'); }}
             variant="primary"
             fullWidth
           >
