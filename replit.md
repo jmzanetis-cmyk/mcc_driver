@@ -67,6 +67,14 @@ All four tables are confirmed present in Supabase Postgres (verified 2026-05-14)
 Supabase dashboard (Table Editor → Realtime toggle). Without it, drivers will not
 receive live ride offers even though the API correctly inserts the assignment row.
 
+**DATABASE_URL vs Supabase Postgres**: In Replit dev, `DATABASE_URL` points to
+Replit's built-in Postgres (`heliumdb`), which is a separate database from the
+Supabase Postgres that Supabase Realtime watches. For production or to test
+Realtime end-to-end, `DATABASE_URL` must be set to the Supabase direct connection
+string (Project → Settings → Database → Connection string → URI). Until then,
+the API server and driver app use different databases — rides created by the API
+won't fire Realtime events to the driver app.
+
 **Dispatch eligibility requirements** (discovered during smoke testing):
 - Driver `status` must be `'active'` (not `'approved'` or `'pending_approval'`)
 - `is_online` must be `true`
@@ -74,7 +82,8 @@ receive live ride offers even though the API correctly inserts the assignment ro
 
 Run `pnpm --filter @workspace/scripts run smoke-dispatch` (with API server running)
 to verify the full dispatch path — it inserts a test driver, fires dispatch,
-confirms DB rows, then cleans up automatically.
+confirms DB rows, then cleans up automatically. Realtime delivery is checked
+as a WARN (not a failure) when DATABASE_URL doesn't point to Supabase Postgres.
 
 ## Gotchas
 

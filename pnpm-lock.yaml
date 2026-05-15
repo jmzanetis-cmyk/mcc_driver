@@ -844,6 +844,9 @@ importers:
 
   scripts:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.105.4
+        version: 2.105.4
       pg:
         specifier: ^8.20.0
         version: 8.20.0
