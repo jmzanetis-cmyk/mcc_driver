@@ -17,7 +17,7 @@ import {
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
-import { insertAssignmentViaSupabase, insertRideViaSupabase } from "../lib/supabaseAdmin";
+import { insertAssignmentViaSupabase } from "../lib/supabaseAdmin";
 
 const router: IRouter = Router();
 
@@ -442,26 +442,6 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
         memberVehicleColor: body.memberVehicleColor ?? null,
       })
       .returning();
-
-    await insertRideViaSupabase({
-      id: ride!.id,
-      scenario: body.scenario,
-      tier: body.tier,
-      status: "pending_dispatch",
-      member_id: body.memberId ?? null,
-      pickup_address: body.pickupAddress,
-      pickup_lat: body.pickupLat,
-      pickup_lng: body.pickupLng,
-      dropoff_address: body.dropoffAddress,
-      dropoff_lat: body.dropoffLat,
-      dropoff_lng: body.dropoffLng,
-      estimated_fare: body.estimatedFare,
-      estimated_distance_miles: body.estimatedDistanceMiles,
-      member_vehicle_year: body.memberVehicleYear ?? null,
-      member_vehicle_make: body.memberVehicleMake ?? null,
-      member_vehicle_model: body.memberVehicleModel ?? null,
-      member_vehicle_color: body.memberVehicleColor ?? null,
-    });
 
     const selectedDriverIds = targetDriverIds.slice(0, driversNeeded);
 
