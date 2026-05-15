@@ -385,7 +385,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /admin/ride-along-drivers/{id}/approve:
-    post:
+    patch:
       operationId: approveRideAlongDriver
       tags: [admin]
       summary: Approve a Ride-Along Driver application
@@ -423,7 +423,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /admin/ride-along-drivers/{id}/reject:
-    post:
+    patch:
       operationId: rejectRideAlongDriver
       tags: [admin]
       summary: Reject a Ride-Along Driver application

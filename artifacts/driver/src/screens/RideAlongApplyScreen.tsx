@@ -191,7 +191,15 @@ export function RideAlongApplyScreen() {
   const canProceed = () => {
     if (step === 1) return !!(form.firstName && form.lastName && form.email && form.phone);
     if (step === 2) {
-      return !!(form.licenseNumber && form.licenseExpiry && !licenseDoc.uploading && !insuranceDoc.uploading);
+      return !!(
+        form.licenseNumber &&
+        form.licenseExpiry &&
+        licenseDoc.path &&
+        form.insuranceExpiry &&
+        insuranceDoc.path &&
+        !licenseDoc.uploading &&
+        !insuranceDoc.uploading
+      );
     }
     if (step === 3) return !profilePhoto.uploading;
     if (step === 4) return agreementChecked;
@@ -324,7 +332,7 @@ export function RideAlongApplyScreen() {
               License & Insurance
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
-              You must have a valid driver's license. Insurance is required for some jobs.
+              A valid driver's license and active insurance are required to become a Ride-Along Driver.
             </p>
             <Input label="License Number" value={form.licenseNumber} onChange={update('licenseNumber')} required />
             <Input label="License State" value={form.licenseState} onChange={update('licenseState')} required />
@@ -337,14 +345,15 @@ export function RideAlongApplyScreen() {
               required
             />
             <Input
-              label="Insurance Expiry (optional)"
+              label="Insurance Expiry"
               value={form.insuranceExpiry}
               onChange={update('insuranceExpiry')}
               type="date"
+              required
             />
             <FileUploadField
-              label="Proof of Insurance (optional)"
-              hint="Current insurance card or policy document"
+              label="Proof of Insurance"
+              hint="Current insurance card or policy document (required)"
               state={insuranceDoc}
               onSelect={(f) => handleFileSelect(f, 'insurance', setInsuranceDoc)}
             />
@@ -398,7 +407,7 @@ export function RideAlongApplyScreen() {
               <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Documents</div>
               {[
                 { label: "Driver's License", uploaded: !!licenseDoc.path, required: true },
-                { label: 'Proof of Insurance', uploaded: !!insuranceDoc.path, required: false },
+                { label: 'Proof of Insurance', uploaded: !!insuranceDoc.path, required: true },
                 { label: 'Profile Photo', uploaded: !!profilePhoto.path, required: false },
               ].map(({ label, uploaded, required }) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 6 }}>

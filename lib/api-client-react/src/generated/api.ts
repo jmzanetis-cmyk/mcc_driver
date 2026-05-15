@@ -952,7 +952,7 @@ export const approveRideAlongDriver = async (
 ): Promise<AdminActionResult> => {
   return customFetch<AdminActionResult>(getApproveRideAlongDriverUrl(id), {
     ...options,
-    method: "POST",
+    method: "PATCH",
   });
 };
 
@@ -1036,7 +1036,7 @@ export const rejectRideAlongDriver = async (
 ): Promise<AdminActionResult> => {
   return customFetch<AdminActionResult>(getRejectRideAlongDriverUrl(id), {
     ...options,
-    method: "POST",
+    method: "PATCH",
   });
 };
 
