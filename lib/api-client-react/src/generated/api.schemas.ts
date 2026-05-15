@@ -97,6 +97,27 @@ export interface AdminDriverRecord {
   createdAt?: string | null;
 }
 
+export interface StripeAccountLink {
+  /** One-time Stripe account link URL to open for onboarding */
+  url: string;
+  /** Stripe Connect account ID (acct_...) */
+  accountId: string;
+}
+
+export interface StripeAccountStatus {
+  /**
+   * Stripe Connect account ID, or null if not yet created
+   * @nullable
+   */
+  accountId: string | null;
+  /** True when the driver has finished identity verification */
+  onboardingComplete: boolean;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  /** True when the account has at least one debit card attached */
+  hasDebitCard: boolean;
+}
+
 export interface AdminActionResult {
   success: boolean;
   driverId: string;

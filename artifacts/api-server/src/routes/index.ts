@@ -4,6 +4,7 @@ import aiRouter from "./ai";
 import ridesRouter from "./rides";
 import adminRouter from "./admin";
 import rideAlongDriversRouter from "./rideAlongDrivers";
+import stripeConnectRouter from "./stripeConnect";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(aiRouter);
 router.use(ridesRouter);
 router.use(adminRouter);
 router.use(rideAlongDriversRouter);
+router.use(stripeConnectRouter);
 
 export default router;

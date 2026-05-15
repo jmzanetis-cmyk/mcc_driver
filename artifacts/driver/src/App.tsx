@@ -21,6 +21,7 @@ import { EarningsScreen } from '@/screens/EarningsScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { AIChatScreen } from '@/screens/AIChatScreen';
 import { InstantPayScreen } from '@/screens/InstantPayScreen';
+import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
 
 function AuthRedirect() {
   const { isLoading, isAuthenticated, driver } = useAuth();
@@ -102,6 +103,7 @@ export default function App() {
             <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
             <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />
             <Route path="/instant-pay" element={<ProtectedRoute><InstantPayScreen /></ProtectedRoute>} />
+            <Route path="/settings/payments" element={<ProtectedRoute><SetupPaymentsScreen /></ProtectedRoute>} />
             <Route path="/scheduled" element={<ProtectedRoute><ScheduledPlaceholder /></ProtectedRoute>} />
             <Route path="*" element={<AuthRedirect />} />
           </Routes>

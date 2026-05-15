@@ -153,3 +153,39 @@ export async function requestPayout(
     { method, amount }
   );
 }
+
+/**
+ * Create (or retrieve) a Stripe Connect Express account for the driver and
+ * return a one-time onboarding link URL.
+ */
+export async function initiateStripeConnect(): Promise<ApiResult<{ url: string; accountId: string }>> {
+  return callApi<{ url: string; accountId: string }>('/stripe/connect/onboard');
+}
+
+/**
+ * Get the current Stripe Connect account status for the authenticated driver.
+ * Called when the driver returns from the Stripe onboarding flow.
+ */
+export async function getStripeConnectStatus(): Promise<ApiResult<{
+  accountId: string | null;
+  onboardingComplete: boolean;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  hasDebitCard: boolean;
+}>> {
+  return callApi<{
+    accountId: string | null;
+    onboardingComplete: boolean;
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+    hasDebitCard: boolean;
+  }>('/stripe/connect/status', 'GET');
+}
+
+/**
+ * Refresh an expired Stripe Connect onboarding link.
+ * Called when Stripe redirects back to the app via the refresh_url.
+ */
+export async function refreshStripeConnectLink(): Promise<ApiResult<{ url: string; accountId: string }>> {
+  return callApi<{ url: string; accountId: string }>('/stripe/connect/refresh');
+}

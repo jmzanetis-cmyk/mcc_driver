@@ -21,5 +21,7 @@ export * from "./listAdminRideAlongDriversParams";
 export * from "./rideAlongDriverRecord";
 export * from "./rideCompletionResult";
 export * from "./updateRideAlongDriverRequest";
+export * from "./stripeAccountLink";
+export * from "./stripeAccountStatus";
 export * from "./updateStageRequest";
 export * from "./updateStageRequestStage";

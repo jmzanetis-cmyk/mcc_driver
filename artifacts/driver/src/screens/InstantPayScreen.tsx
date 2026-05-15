@@ -225,9 +225,20 @@ export function InstantPayScreen() {
         {/* Status warnings */}
         {!balance.instantPayEnabled && (
           <Card style={{ marginBottom: 12, background: colors.warningBg, border: 'none' }} padding={14}>
-            <div style={{ fontSize: 13, color: colors.warning }}>
-              ⚠️ Set up your Stripe account to enable payouts. Go to Settings → Payments.
+            <div style={{ fontSize: 13, color: colors.warning, marginBottom: 8 }}>
+              ⚠️ Connect your bank or debit card to enable payouts.
             </div>
+            <button
+              onClick={() => navigate('/settings/payments')}
+              style={{
+                width: '100%', padding: '10px 0',
+                background: colors.navy, border: 'none',
+                borderRadius: 8, cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, color: colors.gold,
+              }}
+            >
+              🏦 Set Up Payouts
+            </button>
           </Card>
         )}
         {balance.instantPayEnabled && !balance.hasDebitCard && (

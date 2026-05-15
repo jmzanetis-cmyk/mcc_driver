@@ -16,6 +16,8 @@ tags:
     description: Admin operations for driver application management
   - name: ride-along
     description: Ride-Along Driver onboarding and profile management
+  - name: stripe
+    description: Stripe Connect onboarding and account status
 paths:
   /healthz:
     get:
@@ -279,6 +281,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /stripe/connect/onboard:
+    post:
+      operationId: stripeConnectOnboard
+      tags: [stripe]
+      summary: Create or retrieve a Stripe Connect onboarding link
+      description: |
+        Creates a Stripe Express account for the authenticated driver (if one
+        doesn't already exist) and returns a one-time account link URL.
+        The client opens this URL so the driver can complete identity
+        verification and add their bank account or debit card.
+      responses:
+        "200":
+          description: Onboarding link created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StripeAccountLink"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Stripe not configured on this server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /ride-along-drivers/me:
     get:
       operationId: getRideAlongDriverMe
@@ -299,6 +331,68 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: No profile found for this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stripe/connect/status:
+    get:
+      operationId: stripeConnectStatus
+      tags: [stripe]
+      summary: Get the Stripe Connect account status for the authenticated driver
+      description: |
+        Returns whether the driver's Stripe Express account onboarding is
+        complete and whether payouts / instant transfers are enabled.
+      responses:
+        "200":
+          description: Account status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StripeAccountStatus"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Stripe not configured on this server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stripe/connect/refresh:
+    post:
+      operationId: stripeConnectRefresh
+      tags: [stripe]
+      summary: Refresh an expired Stripe Connect onboarding link
+      description: |
+        Generates a fresh account link when the previous one has expired.
+        Called when Stripe redirects the driver back to the refresh_url.
+      responses:
+        "200":
+          description: Refreshed onboarding link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StripeAccountLink"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No Stripe account found — start onboarding first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Stripe not configured on this server
           content:
             application/json:
               schema:
@@ -785,6 +879,42 @@ components:
         - canDriveMemberVehicle
         - totalRidesCompleted
         - averageRating
+
+    StripeAccountLink:
+      type: object
+      properties:
+        url:
+          type: string
+          description: One-time Stripe account link URL to open for onboarding
+        accountId:
+          type: string
+          description: Stripe Connect account ID (acct_...)
+      required:
+        - url
+        - accountId
+
+    StripeAccountStatus:
+      type: object
+      properties:
+        accountId:
+          type: ["string", "null"]
+          description: Stripe Connect account ID, or null if not yet created
+        onboardingComplete:
+          type: boolean
+          description: True when the driver has finished identity verification
+        chargesEnabled:
+          type: boolean
+        payoutsEnabled:
+          type: boolean
+        hasDebitCard:
+          type: boolean
+          description: True when the account has at least one debit card attached
+      required:
+        - accountId
+        - onboardingComplete
+        - chargesEnabled
+        - payoutsEnabled
+        - hasDebitCard
 
     AdminActionResult:
       type: object

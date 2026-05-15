@@ -32,6 +32,8 @@ import type {
   RideAlongDriverRecord,
   RideCompletionResult,
   UpdateRideAlongDriverRequest,
+  StripeAccountLink,
+  StripeAccountStatus,
   UpdateStageRequest,
 } from "./api.schemas";
 
@@ -1105,6 +1107,254 @@ export const useRejectRideAlongDriver = <
   TContext
 > => {
   return useMutation(getRejectRideAlongDriverMutationOptions(options));
+};
+
+/**
+ * Creates a Stripe Express account for the authenticated driver (if one
+doesn't already exist) and returns a one-time account link URL.
+The client opens this URL so the driver can complete identity
+verification and add their bank account or debit card.
+
+ * @summary Create or retrieve a Stripe Connect onboarding link
+ */
+export const getStripeConnectOnboardUrl = () => {
+  return `/api/stripe/connect/onboard`;
+};
+
+export const stripeConnectOnboard = async (
+  options?: RequestInit,
+): Promise<StripeAccountLink> => {
+  return customFetch<StripeAccountLink>(getStripeConnectOnboardUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStripeConnectOnboardMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stripeConnectOnboard>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof stripeConnectOnboard>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["stripeConnectOnboard"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof stripeConnectOnboard>>,
+    void
+  > = () => {
+    return stripeConnectOnboard(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StripeConnectOnboardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof stripeConnectOnboard>>
+>;
+
+export type StripeConnectOnboardMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create or retrieve a Stripe Connect onboarding link
+ */
+export const useStripeConnectOnboard = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stripeConnectOnboard>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof stripeConnectOnboard>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getStripeConnectOnboardMutationOptions(options));
+};
+
+/**
+ * Returns whether the driver's Stripe Express account onboarding is
+complete and whether payouts / instant transfers are enabled.
+
+ * @summary Get the Stripe Connect account status for the authenticated driver
+ */
+export const getStripeConnectStatusUrl = () => {
+  return `/api/stripe/connect/status`;
+};
+
+export const stripeConnectStatus = async (
+  options?: RequestInit,
+): Promise<StripeAccountStatus> => {
+  return customFetch<StripeAccountStatus>(getStripeConnectStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getStripeConnectStatusQueryKey = () => {
+  return [`/api/stripe/connect/status`] as const;
+};
+
+export const getStripeConnectStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof stripeConnectStatus>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof stripeConnectStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getStripeConnectStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof stripeConnectStatus>>
+  > = ({ signal }) => stripeConnectStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof stripeConnectStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type StripeConnectStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof stripeConnectStatus>>
+>;
+export type StripeConnectStatusQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the Stripe Connect account status for the authenticated driver
+ */
+
+export function useStripeConnectStatus<
+  TData = Awaited<ReturnType<typeof stripeConnectStatus>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof stripeConnectStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getStripeConnectStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Generates a fresh account link when the previous one has expired.
+Called when Stripe redirects the driver back to the refresh_url.
+
+ * @summary Refresh an expired Stripe Connect onboarding link
+ */
+export const getStripeConnectRefreshUrl = () => {
+  return `/api/stripe/connect/refresh`;
+};
+
+export const stripeConnectRefresh = async (
+  options?: RequestInit,
+): Promise<StripeAccountLink> => {
+  return customFetch<StripeAccountLink>(getStripeConnectRefreshUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStripeConnectRefreshMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stripeConnectRefresh>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+>): UseMutationOptions<
+  Awaited<ReturnType<typeof stripeConnectRefresh>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["stripeConnectRefresh"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof stripeConnectRefresh>>,
+    void
+  > = () => {
+    return stripeConnectRefresh(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StripeConnectRefreshMutationResult = NonNullable<
+  Awaited<ReturnType<typeof stripeConnectRefresh>>
+>;
+
+export type StripeConnectRefreshMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Refresh an expired Stripe Connect onboarding link
+ */
+export const useStripeConnectRefresh = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stripeConnectRefresh>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+>): UseMutationResult<
+  Awaited<ReturnType<typeof stripeConnectRefresh>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getStripeConnectRefreshMutationOptions(options));
 };
 
 /**

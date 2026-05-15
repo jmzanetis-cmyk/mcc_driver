@@ -151,13 +151,41 @@ export function SettingsScreen() {
             label="Payment Account"
             value={driver.stripeAccountId ? '✅ Connected' : '⚠️ Not Set Up'}
           />
-          {!driver.stripeAccountId && (
-            <div style={{
-              marginTop: 8, padding: 12, background: colors.warningBg,
-              borderRadius: borderRadius.sm, fontSize: 12, color: colors.warning,
-            }}>
-              Connect your Stripe account to receive ride payouts. Contact your dispatcher or visit the MCC web portal.
-            </div>
+          {driver.stripeAccountId ? (
+            <button
+              onClick={() => navigate('/settings/payments')}
+              style={{
+                marginTop: 8, width: '100%', padding: '10px 0',
+                background: colors.bgSecondary, border: 'none',
+                borderRadius: borderRadius.sm, cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, color: colors.navy,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              Manage Payout Account →
+            </button>
+          ) : (
+            <>
+              <div style={{
+                marginTop: 8, padding: 12, background: colors.warningBg,
+                borderRadius: borderRadius.sm, fontSize: 12, color: colors.warning,
+                marginBottom: 10,
+              }}>
+                Connect your bank or debit card to receive ride earnings.
+              </div>
+              <button
+                onClick={() => navigate('/settings/payments')}
+                style={{
+                  width: '100%', padding: '12px 0',
+                  background: colors.navy, border: 'none',
+                  borderRadius: borderRadius.sm, cursor: 'pointer',
+                  fontSize: 14, fontWeight: 600, color: colors.gold,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                🏦 Set Up Payouts
+              </button>
+            </>
           )}
         </Card>
 

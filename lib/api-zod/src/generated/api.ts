@@ -363,3 +363,52 @@ export const RejectDriverResponse = zod.object({
   driverId: zod.string().uuid(),
   status: zod.string(),
 });
+
+/**
+ * Creates a Stripe Express account for the authenticated driver (if one
+doesn't already exist) and returns a one-time account link URL.
+The client opens this URL so the driver can complete identity
+verification and add their bank account or debit card.
+
+ * @summary Create or retrieve a Stripe Connect onboarding link
+ */
+export const StripeConnectOnboardResponse = zod.object({
+  url: zod
+    .string()
+    .describe("One-time Stripe account link URL to open for onboarding"),
+  accountId: zod.string().describe("Stripe Connect account ID (acct_...)"),
+});
+
+/**
+ * Returns whether the driver's Stripe Express account onboarding is
+complete and whether payouts / instant transfers are enabled.
+
+ * @summary Get the Stripe Connect account status for the authenticated driver
+ */
+export const StripeConnectStatusResponse = zod.object({
+  accountId: zod
+    .string()
+    .nullable()
+    .describe("Stripe Connect account ID, or null if not yet created"),
+  onboardingComplete: zod
+    .boolean()
+    .describe("True when the driver has finished identity verification"),
+  chargesEnabled: zod.boolean(),
+  payoutsEnabled: zod.boolean(),
+  hasDebitCard: zod
+    .boolean()
+    .describe("True when the account has at least one debit card attached"),
+});
+
+/**
+ * Generates a fresh account link when the previous one has expired.
+Called when Stripe redirects the driver back to the refresh_url.
+
+ * @summary Refresh an expired Stripe Connect onboarding link
+ */
+export const StripeConnectRefreshResponse = zod.object({
+  url: zod
+    .string()
+    .describe("One-time Stripe account link URL to open for onboarding"),
+  accountId: zod.string().describe("Stripe Connect account ID (acct_...)"),
+});
