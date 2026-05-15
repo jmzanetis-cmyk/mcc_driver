@@ -73,15 +73,23 @@ export const driverAssignmentsTable = pgTable("driver_assignments", {
   role: text("role").notNull().default("primary"),
   status: text("status").notNull().default("pending"),
   driverPayoutAmount: real("driver_payout_amount"),
+  dispatchedAt: timestamp("dispatched_at", { withTimezone: true }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+  enRouteAt: timestamp("en_route_at", { withTimezone: true }),
+  arrivedAt: timestamp("arrived_at", { withTimezone: true }),
+  startedAt: timestamp("started_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   drivesMemberVehicle: boolean("drives_member_vehicle").notNull().default(false),
   carriesPassenger: boolean("carries_passenger").notNull().default(false),
   responseDeadline: timestamp("response_deadline", { withTimezone: true }).notNull(),
   memberVehicleDescription: text("member_vehicle_description"),
   memberVehiclePlate: text("member_vehicle_plate"),
+  dispatchAttempt: integer("dispatch_attempt").notNull().default(1),
   payoutStatus: text("payout_status"),
   payoutId: uuid("payout_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 }, (table) => [
   uniqueIndex("driver_assignments_one_pending_per_ride_role")
     .on(table.rideId, table.role)

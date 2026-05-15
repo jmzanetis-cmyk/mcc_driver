@@ -131,7 +131,6 @@ async function checkRealtimeDelivery(
 async function main() {
   const dbUrl = requireEnv("DATABASE_URL");
   const supabaseUrl = requireEnv("VITE_SUPABASE_URL");
-  requireEnv("VITE_SUPABASE_ANON_KEY");
   const supabaseServiceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   const db = new Client({ connectionString: dbUrl });
@@ -169,7 +168,6 @@ async function main() {
   console.log("    ✓ Test driver inserted\n");
 
   let rideId: string | null = null;
-  const warnings: string[] = [];
 
   try {
     // ── 3. Open Realtime subscription BEFORE dispatching ───────────────────
@@ -253,14 +251,12 @@ async function main() {
       `[7] Waiting for Supabase Realtime event (timeout ${REALTIME_TIMEOUT_MS / 1000}s)...`,
     );
     const realtimeResult = await realtimePromise;
-    if (realtimeResult.ok && realtimeResult.payload) {
-      console.log("    ✓ Realtime INSERT event received");
-      console.log(`      ride_id:   ${realtimeResult.payload["ride_id"] as string}`);
-      console.log(`      driver_id: ${realtimeResult.payload["driver_id"] as string}\n`);
-    } else {
-      warnings.push(`WARN [Realtime]: ${realtimeResult.reason ?? "unknown"}`);
-      console.log(`    ⚠  Realtime check skipped — see warnings below\n`);
+    if (!realtimeResult.ok) {
+      throw new Error(`Realtime delivery failed: ${realtimeResult.reason ?? "unknown"}`);
     }
+    console.log("    ✓ Realtime INSERT event received");
+    console.log(`      ride_id:   ${realtimeResult.payload!["ride_id"] as string}`);
+    console.log(`      driver_id: ${realtimeResult.payload!["driver_id"] as string}\n`);
   } finally {
     // ── 8. Clean up (always runs, even on thrown errors) ───────────────────
     console.log("[8] Cleaning up test data...");
@@ -271,19 +267,6 @@ async function main() {
     await db.query("DELETE FROM drivers WHERE id = $1", [TEST_DRIVER_ID]);
     await db.end();
     console.log("    ✓ Test rows removed\n");
-  }
-
-  if (warnings.length > 0) {
-    console.log("=== Warnings ===");
-    for (const w of warnings) {
-      console.log(w);
-    }
-    console.log();
-    console.log(
-      "    Realtime requires driver_assignments Realtime enabled in Supabase dashboard\n" +
-      "    (Table Editor → driver_assignments → toggle Realtime ON).",
-    );
-    process.exit(0);
   }
 
   console.log("=== All checks passed ✓ ===");
