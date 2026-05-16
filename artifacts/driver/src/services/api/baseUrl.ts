@@ -20,10 +20,27 @@
 // identical between web and native builds.
 // ============================================================
 
+import { Capacitor } from "@capacitor/core";
+
 const RAW_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
 // Strip trailing slash so we can safely concatenate.
 const BASE = RAW_BASE.replace(/\/+$/, "");
+
+// Fail-fast guard: a Capacitor native build with no absolute API origin
+// will issue requests against `capacitor://localhost/api/...`, which
+// silently 404s with no useful error. Throwing at module load surfaces
+// the misconfiguration before the app renders so the build never ships.
+// Web/dev preview is intentionally exempt (relative `/api/*` works via
+// the shared reverse proxy).
+if (Capacitor.isNativePlatform() && !BASE) {
+  throw new Error(
+    "[MCC Driver] VITE_API_BASE_URL is required for native (iOS) builds. " +
+      "Set it to the absolute API origin (e.g. https://api.mycarconcierge.com) " +
+      "before running `pnpm --filter @workspace/driver run build:ios`. " +
+      "See docs/deployment.md and artifacts/driver/.env.example.",
+  );
+}
 
 /**
  * Build an absolute or relative URL to an API endpoint.
