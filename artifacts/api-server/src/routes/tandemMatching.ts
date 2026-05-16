@@ -8,7 +8,7 @@
 // ============================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, inArray, notInArray, lt, isNotNull, sql } from "drizzle-orm";
+import { eq, and, inArray, notInArray, lt, gte, lte, isNotNull, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   tandemJobsTable,
@@ -16,7 +16,6 @@ import {
   rideAlongDriversTable,
   ridesTable,
   driversTable,
-  driverAssignmentsTable,
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import {
@@ -29,6 +28,11 @@ import { tandemEvents } from "../lib/tandemEvents";
 const router: IRouter = Router();
 
 const BROADCAST_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+// Two tandem jobs whose rides were requested within this window of each
+// other are considered overlapping for driver-busy purposes. Rides don't
+// carry an explicit scheduled-for column today, so requestedAt is the
+// best available anchor; ±4 hours covers typical concierge ride durations.
+const OVERLAP_WINDOW_MS = 4 * 60 * 60 * 1000;
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
@@ -147,8 +151,14 @@ export async function computeEligibleDrivers(
     .where(eq(tandemJobDeclinesTable.tandemJobId, tandemJobId));
   const declinedIds = declines.map((d) => d.driverId);
 
-  // Drivers already attached to a non-terminal tandem job (overlap proxy)
+  // Window-based overlap exclusion: drivers attached to another non-terminal
+  // tandem job whose ride was created within ±OVERLAP_WINDOW_MS of this
+  // job's ride are considered busy and excluded. Rides don't yet carry an
+  // explicit scheduled-for column, so createdAt is the best available anchor.
   const TERMINAL = ["completed", "cancelled", "expired", "dispatch_failed"];
+  const anchor = ride.createdAt ?? new Date();
+  const windowStart = new Date(anchor.getTime() - OVERLAP_WINDOW_MS);
+  const windowEnd = new Date(anchor.getTime() + OVERLAP_WINDOW_MS);
   const busyRows = await db
     .select({ driverId: tandemJobsTable.matchedRideAlongDriverId })
     .from(tandemJobsTable)
@@ -158,6 +168,10 @@ export async function computeEligibleDrivers(
         isNotNull(tandemJobsTable.matchedRideAlongDriverId),
         notInArray(ridesTable.status, TERMINAL),
         inArray(tandemJobsTable.matchStatus, ["matched", "confirmed", "member_pending"]),
+        notInArray(tandemJobsTable.id, [tandemJobId]),
+        isNotNull(ridesTable.createdAt),
+        gte(ridesTable.createdAt, windowStart),
+        lte(ridesTable.createdAt, windowEnd),
       ),
     );
   const busyIds = busyRows
@@ -212,16 +226,18 @@ export async function computeEligibleDrivers(
       continue;
     }
 
-    let distanceMiles: number | null = null;
-    if (driver.zipLat != null && driver.zipLng != null) {
-      distanceMiles = haversineMiles(
-        ride.pickupLat,
-        ride.pickupLng,
-        driver.zipLat,
-        driver.zipLng,
-      );
-      if (distanceMiles > driver.maxDistanceMiles) continue;
-    }
+    // Strict distance gate: a driver whose ZIP we cannot resolve to coords
+    // cannot satisfy max_distance_miles and is therefore ineligible. The
+    // Phase 3b ZIP-lookup task populates zip_lat/zip_lng at signup so this
+    // filter will admit valid drivers.
+    if (driver.zipLat == null || driver.zipLng == null) continue;
+    const distanceMiles = haversineMiles(
+      ride.pickupLat,
+      ride.pickupLng,
+      driver.zipLat,
+      driver.zipLng,
+    );
+    if (distanceMiles > driver.maxDistanceMiles) continue;
 
     const priorJobs = priorCountByDriver.get(driver.id) ?? 0;
     const rankScore = driver.rating + priorJobs * 0.25;
@@ -564,9 +580,5 @@ export function startTandemExpiryWorker(intervalMs = 5 * 60 * 1000): NodeJS.Time
   void sweep();
   return setInterval(() => { void sweep(); }, intervalMs);
 }
-
-// Reference the unused tables to satisfy linters in case a future change drops
-// the join — keeps imports stable.
-void driverAssignmentsTable;
 
 export default router;
