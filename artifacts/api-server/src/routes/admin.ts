@@ -15,7 +15,7 @@ import { logger } from "../lib/logger";
 import { requireAdminAuth } from "../lib/adminAuth";
 
 const RejectDocumentsBody = z.object({
-  reason: z.string().min(1).max(1000),
+  reason: z.string().trim().min(1).max(1000),
 });
 
 const router: IRouter = Router();
