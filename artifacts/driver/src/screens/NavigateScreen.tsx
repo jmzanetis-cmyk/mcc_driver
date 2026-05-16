@@ -224,7 +224,9 @@ export function NavigateScreen() {
       variant: 'success',
     },
     in_progress: {
-      label: 'Complete Ride',
+      label: activeRide.serviceType === 'delivery' ? 'Mark as Delivered'
+        : activeRide.serviceType === 'rideshare' ? 'Complete Rideshare'
+        : 'Complete Ride',
       action: async () => {
         const result = await completeRide(activeRide.estimatedDistance);
         if (result.success) {
@@ -250,7 +252,8 @@ export function NavigateScreen() {
     ? [
         { key: 'navigating', label: 'En Route to Pickup', icon: '🚗' },
         { key: 'arrived', label: 'Parcel Collected', icon: '📦' },
-        { key: 'in_progress', label: 'Delivering', icon: '🏁' },
+        { key: 'in_progress', label: 'Delivering', icon: '🚚' },
+        { key: 'delivered', label: 'Delivered', icon: '✅' },
       ]
     : [
         { key: 'navigating', label: 'En Route', icon: '🚗' },
@@ -260,6 +263,7 @@ export function NavigateScreen() {
 
   const stageIndex = ['accepted', 'navigating'].includes(activeRide.stage) ? 0
     : activeRide.stage === 'arrived' ? 1
+    : (activeRide.stage === 'completing' || activeRide.stage === 'completed') && serviceType === 'delivery' ? 3
     : 2;
 
   // ── Mode C liability dialog ──────────────────────────────────────────────────

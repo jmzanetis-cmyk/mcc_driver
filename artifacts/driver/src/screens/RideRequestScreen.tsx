@@ -83,7 +83,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
             }}>
               {serviceType === 'rideshare' ? '🚗 RIDESHARE REQUEST'
                 : serviceType === 'delivery' ? '📦 DELIVERY REQUEST'
-                : 'NEW RIDE REQUEST'}
+                : '🚘 CONCIERGE REQUEST'}
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginTop: 4 }}>
               {getScenarioLabel(scenario)}
@@ -155,6 +155,12 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
           <InfoRow icon="🏁" label="Drop-off" value={shortenAddress(dropoffAddress)} />
           <div style={{ borderTop: `1px dashed ${colors.borderLight}` }} />
           <InfoRow icon="📏" label="Distance" value={formatDistance(estimatedDistance)} />
+          {serviceType === 'rideshare' && (
+            <>
+              <div style={{ borderTop: `1px dashed ${colors.borderLight}` }} />
+              <InfoRow icon="🧑" label="Passengers" value="1" />
+            </>
+          )}
         </Card>
 
         {/* Package description (for delivery rides) */}
