@@ -21,6 +21,24 @@ import { insertAssignmentViaSupabase, updateAssignmentViaSupabase, updateRideVia
 
 const router: IRouter = Router();
 
+// ── Tier rates (shared by dispatch fare computation and completion) ────────────
+// perMinute is applied at completion when actual duration is known.
+// deliveryPickupFee is applied at both dispatch estimate and completion for delivery rides.
+const TIER_RATES: Record<string, { base: number; perMile: number; perMinute: number; deliveryPickupFee: number; minimum: number }> = {
+  tier_0_rideshare: { base: 5, perMile: 1.5, perMinute: 0.25, deliveryPickupFee: 0, minimum: 8 },
+  tier_0_delivery:  { base: 6, perMile: 2.0, perMinute: 0.15, deliveryPickupFee: 2.0, minimum: 10 },
+  tier_1_passenger: { base: 10, perMile: 1.5, perMinute: 0, deliveryPickupFee: 0, minimum: 12 },
+  tier_2_vehicle_solo: { base: 20, perMile: 2.0, perMinute: 0, deliveryPickupFee: 0, minimum: 25 },
+  tier_3_vehicle_paired: { base: 35, perMile: 2.5, perMinute: 0, deliveryPickupFee: 0, minimum: 40 },
+  tier_4_full_concierge: { base: 40, perMile: 3.0, perMinute: 0, deliveryPickupFee: 0, minimum: 45 },
+};
+
+function computeFare(tier: string, distanceMiles: number, durationMinutes?: number): number {
+  const rates = TIER_RATES[tier] ?? TIER_RATES["tier_1_passenger"]!;
+  const raw = rates.base + rates.deliveryPickupFee + distanceMiles * rates.perMile + (durationMinutes ?? 0) * rates.perMinute;
+  return Math.round(Math.max(raw, rates.minimum) * 100) / 100;
+}
+
 // ── Auth / identity helpers ───────────────────────────────────────────────────
 
 interface SupabaseUser {
@@ -190,12 +208,16 @@ async function cascadeDispatch(
 
   // Query for eligible drivers — ordered by totalRidesCompleted ASC (prefer less busy drivers)
   // then by createdAt ASC for a deterministic, fair tie-break
+  const rideServiceType = ride.serviceType ?? "concierge";
   const baseWhere = and(
     eq(driversTable.isOnline, true),
     eq(driversTable.status, "active"),
     isNotNull(driversTable.currentLat),
     isNotNull(driversTable.currentLng),
     excludeIds.length > 0 ? notInArray(driversTable.id, excludeIds) : undefined,
+    // Enforce service-type capability — mirrors the initial dispatch eligibility check
+    rideServiceType === "rideshare" ? eq(driversTable.canDoRideshare, true) : undefined,
+    rideServiceType === "delivery" ? eq(driversTable.canDoDelivery, true) : undefined,
   );
 
   let eligibleDrivers = await db
@@ -447,7 +469,12 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
         dropoffAddress: body.dropoffAddress,
         dropoffLat: body.dropoffLat,
         dropoffLng: body.dropoffLng,
-        estimatedFare: body.estimatedFare,
+        // For rideshare/delivery, compute fare server-side so the estimate is consistent
+        // with our published rate card rather than whatever the caller provided.
+        // For concierge tiers the caller's estimate is used unchanged (complex bespoke pricing).
+        estimatedFare: (serviceType === "rideshare" || serviceType === "delivery")
+          ? computeFare(body.tier, body.estimatedDistanceMiles)
+          : body.estimatedFare,
         estimatedDistanceMiles: body.estimatedDistanceMiles,
         memberVehicleYear: body.memberVehicleYear ?? null,
         memberVehicleMake: body.memberVehicleMake ?? null,
@@ -910,15 +937,6 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
 
 const DRIVER_SHARE = 0.85;
 
-const TIER_RATES: Record<string, { base: number; perMile: number; minimum: number }> = {
-  tier_0_rideshare: { base: 5, perMile: 1.5, minimum: 8 },
-  tier_0_delivery: { base: 6, perMile: 2.0, minimum: 10 },
-  tier_1_passenger: { base: 10, perMile: 1.5, minimum: 12 },
-  tier_2_vehicle_solo: { base: 20, perMile: 2.0, minimum: 25 },
-  tier_3_vehicle_paired: { base: 35, perMile: 2.5, minimum: 40 },
-  tier_4_full_concierge: { base: 40, perMile: 3.0, minimum: 45 },
-};
-
 router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
   const user = await requireUserAuth(req, res);
   if (!user) return;
@@ -927,9 +945,10 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
   if (!driver) return;
 
   const rideId = String(req.params["rideId"]);
-  const { assignmentId, actualDistanceMiles } = req.body as {
+  const { assignmentId, actualDistanceMiles, actualDurationMinutes } = req.body as {
     assignmentId: string;
     actualDistanceMiles: number;
+    actualDurationMinutes?: number;
   };
 
   if (!assignmentId || actualDistanceMiles == null) {
@@ -940,6 +959,12 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
   // Validate distance: must be non-negative and within a sane upper bound (300 miles)
   if (typeof actualDistanceMiles !== "number" || actualDistanceMiles < 0 || actualDistanceMiles > 300) {
     res.status(400).json({ error: "actualDistanceMiles must be a number between 0 and 300" });
+    return;
+  }
+
+  // Validate duration when provided: must be non-negative and within a sane upper bound (8 hours)
+  if (actualDurationMinutes != null && (typeof actualDurationMinutes !== "number" || actualDurationMinutes < 0 || actualDurationMinutes > 480)) {
+    res.status(400).json({ error: "actualDurationMinutes must be a number between 0 and 480" });
     return;
   }
 
@@ -986,9 +1011,7 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
       return;
     }
 
-    const tierRates = TIER_RATES[ride.tier] ?? TIER_RATES["tier_1_passenger"]!;
-    const rawFare = tierRates.base + actualDistanceMiles * tierRates.perMile;
-    const finalFare = Math.max(rawFare, tierRates.minimum);
+    const finalFare = computeFare(ride.tier, actualDistanceMiles, actualDurationMinutes);
     const driverPayout = Math.round(finalFare * DRIVER_SHARE * 100) / 100;
 
     const now = new Date();

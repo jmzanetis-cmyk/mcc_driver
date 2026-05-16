@@ -16,6 +16,7 @@ export interface RideEarning {
   rideId: string;
   scenario: string;
   tier: string;
+  serviceType: string;
   pickupAddress: string;
   dropoffAddress: string;
   fare: number;
@@ -47,7 +48,7 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
     .select(`
       ride_id, driver_payout_amount, completed_at,
       rides (
-        id, scenario, tier, pickup_address, dropoff_address,
+        id, scenario, tier, service_type, pickup_address, dropoff_address,
         actual_fare, tip_amount, member_rating, actual_distance_miles,
         completed_at
       )
@@ -87,6 +88,7 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
       rideId: ride.id,
       scenario: ride.scenario,
       tier: ride.tier,
+      serviceType: ride.service_type ?? 'concierge',
       pickupAddress: ride.pickup_address,
       dropoffAddress: ride.dropoff_address,
       fare: ride.actual_fare ?? 0,

@@ -4,6 +4,7 @@ import {
   useListAdminRides,
   getListAdminRidesQueryKey,
   useAdminCancelRide,
+  useDispatchRide,
 } from '@workspace/api-client-react';
 import type { AdminRideRecord } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -26,6 +29,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,12 +58,231 @@ import {
   XCircle,
   RefreshCw,
   Car,
+  Plus,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
 const ALL_STATUS_SENTINEL = 'all';
 const TERMINAL_STATUSES = new Set(['completed', 'cancelled', 'dispatch_failed']);
+
+// ── Scenario catalog for the dispatch form ────────────────────────────────────
+type ServiceType = 'concierge' | 'rideshare' | 'delivery';
+
+const SCENARIOS_BY_SERVICE: Record<ServiceType, Array<{ value: string; label: string; tier: string }>> = {
+  rideshare: [
+    { value: 'rideshare_ondemand', label: 'On-Demand Ride', tier: 'tier_0_rideshare' },
+    { value: 'rideshare_scheduled', label: 'Scheduled Ride', tier: 'tier_0_rideshare' },
+  ],
+  delivery: [
+    { value: 'delivery_parcel', label: 'Parcel Delivery', tier: 'tier_0_delivery' },
+    { value: 'delivery_food', label: 'Food Delivery', tier: 'tier_0_delivery' },
+  ],
+  concierge: [
+    { value: 'member_dropoff', label: 'Passenger Drop-Off', tier: 'tier_1_passenger' },
+    { value: 'member_pickup', label: 'Passenger Pick-Up', tier: 'tier_1_passenger' },
+    { value: 'passenger_round_trip', label: 'Passenger Round Trip', tier: 'tier_1_passenger' },
+    { value: 'vehicle_delivery_solo', label: 'Vehicle Delivery', tier: 'tier_2_vehicle_solo' },
+    { value: 'vehicle_pickup_solo', label: 'Vehicle Pickup', tier: 'tier_2_vehicle_solo' },
+    { value: 'paired_vehicle_delivery', label: 'Paired Vehicle Delivery', tier: 'tier_3_vehicle_paired' },
+    { value: 'paired_vehicle_pickup', label: 'Paired Vehicle Pickup', tier: 'tier_3_vehicle_paired' },
+    { value: 'concierge_dropoff', label: 'Concierge Drop-Off', tier: 'tier_4_full_concierge' },
+    { value: 'concierge_pickup', label: 'Concierge Pick-Up', tier: 'tier_4_full_concierge' },
+    { value: 'full_concierge_round_trip', label: 'Full Concierge Round Trip', tier: 'tier_4_full_concierge' },
+  ],
+};
+
+// ── Dispatch dialog ───────────────────────────────────────────────────────────
+
+const BLANK_FORM = {
+  serviceType: 'concierge' as ServiceType,
+  scenario: '',
+  tier: '',
+  pickupAddress: '',
+  pickupLat: '',
+  pickupLng: '',
+  dropoffAddress: '',
+  dropoffLat: '',
+  dropoffLng: '',
+  estimatedDistanceMiles: '',
+  packageDescription: '',
+};
+
+function DispatchDialog({ onDispatched }: { onDispatched: () => void }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ ...BLANK_FORM });
+
+  const dispatch = useDispatchRide({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: 'Ride dispatched', description: 'Drivers are being notified.' });
+        setOpen(false);
+        setForm({ ...BLANK_FORM });
+        onDispatched();
+      },
+      onError: (err) => {
+        toast({ title: 'Dispatch failed', description: err.message, variant: 'destructive' });
+      },
+    },
+  });
+
+  const scenarios = SCENARIOS_BY_SERVICE[form.serviceType];
+  const selectedScenario = scenarios.find((s) => s.value === form.scenario);
+
+  function setField<K extends keyof typeof BLANK_FORM>(key: K, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function handleServiceTypeChange(val: string) {
+    setForm((f) => ({ ...f, serviceType: val as ServiceType, scenario: '', tier: '' }));
+  }
+
+  function handleScenarioChange(val: string) {
+    const s = SCENARIOS_BY_SERVICE[form.serviceType].find((x) => x.value === val);
+    setForm((f) => ({ ...f, scenario: val, tier: s?.tier ?? '' }));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const dist = parseFloat(form.estimatedDistanceMiles);
+    const lat1 = parseFloat(form.pickupLat);
+    const lng1 = parseFloat(form.pickupLng);
+    const lat2 = parseFloat(form.dropoffLat);
+    const lng2 = parseFloat(form.dropoffLng);
+    if (!form.scenario || !form.tier || !form.pickupAddress || !form.dropoffAddress ||
+        isNaN(dist) || isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) {
+      toast({ title: 'Missing fields', description: 'Please fill all required fields.', variant: 'destructive' });
+      return;
+    }
+    dispatch.mutate({ data: {
+      scenario: form.scenario,
+      tier: form.tier,
+      serviceType: form.serviceType,
+      packageDescription: form.serviceType === 'delivery' ? form.packageDescription || undefined : undefined,
+      pickupAddress: form.pickupAddress,
+      pickupLat: lat1,
+      pickupLng: lng1,
+      dropoffAddress: form.dropoffAddress,
+      dropoffLat: lat2,
+      dropoffLng: lng2,
+      estimatedFare: 0,
+      estimatedDistanceMiles: dist,
+    }});
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" data-testid="button-dispatch-ride">
+          <Plus className="w-3.5 h-3.5 mr-1.5" />
+          Dispatch Ride
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Dispatch a Ride</DialogTitle>
+          <DialogDescription>
+            Create a new ride and send it to eligible drivers.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Service type */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Service Type</Label>
+              <Select value={form.serviceType} onValueChange={handleServiceTypeChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="concierge">🎩 Concierge</SelectItem>
+                  <SelectItem value="rideshare">🚗 Rideshare</SelectItem>
+                  <SelectItem value="delivery">📦 Delivery</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Scenario</Label>
+              <Select value={form.scenario} onValueChange={handleScenarioChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {scenarios.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedScenario && (
+                <p className="text-xs text-muted-foreground">{selectedScenario.tier}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Package description (delivery only) */}
+          {form.serviceType === 'delivery' && (
+            <div className="space-y-1.5">
+              <Label>Package Description</Label>
+              <Textarea
+                placeholder="e.g. 2 pizza boxes, handle with care"
+                value={form.packageDescription}
+                onChange={(e) => setField('packageDescription', e.target.value)}
+                rows={2}
+              />
+            </div>
+          )}
+
+          {/* Pickup */}
+          <div className="space-y-1.5">
+            <Label>Pickup Address</Label>
+            <Input placeholder="123 Main St, Austin, TX"
+              value={form.pickupAddress} onChange={(e) => setField('pickupAddress', e.target.value)} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Lat (e.g. 30.267)" type="number" step="any"
+                value={form.pickupLat} onChange={(e) => setField('pickupLat', e.target.value)} />
+              <Input placeholder="Lng (e.g. -97.743)" type="number" step="any"
+                value={form.pickupLng} onChange={(e) => setField('pickupLng', e.target.value)} />
+            </div>
+          </div>
+
+          {/* Dropoff */}
+          <div className="space-y-1.5">
+            <Label>Dropoff Address</Label>
+            <Input placeholder="456 Oak Ave, Austin, TX"
+              value={form.dropoffAddress} onChange={(e) => setField('dropoffAddress', e.target.value)} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Lat" type="number" step="any"
+                value={form.dropoffLat} onChange={(e) => setField('dropoffLat', e.target.value)} />
+              <Input placeholder="Lng" type="number" step="any"
+                value={form.dropoffLng} onChange={(e) => setField('dropoffLng', e.target.value)} />
+            </div>
+          </div>
+
+          {/* Distance */}
+          <div className="space-y-1.5">
+            <Label>Estimated Distance (miles)</Label>
+            <Input placeholder="e.g. 5.2" type="number" step="0.1" min="0"
+              value={form.estimatedDistanceMiles}
+              onChange={(e) => setField('estimatedDistanceMiles', e.target.value)} />
+            {form.tier && (
+              <p className="text-xs text-muted-foreground">
+                Fare is calculated server-side from the published rate card for {form.tier}.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={dispatch.isPending}>
+              {dispatch.isPending ? 'Dispatching…' : 'Dispatch Ride'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const STATUS_OPTIONS = [
   { value: ALL_STATUS_SENTINEL, label: 'All statuses' },
@@ -311,16 +542,19 @@ export default function Rides() {
               View and cancel rides in real time
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            data-testid="button-refresh"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <DispatchDialog onDispatched={() => queryClient.invalidateQueries({ queryKey: getListAdminRidesQueryKey() })} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              data-testid="button-refresh"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}

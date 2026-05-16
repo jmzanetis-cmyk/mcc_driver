@@ -101,10 +101,15 @@ export function EarningsScreen() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           <StatCard label="Avg / Ride" value={periodRides > 0 ? formatCurrency(periodEarnings / periodRides) : '--'} />
           <StatCard label="Rating" value={summary.averageRating.toFixed(1)} sublabel={getStarDisplay(summary.averageRating)} color={colors.gold} />
         </div>
+
+        {/* Service-type earnings breakdown */}
+        {filteredRides.length > 0 && (
+          <ServiceBreakdown rides={filteredRides} />
+        )}
 
         {/* Daily earnings chart — week and all-time only */}
         {period !== 'today' && (
@@ -136,6 +141,53 @@ export function EarningsScreen() {
         )}
       </div>
     </div>
+  );
+}
+
+// ============================================================
+// Service-type breakdown card
+// ============================================================
+
+const SERVICE_TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
+  rideshare: { label: 'Rideshare', icon: '🚗', color: '#2563EB' },
+  delivery:  { label: 'Delivery',  icon: '📦', color: '#EA580C' },
+  concierge: { label: 'Concierge', icon: '🎩', color: '#1a2744' },
+};
+
+function ServiceBreakdown({ rides }: { rides: RideEarning[] }) {
+  const totals: Record<string, { earnings: number; count: number }> = {};
+  for (const r of rides) {
+    const key = r.serviceType ?? 'concierge';
+    if (!totals[key]) totals[key] = { earnings: 0, count: 0 };
+    totals[key]!.earnings += r.driverPayout + r.tip;
+    totals[key]!.count += 1;
+  }
+  const entries = Object.entries(totals).sort((a, b) => b[1].earnings - a[1].earnings);
+  if (entries.length <= 1) return null;
+
+  return (
+    <Card padding={14} style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+        By Service Type
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {entries.map(([type, data]) => {
+          const meta = SERVICE_TYPE_META[type] ?? SERVICE_TYPE_META['concierge']!;
+          return (
+            <div key={type} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: meta.color }}>{meta.label}</span>
+                <span style={{ fontSize: 11, color: colors.textMuted }}>
+                  {data.count} ride{data.count !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 700, color: colors.navy }}>{formatCurrency(data.earnings)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
