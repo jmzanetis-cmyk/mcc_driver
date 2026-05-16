@@ -19,12 +19,13 @@
 // Those actions are idempotent — calling them twice is harmless.
 // ============================================================
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { realtimeManager } from '@/services/realtime/realtimeManager';
 import { useDispatchStore } from '@/store/dispatchStore';
 import { clearRideState } from '@/services/offline/storage';
 import { logger } from '@/services/telemetry/logger';
+import { onNetworkRestored } from '@/hooks/useNetworkStatus';
 
 export function useRideCancellation() {
   const rideId = useDispatchStore((s) => s.rideId);
@@ -45,6 +46,32 @@ export function useRideCancellation() {
       setCancelled('This ride has been cancelled by the member or dispatcher.');
       setServerCancelled(true);
     }
+
+    // Backfill: cancellations dispatched while the device was offline do
+    // not arrive via postgres_changes after reconnect. Poll the ride row
+    // immediately on subscribe and on offline→online restore.
+    async function backfillCancellation() {
+      if (!rideId) return;
+      try {
+        const { data, error } = await supabase
+          .from('rides')
+          .select('status')
+          .eq('id', rideId)
+          .single();
+        if (error || !data) return;
+        if ((data as { status: string }).status === 'cancelled') {
+          await handleCancellation('backfill');
+        }
+      } catch (err) {
+        logger.warn('ride.cancellation_backfill_failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    void backfillCancellation();
+    const offReconnect = onNetworkRestored(() => {
+      void backfillCancellation();
+    });
 
     // Primary: rides table — fires once ALTER PUBLICATION rides is run in Supabase.
     // See scripts/sql/enable-rides-realtime.sql
@@ -93,6 +120,7 @@ export function useRideCancellation() {
     return () => {
       realtimeManager.unsubscribe(ridesChannelKey);
       if (assignmentsChannelKey) realtimeManager.unsubscribe(assignmentsChannelKey);
+      offReconnect();
     };
   }, [rideId, assignmentId, stage]);
 }
