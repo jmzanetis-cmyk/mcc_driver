@@ -83,10 +83,10 @@ export function AIChatScreen() {
           ←
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: colors.textWhite }}>Driver Support</div>
-          <div style={{ fontSize: 11, color: colors.gold }}>
+          <span className="eyebrow on-dark" style={{ fontSize: '0.6rem' }}>
             AI-powered • {categoryIcons[category]} {categoryLabels[category]}
-          </div>
+          </span>
+          <div className="heading-editorial heading-editorial-md on-dark">Driver Support</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button

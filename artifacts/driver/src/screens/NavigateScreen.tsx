@@ -389,11 +389,7 @@ export function NavigateScreen() {
                                 {savedPartner.firstName} {savedPartner.lastName}
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{
-                                  fontSize: 9, fontWeight: 700, color: colors.navy,
-                                  background: colors.gold, padding: '1px 5px',
-                                  borderRadius: borderRadius.full,
-                                }}>VERIFIED</span>
+                                <span className="badge-gold" style={{ fontSize: 9, padding: '1px 6px' }}>VERIFIED</span>
                                 <span style={{ fontSize: 11, color: colors.textMuted }}>★ {savedPartner.rating.toFixed(1)}</span>
                               </div>
                             </div>
@@ -534,6 +530,7 @@ export function NavigateScreen() {
 
         {/* Scenario & role */}
         <div style={{ marginBottom: 16 }}>
+          <span className="eyebrow" style={{ marginBottom: 4 }}>Active Ride</span>
           <div className="heading-editorial heading-editorial-md">
             {getScenarioLabel(activeRide.scenario)}
           </div>

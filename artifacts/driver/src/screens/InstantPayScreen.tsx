@@ -44,6 +44,7 @@ export function InstantPayScreen() {
         <PageHeader title="Instant Pay" onBack={() => navigate('/earnings')} />
         <div style={{ padding: 24, textAlign: 'center', marginTop: 48 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
+          <span className="eyebrow" style={{ marginBottom: 8 }}>Partner Driver</span>
           <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>
             Managed by Your Partner
           </div>

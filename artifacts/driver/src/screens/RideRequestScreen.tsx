@@ -157,18 +157,19 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
         {/* Header with timer */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
-            <div style={{
-              fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: 0.8,
-              color: serviceType === 'rideshare' ? '#1A6FC4'
-                : serviceType === 'delivery' ? '#D4680A'
-                : colors.gold,
-              animation: 'pulse 1.5s infinite',
-            }}>
-              {serviceType === 'rideshare' ? '🚗 RIDESHARE REQUEST'
-                : serviceType === 'delivery' ? '📦 DELIVERY REQUEST'
-                : '🚘 CONCIERGE REQUEST'}
-            </div>
+            <span
+              className="eyebrow"
+              style={{
+                color: serviceType === 'rideshare' ? '#1A6FC4'
+                  : serviceType === 'delivery' ? '#D4680A'
+                  : undefined,
+                animation: 'pulse 1.5s infinite',
+              }}
+            >
+              {serviceType === 'rideshare' ? '🚗 Rideshare Request'
+                : serviceType === 'delivery' ? '📦 Delivery Request'
+                : '🚘 Concierge Request'}
+            </span>
             <h2 id={titleId} className="heading-editorial heading-editorial-lg" style={{ marginTop: 4 }}>
               {getScenarioLabel(scenario)}
             </h2>

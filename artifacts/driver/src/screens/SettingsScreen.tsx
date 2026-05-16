@@ -274,6 +274,7 @@ export function SettingsScreen() {
               {driver.firstName[0]}{driver.lastName[0]}
             </div>
             <div>
+              <span className="eyebrow" style={{ marginBottom: 2 }}>Driver Profile</span>
               <div className="heading-editorial heading-editorial-md">
                 {driver.firstName} {driver.lastName}
               </div>
@@ -513,13 +514,7 @@ export function SettingsScreen() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                     {savedPartner.verified && (
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, color: colors.navy,
-                        background: colors.gold, padding: '1px 6px',
-                        borderRadius: borderRadius.full,
-                      }}>
-                        VERIFIED
-                      </span>
+                      <span className="badge-gold">VERIFIED</span>
                     )}
                     <span style={{ fontSize: 11, color: colors.textMuted }}>
                       ★ {savedPartner.rating.toFixed(1)} · {savedPartner.totalJobs} jobs

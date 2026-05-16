@@ -153,6 +153,7 @@ export function SetupPaymentsScreen() {
           <>
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
+              <span className="eyebrow" style={{ marginBottom: 8 }}>Payout Account</span>
               <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8 }}>
                 Payouts Enabled
               </div>
@@ -214,6 +215,7 @@ export function SetupPaymentsScreen() {
           <>
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🏦</div>
+              <span className="eyebrow" style={{ marginBottom: 8 }}>Payout Setup</span>
               <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8 }}>
                 Connect Your Bank
               </div>
@@ -252,6 +254,7 @@ export function SetupPaymentsScreen() {
           <>
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>⏳</div>
+              <span className="eyebrow" style={{ marginBottom: 8 }}>Payout Setup</span>
               <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8 }}>
                 Setup Incomplete
               </div>

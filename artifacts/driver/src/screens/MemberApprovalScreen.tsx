@@ -97,13 +97,7 @@ function DriverCard({
         {driver.firstName} {driver.lastName.charAt(0)}.
       </div>
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
-        <span style={{
-          fontSize: 9, fontWeight: 700, color: colors.navy,
-          background: colors.gold, padding: '2px 6px',
-          borderRadius: borderRadius.full, letterSpacing: 0.5,
-        }}>
-          VERIFIED
-        </span>
+        <span className="badge-gold" style={{ fontSize: 9, padding: '2px 8px' }}>VERIFIED</span>
       </div>
       <div style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 6 }}>
         ⭐ {Number(driver.rating ?? 0).toFixed(1)} · {driver.totalJobs ?? 0} jobs
@@ -181,7 +175,7 @@ export function MemberApprovalScreen() {
     return (
       <div style={{ minHeight: '100vh', padding: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: colors.bgPrimary }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>Match unavailable</div>
+        <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>Match unavailable</div>
         <div style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', maxWidth: 320 }}>{error}</div>
       </div>
     );

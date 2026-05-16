@@ -194,10 +194,10 @@ export function RideAlongDashboardScreen() {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 14, color: colors.gold, marginBottom: 2 }}>
+            <span className="eyebrow on-dark" style={{ marginBottom: 4 }}>
               Ride-Along Driver
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: colors.textWhite }}>
+            </span>
+            <div className="heading-editorial heading-editorial-lg on-dark">
               {profile.firstName} {profile.lastName}
             </div>
           </div>
@@ -252,12 +252,7 @@ export function RideAlongDashboardScreen() {
                   Across {profile.totalJobs ?? 0} completed jobs
                 </div>
               </div>
-              <div style={{
-                padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                background: `${withAlpha(colors.success, '15')}`, color: colors.success,
-              }}>
-                VERIFIED
-              </div>
+              <span className="badge-gold">VERIFIED</span>
             </div>
             {(profile.totalJobs ?? 0) === 0 && (
               <div style={{

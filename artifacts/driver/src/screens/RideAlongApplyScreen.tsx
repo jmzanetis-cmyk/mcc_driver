@@ -297,6 +297,7 @@ export function RideAlongApplyScreen() {
       <div style={{ padding: 24 }} className="scroll-container">
         {step === 1 && (
           <>
+            <span className="eyebrow" style={{ marginBottom: 6 }}>Step {step} of {TOTAL_STEPS}</span>
             <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Personal Information
             </h2>
@@ -334,6 +335,7 @@ export function RideAlongApplyScreen() {
 
         {step === 2 && (
           <>
+            <span className="eyebrow" style={{ marginBottom: 6 }}>Step {step} of {TOTAL_STEPS}</span>
             <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               License & Insurance
             </h2>
@@ -368,6 +370,7 @@ export function RideAlongApplyScreen() {
 
         {step === 3 && (
           <>
+            <span className="eyebrow" style={{ marginBottom: 6 }}>Step {step} of {TOTAL_STEPS}</span>
             <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Profile Photo
             </h2>
@@ -390,6 +393,7 @@ export function RideAlongApplyScreen() {
 
         {step === 4 && (
           <>
+            <span className="eyebrow" style={{ marginBottom: 6 }}>Step {step} of {TOTAL_STEPS}</span>
             <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Ride-Along Driver Agreement
             </h2>

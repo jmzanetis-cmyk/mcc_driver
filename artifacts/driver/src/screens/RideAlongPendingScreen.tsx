@@ -122,6 +122,9 @@ export function RideAlongPendingScreen() {
         {isApproved ? '✅' : isRejected ? '❌' : '⏳'}
       </div>
 
+      <span className="eyebrow" style={{ marginBottom: 8 }}>
+        Application Status
+      </span>
       <h1 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8, textAlign: 'center' }}>
         {isApproved
           ? "You're Verified!"
