@@ -47,6 +47,14 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
     });
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape closes the dialog by triggering Decline — standard
+      // dialog pattern. We treat dismissal as a decline so dispatch
+      // can cascade to the next driver.
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onDecline();
+        return;
+      }
       if (e.key !== 'Tab') return;
       const root = dialogRef.current;
       if (!root) return;
@@ -71,6 +79,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
       document.removeEventListener('keydown', handleKeyDown);
       previouslyFocused?.focus?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAccept = async () => {

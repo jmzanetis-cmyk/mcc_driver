@@ -182,20 +182,29 @@ export function CountdownTimer({ deadline, onExpired, size = 80 }: CountdownTime
   const [announce, setAnnounce] = useState<string>('');
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    // 250 ms keeps the ring animation visually smooth (the SVG
+    // transition handles in-between frames) while drastically
+    // reducing render/battery cost vs. a 100 ms interval. State
+    // only re-renders when the floored second changes.
+    let lastSecond = -1;
+    const tick = () => {
       const remaining = Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000));
-      setSeconds(remaining);
-      if (remaining <= 10) {
-        setAnnounce(`${remaining} second${remaining === 1 ? '' : 's'} left`);
-      } else if (remaining > 0 && remaining % 5 === 0) {
-        setAnnounce(`${remaining} seconds left to respond`);
+      if (remaining !== lastSecond) {
+        lastSecond = remaining;
+        setSeconds(remaining);
+        if (remaining <= 10) {
+          setAnnounce(`${remaining} second${remaining === 1 ? '' : 's'} left`);
+        } else if (remaining > 0 && remaining % 5 === 0) {
+          setAnnounce(`${remaining} seconds left to respond`);
+        }
       }
       if (remaining <= 0) {
         clearInterval(interval);
         onExpired();
       }
-    }, 100);
-
+    };
+    const interval = setInterval(tick, 250);
+    tick();
     return () => clearInterval(interval);
   }, [deadline, onExpired]);
 
