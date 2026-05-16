@@ -39,6 +39,7 @@ export function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [deleteBlocked, setDeleteBlocked] = useState<DeleteAccountBlocked | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletePartialWarning, setDeletePartialWarning] = useState<string | null>(null);
 
   // Known Partner state
   const [partnerEmail, setPartnerEmail] = useState('');
@@ -89,6 +90,7 @@ export function SettingsScreen() {
   const openDeleteFlow = () => {
     setDeleteBlocked(null);
     setDeleteError(null);
+    setDeletePartialWarning(null);
     setDeleteTyped('');
     setDeleteStep(1);
   };
@@ -98,7 +100,39 @@ export function SettingsScreen() {
     setDeleteStep(0);
     setDeleteBlocked(null);
     setDeleteError(null);
+    setDeletePartialWarning(null);
     setDeleteTyped('');
+  };
+
+  // After a 207 (anonymized OK but Supabase auth-user delete failed), the
+  // driver row is already gone — retrying hits the no-driver branch, which
+  // only attempts the auth-user delete. That's exactly the retry semantics
+  // we want here.
+  const retryAuthDelete = async () => {
+    setDeletePartialWarning(null);
+    setDeleting(true);
+    const result = await deleteMyAccount();
+    setDeleting(false);
+    if (result.success) {
+      if (result.data.warning) {
+        setDeletePartialWarning(result.data.warning);
+        return;
+      }
+      // Fully clean now — close the modal and bounce.
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+      try { await signOut(); } catch { /* ignore */ }
+      navigate('/', { replace: true });
+      return;
+    }
+    setDeleteError('success' in result ? '' : (result as { error?: string }).error ?? 'Retry failed.');
+  };
+
+  const acceptPartialAndExit = async () => {
+    // Driver chose to leave even though server-side auth-user deletion is
+    // still hanging. Local session has already been torn down in
+    // handleConfirmDelete; just bounce to welcome.
+    setDeletePartialWarning(null);
+    navigate('/', { replace: true });
   };
 
   const handleConfirmDelete = async () => {
@@ -131,12 +165,13 @@ export function SettingsScreen() {
       try { await purgeAllOfflineData(); } catch (err) { logger.warn('account.delete.cleanup.indexeddb_failed', err); }
       try { await supabase.auth.signOut(); } catch (err) { logger.warn('account.delete.cleanup.supabase_signout_failed', err); }
       try { await signOut(); } catch (err) { logger.warn('account.delete.cleanup.useauth_signout_failed', err); }
-      // Partial-success (HTTP 207): server anonymized the row but couldn't
-      // delete the Supabase auth user. Surface the warning before bouncing —
-      // the local sign-out above should still tear down the session, but the
-      // user deserves to know if anything server-side is still hanging on.
+      // Partial-success (HTTP 207): the local row is anonymized but the
+      // Supabase auth-user delete failed. Surface a dedicated retry UI
+      // instead of silently navigating — the driver deserves an explicit
+      // path to finish the deletion contract.
       if (result.data.warning) {
-        try { window.alert(result.data.warning); } catch { /* ignore */ }
+        setDeletePartialWarning(result.data.warning);
+        return;
       }
       navigate('/', { replace: true });
       return;
@@ -586,7 +621,34 @@ export function SettingsScreen() {
           padding: 24,
         }}>
           <Card style={{ maxWidth: 360, width: '100%' }} padding={24}>
-            {deleteBlocked ? (
+            {deletePartialWarning ? (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 600, color: colors.warning, marginBottom: 8 }}>
+                  Almost done — one more step
+                </div>
+                <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
+                  {deletePartialWarning}
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <Button
+                    onClick={() => void acceptPartialAndExit()}
+                    variant="secondary"
+                    style={{ flex: 1 }}
+                    disabled={deleting}
+                  >
+                    Leave anyway
+                  </Button>
+                  <Button
+                    onClick={() => void retryAuthDelete()}
+                    variant="danger"
+                    style={{ flex: 1 }}
+                    disabled={deleting}
+                  >
+                    {deleting ? 'Retrying…' : 'Retry'}
+                  </Button>
+                </div>
+              </>
+            ) : deleteBlocked ? (
               <>
                 <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
                   {deleteBlocked.reason === 'active_ride'
