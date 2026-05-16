@@ -10,7 +10,9 @@ import { defineConfig, devices } from '@playwright/test';
  * To update baselines after an intentional visual change:
  *   pnpm --filter @workspace/driver run test:visual:update
  *
- * Snapshots live next to the spec file under `tests/__screenshots__/`.
+ * Snapshots live next to the spec file under
+ * `tests/visual.spec.ts-snapshots/` (Playwright's default
+ * `<specfile>-snapshots/` convention) and are committed to git.
  */
 export default defineConfig({
   testDir: './tests',

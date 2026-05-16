@@ -37,7 +37,8 @@ pnpm --filter @workspace/driver exec playwright show-report
 ```
 
 Baselines live next to the spec under
-`tests/__screenshots__/visual.spec.ts/` and are committed so
+`tests/visual.spec.ts-snapshots/` (Playwright's default
+`<specfile>-snapshots/` directory) and are committed so
 PRs surface drift as a visible diff.
 
 ## What's NOT covered yet
