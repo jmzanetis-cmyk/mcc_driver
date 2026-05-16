@@ -48,36 +48,39 @@ export function useActiveRide() {
   }, [dispatch.rideId, dispatch.assignmentId]);
 
   const completeRide = useCallback(async (actualDistanceMiles: number) => {
-    if (!dispatch.rideId || !dispatch.assignmentId) return { success: false };
+    // Read current store state at call time to avoid stale closure on startedAt,
+    // which is set after ride creation (when ride transitions to in_progress).
+    const store = useDispatchStore.getState();
+    if (!store.rideId || !store.assignmentId) return { success: false };
 
-    dispatch.setStage('completing');
+    store.setStage('completing');
 
     // Compute actual ride duration from when the ride entered in_progress.
     // This feeds the perMinute fare component for rideshare/delivery.
-    const actualDurationMinutes = dispatch.startedAt
-      ? Math.round((Date.now() - new Date(dispatch.startedAt).getTime()) / 60000)
+    const actualDurationMinutes = store.startedAt
+      ? Math.round((Date.now() - new Date(store.startedAt).getTime()) / 60000)
       : undefined;
 
-    logger.info('ride.completing', { rideId: dispatch.rideId, distance: actualDistanceMiles, durationMinutes: actualDurationMinutes });
+    logger.info('ride.completing', { rideId: store.rideId, distance: actualDistanceMiles, durationMinutes: actualDurationMinutes });
 
     const result = await completeRideEdge(
-      dispatch.rideId,
-      dispatch.assignmentId,
+      store.rideId,
+      store.assignmentId,
       actualDistanceMiles,
       actualDurationMinutes
     );
 
     if (result.success) {
-      const completedRideId = dispatch.rideId;
+      const completedRideId = store.rideId;
       await clearRideState(completedRideId);
-      dispatch.clearDispatch();
+      store.clearDispatch();
       logger.info('ride.completed', { rideId: completedRideId });
       return { success: true, rideId: completedRideId };
     }
 
-    dispatch.setStage('in_progress');
+    store.setStage('in_progress');
     return { success: false };
-  }, [dispatch.rideId, dispatch.assignmentId]);
+  }, []);
 
   const cancelRide = useCallback(async (reason?: string) => {
     if (!dispatch.rideId) return;
