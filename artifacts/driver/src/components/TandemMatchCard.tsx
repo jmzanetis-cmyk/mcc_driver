@@ -12,7 +12,7 @@
 import React, { useState } from 'react';
 import { Button, Card } from '@/components';
 import { colors, borderRadius } from '@/theme';
-import { requestTandemRematch } from '@/services/api/edgeFunctions';
+import { requestTandemRematch, providerAcceptTandemMatch } from '@/services/api/edgeFunctions';
 
 export interface MatchedDriverInfo {
   firstName: string;
@@ -27,6 +27,7 @@ export interface TandemMatchCardProps {
   matchedDriver: MatchedDriverInfo | null;
   matchStatus: string;
   memberApproved: boolean | null;
+  onAccept?: () => void;
   onRematch?: () => void;
 }
 
@@ -62,16 +63,29 @@ export function TandemMatchCard({
   matchedDriver,
   matchStatus,
   memberApproved,
+  onAccept,
   onRematch,
 }: TandemMatchCardProps) {
-  const [acting, setActing] = useState(false);
+  const [acting, setActing] = useState<'accept' | 'rematch' | null>(null);
   const [error, setError] = useState('');
 
+  const handleAccept = async () => {
+    setActing('accept');
+    setError('');
+    const res = await providerAcceptTandemMatch(tandemJobId);
+    setActing(null);
+    if (res.success) {
+      onAccept?.();
+    } else {
+      setError(res.error ?? 'Failed to accept match.');
+    }
+  };
+
   const handleRematch = async () => {
-    setActing(true);
+    setActing('rematch');
     setError('');
     const res = await requestTandemRematch(tandemJobId);
-    setActing(false);
+    setActing(null);
     if (res.success) {
       onRematch?.();
     } else {
@@ -142,16 +156,29 @@ export function TandemMatchCard({
       )}
 
       {matchStatus !== 'confirmed' && matchedDriver && (
-        <Button
-          onClick={() => void handleRematch()}
-          loading={acting}
-          disabled={acting}
-          variant="ghost"
-          size="sm"
-          fullWidth
-        >
-          Request Rematch
-        </Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {matchStatus === 'matched' && (
+            <Button
+              onClick={() => void handleAccept()}
+              loading={acting === 'accept'}
+              disabled={acting !== null}
+              size="sm"
+              fullWidth
+            >
+              Accept Match
+            </Button>
+          )}
+          <Button
+            onClick={() => void handleRematch()}
+            loading={acting === 'rematch'}
+            disabled={acting !== null}
+            variant="ghost"
+            size="sm"
+            fullWidth={matchStatus !== 'matched'}
+          >
+            Request Rematch
+          </Button>
+        </div>
       )}
     </Card>
   );

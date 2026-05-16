@@ -820,6 +820,83 @@ router.patch(
   },
 );
 
+// ── PATCH /tandem-jobs/:id/provider-accept ───────────────────────────────────
+// Provider explicitly confirms the matched ride-along driver and forwards the
+// approval request to the member. Atomic compare-and-set: only flips while
+// the job is still `matched`. Member approval remains a separate step.
+
+router.patch(
+  "/tandem-jobs/:id/provider-accept",
+  async (req: Request, res: Response): Promise<void> => {
+    const user = await requireUserAuth(req, res);
+    if (!user) return;
+    const provider = await resolveCallerDriver(user, res);
+    if (!provider) return;
+
+    const tandemJobId = String(req.params["id"]);
+    try {
+      const [job] = await db
+        .select()
+        .from(tandemJobsTable)
+        .where(eq(tandemJobsTable.id, tandemJobId))
+        .limit(1);
+      if (!job) {
+        res.status(404).json({ error: "Tandem job not found" });
+        return;
+      }
+      if (job.providerId !== provider.id) {
+        res.status(403).json({ error: "Not your tandem job" });
+        return;
+      }
+      if (job.tandemMode !== "B") {
+        res.status(422).json({ error: "Provider-accept only valid for Mode B" });
+        return;
+      }
+      if (job.matchStatus === "member_pending" || job.matchStatus === "confirmed") {
+        res.status(200).json({ tandemJob: job, alreadyAccepted: true });
+        return;
+      }
+
+      const [updated] = await db
+        .update(tandemJobsTable)
+        .set({ matchStatus: "member_pending", updatedAt: new Date() })
+        .where(
+          and(
+            eq(tandemJobsTable.id, tandemJobId),
+            eq(tandemJobsTable.matchStatus, "matched"),
+          ),
+        )
+        .returning();
+
+      if (!updated) {
+        res.status(409).json({ error: "Tandem job is no longer in matched state" });
+        return;
+      }
+
+      try {
+        await upsertTandemJobViaSupabase(tandemJobId, {
+          ride_id: updated.rideId,
+          provider_id: updated.providerId,
+          tandem_mode: updated.tandemMode,
+          match_status: updated.matchStatus,
+          matched_ride_along_driver_id: updated.matchedRideAlongDriverId,
+          ride_along_driver_id: updated.rideAlongDriverId,
+          member_approved: updated.memberApproved,
+          ride_along_fee: updated.rideAlongFee,
+        });
+      } catch (err) {
+        logger.error({ err, tandemJobId }, "tandem.provider_accept.supabase_mirror_failed");
+      }
+
+      req.log.info({ tandemJobId }, "tandem.provider.accepted");
+      res.status(200).json({ tandemJob: updated });
+    } catch (err) {
+      logger.error({ err }, "tandem.provider.accept failed");
+      res.status(500).json({ error: "Internal error" });
+    }
+  },
+);
+
 // ── PATCH /tandem-jobs/:id/member-decline ────────────────────────────────────
 // Member rejects the matched ride-along driver. The previously matched driver
 // is recorded as a decline so they are excluded from re-matching, then the

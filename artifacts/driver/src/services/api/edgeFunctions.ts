@@ -362,6 +362,19 @@ export async function memberDeclineTandemMatch(
 }
 
 /**
+ * Provider confirms the matched ride-along driver, transitioning the job
+ * from `matched` to `member_pending`. The member then approves separately.
+ */
+export async function providerAcceptTandemMatch(
+  tandemJobId: string,
+): Promise<ApiResult<TandemJobRecord>> {
+  return callApi<TandemJobRecord>(
+    `/tandem-jobs/${tandemJobId}/provider-accept`,
+    'PATCH',
+  );
+}
+
+/**
  * Provider asks for a different ride-along driver match. Re-broadcasts to
  * remaining eligible drivers.
  */

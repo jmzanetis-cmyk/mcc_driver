@@ -124,6 +124,7 @@ export function ProviderTandemMatchPanel({ tandemJobId }: { tandemJobId: string 
         matchedDriver={detail.rideAlongDriver}
         matchStatus={detail.matchStatus}
         memberApproved={detail.memberApproved}
+        onAccept={() => { void load(); }}
         onRematch={() => { void load(); }}
       />
     </div>

@@ -524,8 +524,9 @@ export function NavigateScreen() {
           ))}
         </div>
 
-        {/* Mode B platform match: show match card / waiting state */}
-        {existingTandemJobId && tandemModeConfirmed && (
+        {/* Mode B platform match: show match card / waiting state.
+            Gated to Mode B only — rematch semantics don't apply to Modes A/C. */}
+        {existingTandemJobId && tandemModeConfirmed && selectedMode === 'B' && (
           <ProviderTandemMatchPanel tandemJobId={existingTandemJobId} />
         )}
 
