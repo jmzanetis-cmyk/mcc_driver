@@ -16,7 +16,6 @@ export async function fetchAppStatus(): Promise<AppStatus | null> {
       method: "GET",
       // Status endpoint is public + cached server-side; no creds needed.
       credentials: "omit",
-      cache: "no-store",
     });
     if (!res.ok) {
       // Treat non-2xx as "no signal" rather than forcing an update.
