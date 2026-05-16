@@ -86,7 +86,7 @@ export function RideCompleteScreen() {
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>
       <div style={{
-        background: colors.navy, padding: '40px 24px 32px',
+        background: colors.surfaceDark, padding: '40px 24px 32px',
         textAlign: 'center',
         borderRadius: `0 0 ${borderRadius.xl}px ${borderRadius.xl}px`,
       }}>

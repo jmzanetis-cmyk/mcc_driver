@@ -126,7 +126,7 @@ export function InstantPayScreen() {
 
         {/* Balance card */}
         <div style={{
-          background: colors.navy, borderRadius: borderRadius.lg,
+          background: colors.surfaceDark, borderRadius: borderRadius.lg,
           padding: 24, marginBottom: 20, textAlign: 'center',
         }}>
           <div style={{ fontSize: 11, color: colors.gold, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -232,7 +232,7 @@ export function InstantPayScreen() {
               onClick={() => navigate('/settings/payments')}
               style={{
                 width: '100%', padding: '10px 0',
-                background: colors.navy, border: 'none',
+                background: colors.surfaceDark, border: 'none',
                 borderRadius: 8, cursor: 'pointer',
                 fontSize: 13, fontWeight: 600, color: colors.gold,
               }}

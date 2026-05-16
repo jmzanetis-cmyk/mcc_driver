@@ -32,7 +32,7 @@ function AuthRedirect() {
     return (
       <div style={{
         minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', background: colors.navy,
+        alignItems: 'center', justifyContent: 'center', background: colors.surfaceDark,
       }}>
         <div style={{
           width: 64, height: 64, borderRadius: 16,

@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { colors, borderRadius } from '@/theme';
+import { colors, borderRadius, withAlpha } from '@/theme';
 import { Button } from '@/components';
 import { UpdateDocumentsModal } from './UpdateDocumentsModal';
 import { getSignedDocumentUrl } from '@/services/documents/documentService';
@@ -119,7 +119,7 @@ export function PendingScreen() {
         background: hasRejection ? colors.errorBg : colors.warningBg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 28, marginBottom: 20,
-        border: hasRejection ? `2px solid ${colors.error}40` : 'none',
+        border: hasRejection ? `2px solid ${withAlpha(colors.error, '40')}` : 'none',
       }}>
         {hasRejection ? '📋' : '⏳'}
       </div>
@@ -136,7 +136,7 @@ export function PendingScreen() {
       {/* Status checklist */}
       <div style={{
         background: colors.bgCard, borderRadius: borderRadius.lg,
-        border: `1px solid ${hasRejection ? `${colors.error}40` : colors.border}`,
+        border: `1px solid ${hasRejection ? `${withAlpha(colors.error, '40')}` : colors.border}`,
         padding: 20,
         width: '100%', maxWidth: 360,
       }}>
@@ -174,7 +174,7 @@ export function PendingScreen() {
             {step.status === 'done' && i > 0 && (
               <span style={{
                 marginLeft: 'auto', fontSize: 11, fontWeight: 600,
-                color: colors.success, background: `${colors.success}20`,
+                color: colors.success, background: `${withAlpha(colors.success, '20')}`,
                 padding: '2px 8px', borderRadius: 4,
               }}>
                 COMPLETE
@@ -187,9 +187,9 @@ export function PendingScreen() {
       {driver?.licenseDocumentPath || driver?.insuranceDocumentPath ? (
         <div style={{
           marginTop: 16, padding: 12,
-          background: hasRejection ? colors.errorBg : `${colors.success}15`,
+          background: hasRejection ? colors.errorBg : `${withAlpha(colors.success, '15')}`,
           borderRadius: borderRadius.md,
-          border: `1px solid ${hasRejection ? `${colors.error}30` : `${colors.success}30`}`,
+          border: `1px solid ${hasRejection ? `${withAlpha(colors.error, '30')}` : `${withAlpha(colors.success, '30')}`}`,
           width: '100%', maxWidth: 360,
         }}>
           <div style={{

@@ -73,7 +73,7 @@ export function AIChatScreen() {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: colors.bgPrimary }}>
       {/* Header */}
       <div style={{
-        background: colors.navy, padding: '16px 20px',
+        background: colors.surfaceDark, padding: '16px 20px',
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <button
@@ -296,7 +296,7 @@ export function AIChatScreen() {
                 disabled={isSending}
                 style={{
                   padding: '8px 16px', borderRadius: borderRadius.sm, border: 'none',
-                  background: colors.navy, color: '#fff', fontSize: 13, fontWeight: 600,
+                  background: colors.surfaceDark, color: '#fff', fontSize: 13, fontWeight: 600,
                   cursor: isSending ? 'wait' : 'pointer',
                 }}
               >

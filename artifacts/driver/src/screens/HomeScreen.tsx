@@ -54,7 +54,7 @@ export function HomeScreen() {
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>
       {/* Header */}
       <div style={{
-        background: colors.navy, padding: '20px 20px 24px',
+        background: colors.surfaceDark, padding: '20px 20px 24px',
         borderRadius: `0 0 ${borderRadius.xl}px ${borderRadius.xl}px`,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>

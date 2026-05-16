@@ -16,7 +16,7 @@ export function ProtectedRoute({ children }: React.PropsWithChildren) {
     return (
       <div style={{
         minHeight: '100vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', background: colors.navy,
+        justifyContent: 'center', background: colors.surfaceDark,
       }}>
         <Spinner size={32} color={colors.gold} />
       </div>

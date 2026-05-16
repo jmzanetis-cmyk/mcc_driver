@@ -1,53 +1,75 @@
 // ============================================================
 // MCC Driver — Brand Theme
 // ============================================================
-// Matches MCC member app: navy/gold/cream palette
-// Usage: import { colors, spacing, typography } from '@/theme';
+// As of Task #67, the JS color tokens here are rebound to the
+// platform CSS custom properties defined in
+// `public/css/driver-tokens.css`. That way every existing
+// `style={{ background: colors.bgPrimary }}` etc. automatically
+// flips with the light/dark theme toggle (no per-screen rewrite
+// required). Add new screens using the same tokens or, even
+// better, the platform classes (`.btn .btn-gold`, `.card`,
+// `.form-input`) directly.
+//
+// One exception: `colors.surfaceDark` is a fixed brand navy used
+// by header bars / hero panels that should remain dark even in
+// light mode (matches the main platform's editorial hero look).
 // ============================================================
 
 export const colors = {
-  // Primary
-  navy: '#0B1D3A',
-  gold: '#C9982E',
+  // Primary brand
+  navy: 'var(--text-primary)',          // text uses — themed
+  surfaceDark: '#0B1D3A',                // fixed brand navy for header/hero surfaces
+  gold: 'var(--accent-gold)',
   cream: '#FAF8F5',
 
   // Text
-  textPrimary: '#1A1A2E',
-  textSecondary: '#4A4A5A',
-  textMuted: '#8A8578',
+  textPrimary: 'var(--text-primary)',
+  textSecondary: 'var(--text-secondary)',
+  textMuted: 'var(--text-muted)',
   textWhite: '#F7F5F0',
 
   // Backgrounds
-  bgPrimary: '#F7F5F0',
-  bgCard: '#FFFFFF',
-  bgSecondary: '#F0EDE6',
-  bgOverlay: 'rgba(11, 29, 58, 0.7)',
+  bgPrimary: 'var(--bg-deep)',
+  bgCard: 'var(--bg-card)',
+  bgSecondary: 'var(--bg-input)',
+  bgOverlay: 'rgba(0, 0, 0, 0.6)',
 
   // Borders
-  border: '#E5E1D8',
-  borderLight: '#F0EDE6',
+  border: 'var(--border-subtle)',
+  borderLight: 'var(--border-subtle)',
 
   // Status
-  success: '#2D8A56',
-  successBg: '#E8F5E9',
-  warning: '#B07015',
-  warningBg: '#FFF3E0',
-  error: '#C44',
-  errorBg: '#FFEBEE',
-  info: '#2D6B8A',
-  infoBg: '#E3F2FD',
+  success: 'var(--accent-green)',
+  successBg: 'var(--accent-green-soft)',
+  warning: 'var(--accent-orange)',
+  warningBg: 'var(--accent-orange-soft)',
+  error: 'var(--accent-red)',
+  errorBg: 'var(--accent-red-soft)',
+  info: 'var(--accent-blue)',
+  infoBg: 'var(--accent-blue-soft)',
 
-  // Driver-specific
-  online: '#2D8A56',
-  offline: '#8A8578',
-  driverBlue: '#2D6B8A',   // Primary driver pin
-  chaseGold: '#C9982E',     // Chase driver pin
+  // Driver-specific (legacy, used in chart/pin components)
+  online: 'var(--accent-green)',
+  offline: 'var(--text-muted)',
+  driverBlue: 'var(--accent-blue)',
+  chaseGold: 'var(--accent-gold)',
 
-  // Tag colors
+  // Tag colors (legacy — not theme-critical)
   tagSetup: '#0B1D3A',
   tagScreen: '#C9982E',
   tagBackend: '#2D6B8A',
 };
+
+// `colors.X` values are now CSS-variable strings, so the previous
+// pattern `${colors.success}30` (concatenating a hex alpha) silently
+// produces invalid CSS. Use `withAlpha(colors.success, '30')` instead;
+// it converts the hex-alpha byte to a percent and emits a
+// `color-mix(...)` expression that renders the same translucent fill.
+export function withAlpha(token: string, alphaHex: string): string {
+  const byte = parseInt(alphaHex, 16);
+  const pct = Number.isFinite(byte) ? Math.round((byte / 255) * 100) : 0;
+  return `color-mix(in srgb, ${token} ${pct}%, transparent)`;
+}
 
 export const spacing = {
   xs: 4,
@@ -59,8 +81,8 @@ export const spacing = {
 };
 
 export const borderRadius = {
-  sm: 6,
-  md: 10,
+  sm: 8,
+  md: 12,
   lg: 16,
   xl: 24,
   full: 9999,
@@ -79,7 +101,7 @@ export const typography = {
 };
 
 export const shadows = {
-  sm: '0 1px 3px rgba(11, 29, 58, 0.08)',
-  md: '0 4px 12px rgba(11, 29, 58, 0.1)',
-  lg: '0 8px 24px rgba(11, 29, 58, 0.12)',
+  sm: 'var(--shadow-sm)',
+  md: 'var(--shadow-md)',
+  lg: 'var(--shadow-lg)',
 };

@@ -86,7 +86,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   const { fullLabel, total } = payload[0].payload;
   return (
     <div style={{
-      background: colors.navy,
+      background: colors.surfaceDark,
       borderRadius: borderRadius.sm,
       padding: '8px 12px',
       fontSize: 12,

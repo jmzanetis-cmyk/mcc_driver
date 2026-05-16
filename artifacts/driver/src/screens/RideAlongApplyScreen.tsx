@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { uploadDriverDocument } from '@/services/documents/documentService';
 import { Button, Input, PageHeader } from '@/components';
-import { colors, borderRadius } from '@/theme';
+import { colors, borderRadius, withAlpha } from '@/theme';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -423,7 +423,7 @@ export function RideAlongApplyScreen() {
 
             {/* Agreement */}
             <div style={{
-              padding: 16, background: `${colors.navy}08`, borderRadius: borderRadius.md,
+              padding: 16, background: `${withAlpha(colors.navy, '08')}`, borderRadius: borderRadius.md,
               border: `1px solid ${colors.border}`, marginBottom: 20,
             }}>
               <div style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 1.6, marginBottom: 12 }}>

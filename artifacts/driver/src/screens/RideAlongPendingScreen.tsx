@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { Button } from '@/components';
-import { colors, borderRadius } from '@/theme';
+import { colors, borderRadius, withAlpha } from '@/theme';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -115,7 +115,7 @@ export function RideAlongPendingScreen() {
       {/* Icon */}
       <div style={{
         width: 64, height: 64, borderRadius: '50%',
-        background: isApproved ? `${colors.success}20` : isRejected ? colors.errorBg : colors.warningBg,
+        background: isApproved ? `${withAlpha(colors.success, '20')}` : isRejected ? colors.errorBg : colors.warningBg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 28, marginBottom: 20,
       }}>
@@ -142,8 +142,8 @@ export function RideAlongPendingScreen() {
       {isApproved && (
         <div style={{
           width: '100%', maxWidth: 360, marginBottom: 20,
-          padding: 16, background: `${colors.success}10`,
-          borderRadius: borderRadius.lg, border: `1px solid ${colors.success}30`,
+          padding: 16, background: `${withAlpha(colors.success, '10')}`,
+          borderRadius: borderRadius.lg, border: `1px solid ${withAlpha(colors.success, '30')}`,
           textAlign: 'center',
         }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
@@ -201,8 +201,8 @@ export function RideAlongPendingScreen() {
       {(profile.licenseDocumentPath || profile.insuranceDocumentPath || profile.profilePhotoPath) && (
         <div style={{
           marginBottom: 16, padding: 12,
-          background: `${colors.success}15`, borderRadius: borderRadius.md,
-          border: `1px solid ${colors.success}30`,
+          background: `${withAlpha(colors.success, '15')}`, borderRadius: borderRadius.md,
+          border: `1px solid ${withAlpha(colors.success, '30')}`,
           width: '100%', maxWidth: 360,
         }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: colors.success, marginBottom: 6 }}>
@@ -219,7 +219,7 @@ export function RideAlongPendingScreen() {
         <div style={{
           width: '100%', maxWidth: 360, marginBottom: 16,
           padding: 16, background: colors.errorBg,
-          borderRadius: borderRadius.md, border: `1px solid ${colors.error}30`,
+          borderRadius: borderRadius.md, border: `1px solid ${withAlpha(colors.error, '30')}`,
           textAlign: 'center',
         }}>
           <div style={{ fontSize: 13, color: colors.error, marginBottom: 12 }}>

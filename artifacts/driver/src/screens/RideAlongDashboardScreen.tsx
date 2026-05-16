@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { Button, Card, Spinner, StatCard } from '@/components';
-import { colors, borderRadius } from '@/theme';
+import { colors, borderRadius, withAlpha } from '@/theme';
 import { formatCurrency } from '@/utils/formatters';
 import { acceptTandemMatch, declineTandemMatch } from '@/services/api/edgeFunctions';
 import { useTandemBroadcasts, type TandemBroadcastRow } from '@/hooks/useTandemBroadcasts';
@@ -180,7 +180,7 @@ export function RideAlongDashboardScreen() {
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>
       {/* Header */}
       <div style={{
-        background: colors.navy, padding: '20px 20px 24px',
+        background: colors.surfaceDark, padding: '20px 20px 24px',
         borderRadius: `0 0 ${borderRadius.xl}px ${borderRadius.xl}px`,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -194,7 +194,7 @@ export function RideAlongDashboardScreen() {
           </div>
           <div style={{
             padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-            background: isConnected ? `${colors.success}30` : 'rgba(255,255,255,0.12)',
+            background: isConnected ? `${withAlpha(colors.success, '30')}` : 'rgba(255,255,255,0.12)',
             color: isConnected ? colors.success : 'rgba(255,255,255,0.7)',
           }}>
             {isConnected ? '● LIVE' : '○ CONNECTING'}
@@ -245,7 +245,7 @@ export function RideAlongDashboardScreen() {
               </div>
               <div style={{
                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                background: `${colors.success}15`, color: colors.success,
+                background: `${withAlpha(colors.success, '15')}`, color: colors.success,
               }}>
                 MCC VERIFIED
               </div>
@@ -274,7 +274,7 @@ export function RideAlongDashboardScreen() {
                 </div>
                 <div style={{
                   fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
-                  background: activeJob.matchStatus === 'confirmed' ? `${colors.success}20` : `${colors.warning}20`,
+                  background: activeJob.matchStatus === 'confirmed' ? `${withAlpha(colors.success, '20')}` : `${withAlpha(colors.warning, '20')}`,
                   color: activeJob.matchStatus === 'confirmed' ? colors.success : colors.warning,
                 }}>
                   {activeJob.matchStatus === 'confirmed'

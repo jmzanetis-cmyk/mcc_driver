@@ -73,7 +73,7 @@ export function EarningsScreen() {
 
         {/* Summary cards */}
         <div style={{
-          background: colors.navy, borderRadius: borderRadius.lg,
+          background: colors.surfaceDark, borderRadius: borderRadius.lg,
           padding: 20, marginBottom: 20, textAlign: 'center',
         }}>
           <div style={{ fontSize: 11, color: colors.gold, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>

@@ -211,7 +211,7 @@ export function MemberApprovalScreen() {
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>
       <div style={{
-        background: colors.navy, padding: '24px 20px 28px',
+        background: colors.surfaceDark, padding: '24px 20px 28px',
         borderRadius: `0 0 ${borderRadius.xl}px ${borderRadius.xl}px`,
         textAlign: 'center',
       }}>

@@ -1,43 +1,11 @@
 /* ============================================================
    MCC Driver — Global Styles
+   ============================================================
+   Palette, typography, body reset, and the .btn/.card/.form-*
+   component classes now live in `public/css/driver-tokens.css`,
+   loaded from index.html. This file only carries the
+   driver-app-specific utility classes referenced by screens.
    ============================================================ */
-
-:root {
-  --navy: #0B1D3A;
-  --gold: #C9982E;
-  --cream: #FAF8F5;
-  --text-primary: #1A1A2E;
-  --text-secondary: #4A4A5A;
-  --text-muted: #8A8578;
-  --text-white: #F7F5F0;
-  --bg-primary: #F7F5F0;
-  --bg-card: #FFFFFF;
-  --bg-secondary: #F0EDE6;
-  --border: #E5E1D8;
-  --border-light: #F0EDE6;
-  --success: #2D8A56;
-  --warning: #B07015;
-  --error: #CC4444;
-  --info: #2D6B8A;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --shadow-sm: 0 1px 3px rgba(11, 29, 58, 0.08);
-  --shadow-md: 0 4px 12px rgba(11, 29, 58, 0.1);
-  --shadow-lg: 0 8px 24px rgba(11, 29, 58, 0.12);
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-html, body, #root {
-  height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
 
 /* Safe area insets for notched phones */
 body {
@@ -46,6 +14,8 @@ body {
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
+
+#root { min-height: 100vh; }
 
 /* Prevent overscroll bounce */
 html { overscroll-behavior: none; }

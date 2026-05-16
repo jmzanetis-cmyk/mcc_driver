@@ -6,7 +6,7 @@
 // ============================================================
 
 import React, { useEffect, useRef, useState } from 'react';
-import { colors, borderRadius, shadows } from '@/theme';
+import { colors, borderRadius, shadows, withAlpha } from '@/theme';
 import { Button, Spinner } from '@/components';
 import { uploadDriverDocument } from '@/services/documents/documentService';
 import { updateDriverDocuments } from '@/services/auth/authService';
@@ -315,7 +315,7 @@ export function UpdateDocumentsModal({ onClose, rejectionReason }: UpdateDocumen
             <div style={{
               marginTop: 12, padding: '10px 14px',
               background: colors.errorBg,
-              border: `1px solid ${colors.error}40`,
+              border: `1px solid ${withAlpha(colors.error, '40')}`,
               borderRadius: borderRadius.md,
             }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: colors.error, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -333,8 +333,8 @@ export function UpdateDocumentsModal({ onClose, rejectionReason }: UpdateDocumen
           {submitResult ? (
             <div style={{
               padding: 16, borderRadius: borderRadius.md,
-              background: submitResult.success ? `${colors.success}15` : colors.errorBg,
-              border: `1px solid ${submitResult.success ? `${colors.success}40` : `${colors.error}40`}`,
+              background: submitResult.success ? `${withAlpha(colors.success, '15')}` : colors.errorBg,
+              border: `1px solid ${submitResult.success ? `${withAlpha(colors.success, '40')}` : `${withAlpha(colors.error, '40')}`}`,
               marginBottom: 20,
             }}>
               <div style={{

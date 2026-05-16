@@ -1,51 +1,56 @@
 // ============================================================
 // MCC Driver — Reusable UI Components
 // ============================================================
+// These primitives emit MCC platform classes (`.btn`, `.card`,
+// `.form-input`) from `public/css/driver-tokens.css` so the
+// driver app visually matches the main platform. See
+// `docs/driver-app-style-guide.md`.
+// ============================================================
 
 import React, { useState, useEffect } from 'react';
 import { colors, borderRadius, shadows } from '@/theme';
 
 // ============================================================
-// BUTTON
+// BUTTON — wraps `.btn` + variant class from platform tokens
 // ============================================================
 
 interface ButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
+  // Legacy `primary` is mapped to `.btn-gold` so the existing
+  // gold CTA look survives. Use `info` for the platform's blue
+  // gradient `.btn-primary`.
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'gold' | 'info';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
   style?: React.CSSProperties;
+  type?: 'button' | 'submit' | 'reset';
 }
 
 export function Button({
   children, onClick, variant = 'primary', size = 'md',
-  disabled = false, loading = false, fullWidth = false, style,
+  disabled = false, loading = false, fullWidth = false, style, type = 'button',
 }: ButtonProps) {
-  const baseStyle: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    gap: 8, border: 'none', borderRadius: borderRadius.md, cursor: disabled ? 'default' : 'pointer',
-    fontWeight: 600, transition: 'all 0.15s', opacity: disabled || loading ? 0.5 : 1,
-    width: fullWidth ? '100%' : 'auto',
-    ...(size === 'sm' ? { padding: '8px 16px', fontSize: 13 } : {}),
-    ...(size === 'md' ? { padding: '12px 24px', fontSize: 15 } : {}),
-    ...(size === 'lg' ? { padding: '16px 32px', fontSize: 17 } : {}),
-  };
-
-  const variantStyles: Record<string, React.CSSProperties> = {
-    primary: { background: colors.gold, color: colors.navy },
-    secondary: { background: colors.bgSecondary, color: colors.textPrimary, border: `1px solid ${colors.border}` },
-    danger: { background: colors.error, color: '#fff' },
-    ghost: { background: 'transparent', color: colors.textSecondary },
-    success: { background: colors.success, color: '#fff' },
-  };
+  const variantClass =
+    variant === 'primary' || variant === 'gold' ? 'btn-gold' :
+    variant === 'info' ? 'btn-primary' :
+    `btn-${variant}`;
+  const sizeClass = size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '';
+  const className = ['btn', variantClass, sizeClass].filter(Boolean).join(' ');
 
   return (
     <button
+      type={type}
       onClick={disabled || loading ? undefined : onClick}
-      style={{ ...baseStyle, ...variantStyles[variant], ...style }}
+      disabled={disabled || loading}
+      className={className}
+      style={{
+        justifyContent: 'center',
+        width: fullWidth ? '100%' : undefined,
+        ...style,
+      }}
     >
       {loading ? <Spinner size={size === 'sm' ? 14 : 18} /> : null}
       {children}
@@ -54,7 +59,7 @@ export function Button({
 }
 
 // ============================================================
-// CARD
+// CARD — wraps `.card` from platform tokens
 // ============================================================
 
 interface CardProps {
@@ -68,14 +73,11 @@ export function Card({ children, style, onClick, padding = 16 }: CardProps) {
   return (
     <div
       onClick={onClick}
+      className="card"
       style={{
-        background: colors.bgCard,
-        borderRadius: borderRadius.lg,
-        border: `1px solid ${colors.border}`,
         padding,
-        boxShadow: shadows.sm,
+        marginBottom: 0,
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'box-shadow 0.15s',
         ...style,
       }}
     >
@@ -103,11 +105,12 @@ export function OnlineToggle({ isOnline, isToggling, onToggle }: OnlineTogglePro
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '14px 24px', borderRadius: borderRadius.xl,
         border: 'none', cursor: isToggling ? 'wait' : 'pointer',
-        background: isOnline ? colors.success : colors.bgSecondary,
+        background: isOnline ? colors.success : 'var(--bg-elevated)',
         color: isOnline ? '#fff' : colors.textMuted,
         fontSize: 16, fontWeight: 600, width: '100%',
         transition: 'all 0.3s ease',
-        boxShadow: isOnline ? `0 4px 16px rgba(45, 138, 86, 0.3)` : shadows.sm,
+        boxShadow: isOnline ? '0 4px 16px rgba(52, 211, 153, 0.3)' : shadows.sm,
+        fontFamily: 'inherit',
       }}
     >
       <div style={{
@@ -186,7 +189,7 @@ export function CountdownTimer({ deadline, onExpired, size = 80 }: CountdownTime
 }
 
 // ============================================================
-// STAT CARD (for earnings dashboard)
+// STAT CARD (for earnings dashboard) — wraps `.card`
 // ============================================================
 
 interface StatCardProps {
@@ -196,13 +199,17 @@ interface StatCardProps {
   color?: string;
 }
 
-export function StatCard({ label, value, sublabel, color = colors.navy }: StatCardProps) {
+export function StatCard({ label, value, sublabel, color = colors.textPrimary }: StatCardProps) {
   return (
-    <div style={{
-      background: colors.bgCard, borderRadius: borderRadius.md,
-      border: `1px solid ${colors.border}`, padding: '14px 16px',
-      flex: 1, textAlign: 'center',
-    }}>
+    <div
+      className="card"
+      style={{
+        padding: '14px 16px',
+        marginBottom: 0,
+        flex: 1,
+        textAlign: 'center',
+      }}
+    >
       <div style={{ fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
         {label}
       </div>
@@ -255,7 +262,7 @@ export function Spinner({ size = 24, color = 'currentColor' }: SpinnerProps) {
 }
 
 // ============================================================
-// PAGE HEADER
+// PAGE HEADER — uses `colors.surfaceDark` brand navy
 // ============================================================
 
 interface PageHeaderProps {
@@ -269,7 +276,7 @@ export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderP
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12,
-      padding: '12px 16px', background: colors.navy,
+      padding: '12px 16px', background: colors.surfaceDark,
     }}>
       {onBack ? (
         <button onClick={onBack} style={{
@@ -295,7 +302,7 @@ export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderP
 }
 
 // ============================================================
-// INPUT
+// INPUT — wraps `.form-label` + `.form-input`
 // ============================================================
 
 interface InputProps {
@@ -311,10 +318,7 @@ interface InputProps {
 export function Input({ label, value, onChange, type = 'text', placeholder, required, error }: InputProps) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <label style={{
-        display: 'block', fontSize: 12, fontWeight: 600, color: colors.textMuted,
-        textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
-      }}>
+      <label className="form-label">
         {label}{required && <span style={{ color: colors.error }}> *</span>}
       </label>
       <input
@@ -322,15 +326,8 @@ export function Input({ label, value, onChange, type = 'text', placeholder, requ
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{
-          width: '100%', padding: '12px 14px', fontSize: 15,
-          border: `1px solid ${error ? colors.error : colors.border}`,
-          borderRadius: borderRadius.sm, background: colors.bgCard,
-          color: colors.textPrimary, outline: 'none',
-          transition: 'border-color 0.15s',
-        }}
-        onFocus={e => e.target.style.borderColor = colors.gold}
-        onBlur={e => e.target.style.borderColor = error ? colors.error : colors.border}
+        className="form-input"
+        style={error ? { borderColor: colors.error } : undefined}
       />
       {error && <div style={{ fontSize: 12, color: colors.error, marginTop: 4 }}>{error}</div>}
     </div>

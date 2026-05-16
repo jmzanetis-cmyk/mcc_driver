@@ -143,7 +143,7 @@ export function SettingsScreen() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
             <div style={{
               width: 56, height: 56, borderRadius: '50%',
-              background: colors.navy, display: 'flex',
+              background: colors.surfaceDark, display: 'flex',
               alignItems: 'center', justifyContent: 'center',
               fontSize: 20, fontWeight: 700, color: colors.gold,
             }}>
@@ -345,7 +345,7 @@ export function SettingsScreen() {
                 onClick={() => navigate('/settings/payments')}
                 style={{
                   width: '100%', padding: '12px 0',
-                  background: colors.navy, border: 'none',
+                  background: colors.surfaceDark, border: 'none',
                   borderRadius: borderRadius.sm, cursor: 'pointer',
                   fontSize: 14, fontWeight: 600, color: colors.gold,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -373,7 +373,7 @@ export function SettingsScreen() {
               }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: '50%',
-                  background: colors.navy, display: 'flex',
+                  background: colors.surfaceDark, display: 'flex',
                   alignItems: 'center', justifyContent: 'center',
                   fontSize: 14, fontWeight: 700, color: colors.gold,
                   flexShrink: 0,
@@ -437,7 +437,7 @@ export function SettingsScreen() {
                   disabled={partnerLookupLoading || !partnerEmail.trim()}
                   style={{
                     padding: '10px 16px',
-                    background: colors.navy, border: 'none',
+                    background: colors.surfaceDark, border: 'none',
                     borderRadius: borderRadius.sm, cursor: 'pointer',
                     fontSize: 13, fontWeight: 600, color: colors.gold,
                     opacity: partnerLookupLoading || !partnerEmail.trim() ? 0.5 : 1,

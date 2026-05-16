@@ -378,7 +378,7 @@ export function NavigateScreen() {
                           }}>
                             <div style={{
                               width: 32, height: 32, borderRadius: '50%',
-                              background: colors.navy, display: 'flex',
+                              background: colors.surfaceDark, display: 'flex',
                               alignItems: 'center', justifyContent: 'center',
                               fontSize: 12, fontWeight: 700, color: colors.gold, flexShrink: 0,
                             }}>
@@ -449,7 +449,7 @@ export function NavigateScreen() {
     <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
       {/* Map placeholder */}
       <div style={{
-        height: '35vh', background: colors.navy,
+        height: '35vh', background: colors.surfaceDark,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative',
       }}>

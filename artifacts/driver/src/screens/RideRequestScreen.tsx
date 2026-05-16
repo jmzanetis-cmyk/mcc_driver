@@ -33,7 +33,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
     tier_1_passenger: '#2D6B8A',
     tier_2_vehicle_solo: colors.gold,
     tier_3_vehicle_paired: '#8A5C2D',
-    tier_4_full_concierge: colors.navy,
+    tier_4_full_concierge: colors.surfaceDark,
   };
 
   const tier = request.tier ?? '';
@@ -119,7 +119,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
 
         {/* Estimated fare */}
         <div style={{
-          background: colors.navy, borderRadius: borderRadius.md,
+          background: colors.surfaceDark, borderRadius: borderRadius.md,
           padding: 16, marginBottom: 16, textAlign: 'center',
         }}>
           <div style={{ fontSize: 11, color: colors.gold, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>

@@ -65,7 +65,7 @@ export function SignInScreen() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      justifyContent: 'center', padding: 24, background: colors.navy,
+      justifyContent: 'center', padding: 24, background: colors.surfaceDark,
     }}>
       {/* Logo area */}
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
