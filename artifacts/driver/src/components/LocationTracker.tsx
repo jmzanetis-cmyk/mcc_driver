@@ -58,6 +58,7 @@ export function LocationTracker() {
   const lastLocRef = useRef<LocationFix | null>(null);
   const modeRef = useRef<TrackingMode | null>(null);
   const startingRef = useRef(false);
+  const generationRef = useRef(0);
 
   // Effect orchestrates start/stop/switch based on isOnline + stage. Owning
   // the watch in a ref + cancelling on cleanup keeps things idempotent.
@@ -93,8 +94,15 @@ export function LocationTracker() {
     async function startTracking(mode: TrackingMode) {
       if (startingRef.current) return;
       startingRef.current = true;
+      // Generation counter guards against async races: if isOnline / stage /
+      // driverId change while we're awaiting the permission prompt or the
+      // plugin start, the effect cleanup bumps `generationRef` and we bail
+      // out of committing this watch.
+      const gen = ++generationRef.current;
+      const isStale = () => gen !== generationRef.current;
       try {
         const perm = await ensureWhileInUsePermission();
+        if (isStale()) return;
         if (perm !== 'granted') {
           setLocationError(
             perm === 'denied'
@@ -114,6 +122,7 @@ export function LocationTracker() {
           clearInterval(broadcastRef.current);
           broadcastRef.current = null;
         }
+        if (isStale()) return;
 
         const highAccuracy = mode === 'active' ? ACTIVE_HIGH_ACCURACY : IDLE_HIGH_ACCURACY;
         const broadcastMs = mode === 'active' ? ACTIVE_BROADCAST_MS : IDLE_BROADCAST_MS;
@@ -128,6 +137,11 @@ export function LocationTracker() {
             minIntervalMs: mode === 'active' ? 2000 : 10000,
           },
         );
+        if (isStale()) {
+          // State changed while we were starting — discard the new watch.
+          if (handle) await handle.cancel();
+          return;
+        }
         if (!handle) {
           setLocationError('Geolocation not available on this device.');
           return;
@@ -147,6 +161,9 @@ export function LocationTracker() {
     }
 
     return () => {
+      // Invalidate any in-flight startTracking() — its post-await
+      // commit will see a stale generation and bail.
+      generationRef.current++;
       void stopTracking();
     };
   }, [driverId, isOnline, stage, setLocation, setLocationError]);

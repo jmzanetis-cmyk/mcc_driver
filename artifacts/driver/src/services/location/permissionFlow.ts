@@ -114,4 +114,10 @@ export async function announceAlwaysUpgrade(): Promise<void> {
 
   const status = await requestAlwaysAuthorization();
   logger.info("location.always_requested", { status });
+  // `"unknown"` on iOS specifically means the native AlwaysLocation plugin
+  // is not registered / compiled into the target. Surface as a warning so
+  // it isn't silently masked behind a happy-path log.
+  if (status === "unknown") {
+    logger.warn("location.always_plugin_unavailable");
+  }
 }

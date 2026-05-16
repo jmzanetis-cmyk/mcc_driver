@@ -36,13 +36,22 @@ function isIos(): boolean {
 /**
  * Trigger iOS' "Always Allow" upgrade prompt. Returns the resulting
  * authorization status. No-op on web/non-iOS (returns `"unknown"`).
+ *
+ * If the native plugin call rejects on iOS — almost always meaning the
+ * AlwaysLocationPlugin Swift class isn't compiled into the app target
+ * (project.pbxproj misconfiguration) — we surface that loudly via console
+ * so the regression is obvious during device QA.
  */
 export async function requestAlwaysAuthorization(): Promise<IosAuthStatus> {
   if (!isIos()) return "unknown";
   try {
     const r = await AlwaysLocation.requestAlways();
     return r.status;
-  } catch {
+  } catch (err) {
+    console.warn(
+      "[AlwaysLocation] requestAlways failed — is the native plugin registered?",
+      err,
+    );
     return "unknown";
   }
 }
@@ -52,7 +61,11 @@ export async function getIosAuthorizationStatus(): Promise<IosAuthStatus> {
   try {
     const r = await AlwaysLocation.getAuthorizationStatus();
     return r.status;
-  } catch {
+  } catch (err) {
+    console.warn(
+      "[AlwaysLocation] getAuthorizationStatus failed — is the native plugin registered?",
+      err,
+    );
     return "unknown";
   }
 }
