@@ -118,12 +118,11 @@ function FileUploadField({
             }}
           />
           <button
+            type="button"
             onClick={() => inputRef.current?.click()}
+            className="btn btn-secondary btn-sm"
             style={{
               position: 'absolute', bottom: 8, right: 8,
-              background: 'rgba(0,0,0,0.6)', color: '#fff',
-              border: 'none', borderRadius: borderRadius.sm,
-              fontSize: 11, padding: '4px 8px', cursor: 'pointer',
             }}
           >
             Change
@@ -160,13 +159,15 @@ function FileUploadField({
         </div>
       ) : (
         <button
+          type="button"
           onClick={() => inputRef.current?.click()}
           style={{
             width: '100%', padding: '20px 16px',
-            border: `2px dashed ${colors.border}`,
+            border: `2px dashed var(--border-medium)`,
             borderRadius: borderRadius.md, background: colors.bgSecondary,
             cursor: 'pointer', textAlign: 'center',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+            color: colors.textPrimary, fontFamily: 'inherit',
           }}
         >
           <span style={{ fontSize: 24 }}>📷</span>
@@ -459,11 +460,12 @@ export function ApplicationScreen() {
               Not an MCC provider driver?
             </div>
             <button
+              type="button"
               onClick={() => navigate('/ride-along-apply')}
+              className="btn btn-ghost btn-sm"
               style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, color: colors.gold,
-                textDecoration: 'underline', padding: 0,
+                color: colors.gold, textDecoration: 'underline',
+                boxShadow: 'none',
               }}
             >
               Apply as a Ride-Along Driver instead →

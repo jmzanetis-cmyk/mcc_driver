@@ -174,11 +174,13 @@ export function SetupPaymentsScreen() {
                   accounts support free 2-3 day transfers only.
                 </div>
                 <button
+                  type="button"
                   onClick={handleContinueOnboarding}
+                  className="btn btn-ghost btn-sm"
                   style={{
-                    marginTop: 10, fontSize: 13, fontWeight: 600,
-                    color: colors.info, background: 'none', border: 'none',
-                    cursor: 'pointer', padding: 0, textDecoration: 'underline',
+                    marginTop: 10, color: colors.info,
+                    textDecoration: 'underline', boxShadow: 'none',
+                    padding: '4px 0',
                   }}
                 >
                   Add debit card in Stripe →
@@ -268,12 +270,10 @@ export function SetupPaymentsScreen() {
             </Button>
 
             <button
+              type="button"
               onClick={fetchStatus}
-              style={{
-                width: '100%', padding: '12px 0',
-                fontSize: 14, color: colors.textMuted,
-                background: 'none', border: 'none', cursor: 'pointer',
-              }}
+              className="btn btn-ghost"
+              style={{ width: '100%', justifyContent: 'center' }}
             >
               Check status again
             </button>

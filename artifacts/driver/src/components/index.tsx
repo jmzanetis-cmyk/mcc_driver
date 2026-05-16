@@ -17,10 +17,10 @@ import { colors, borderRadius, shadows } from '@/theme';
 interface ButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
-  // Legacy `primary` is mapped to `.btn-gold` so the existing
-  // gold CTA look survives. Use `info` for the platform's blue
-  // gradient `.btn-primary`.
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'gold' | 'info';
+  // Variants map 1:1 to the platform `.btn-*` classes so this
+  // wrapper stays a thin shim over the design tokens. Use
+  // `gold` for the brand/premium CTA (.btn-gold).
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'gold';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   loading?: boolean;
@@ -33,10 +33,7 @@ export function Button({
   children, onClick, variant = 'primary', size = 'md',
   disabled = false, loading = false, fullWidth = false, style, type = 'button',
 }: ButtonProps) {
-  const variantClass =
-    variant === 'primary' || variant === 'gold' ? 'btn-gold' :
-    variant === 'info' ? 'btn-primary' :
-    `btn-${variant}`;
+  const variantClass = `btn-${variant}`;
   const sizeClass = size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '';
   const className = ['btn', variantClass, sizeClass].filter(Boolean).join(' ');
 
