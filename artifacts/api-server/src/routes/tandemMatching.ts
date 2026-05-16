@@ -116,11 +116,12 @@ export interface EligibleDriverRow {
  *   - verified = true
  *   - status = 'active'
  *   - license + insurance expiry parse to a future date
- *   - ZIP within max_distance_miles of ride pickup (Haversine) — skipped when
- *     driver zip coords are null (allows the matcher to function before the
- *     Phase 3b ZIP-lookup task lands)
- *   - no overlapping active/matched tandem job (excludes drivers currently
- *     attached to another non-terminal tandem job)
+ *   - ZIP within max_distance_miles of ride pickup (Haversine) — drivers
+ *     with unresolved zip_lat/zip_lng are ineligible (the Phase 3b ZIP
+ *     lookup populates these at signup)
+ *   - no overlapping tandem job (excludes drivers attached to another
+ *     non-terminal tandem job whose ride was created within ±4h of this
+ *     ride's createdAt)
  *   - not in the per-job decline list
  *
  * Ranking:

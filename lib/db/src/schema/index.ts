@@ -177,8 +177,8 @@ export const rideAlongDriversTable = pgTable("ride_along_drivers", {
   insuranceExpiry: text("insurance_expiry"),
 
   // Resolved coordinates for ZIP — used by Phase 3 matching (Haversine distance).
-  // Populated by a ZIP→lat/lng lookup (Phase 3b dashboard task). When null,
-  // the matching engine skips distance filtering for that driver.
+  // Populated by a ZIP→lat/lng lookup (Phase 3b dashboard task). Drivers whose
+  // coords are still null are excluded from matching until they are resolved.
   zipLat: real("zip_lat"),
   zipLng: real("zip_lng"),
 
