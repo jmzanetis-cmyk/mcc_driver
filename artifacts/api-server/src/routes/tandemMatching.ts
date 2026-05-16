@@ -290,7 +290,11 @@ router.post(
         });
         return;
       }
-      if (job.matchStatus === "matched" || job.matchStatus === "confirmed") {
+      if (
+        job.matchStatus === "matched" ||
+        job.matchStatus === "confirmed" ||
+        job.matchStatus === "member_pending"
+      ) {
         res.status(409).json({
           error: "Tandem job already matched",
           matchStatus: job.matchStatus,
