@@ -39,6 +39,34 @@ async function getDB(): Promise<IDBPDatabase<MCCDriverDB>> {
 /**
  * Save the current ride state locally for offline recovery
  */
+/**
+ * Permanently delete the entire `mcc-driver` IndexedDB (all object stores).
+ * Used by the account-deletion flow so a deleted driver leaves no on-device
+ * residue (active ride snapshot, queued offline actions, cached driver state).
+ *
+ * Closes the cached connection first so `deleteDatabase` isn't blocked by an
+ * open handle, and resets `dbInstance` so subsequent reads/writes re-open a
+ * fresh DB if the user signs back in with a different account.
+ */
+export async function purgeAllOfflineData(): Promise<void> {
+  try {
+    if (dbInstance) {
+      try { dbInstance.close(); } catch { /* ignore */ }
+      dbInstance = null;
+    }
+    if (typeof indexedDB !== 'undefined') {
+      await new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase('mcc-driver');
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+        req.onblocked = () => resolve();
+      });
+    }
+  } catch (err) {
+    logger.warn('offline.purge_failed', err);
+  }
+}
+
 export async function saveRideState(rideId: string, state: unknown): Promise<void> {
   try {
     const db = await getDB();

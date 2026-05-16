@@ -181,10 +181,14 @@ Drivers can permanently delete their account from Settings → Delete Account
   the phone number so the same number can re-register cleanly and create a
   brand-new driver row.
 - **Client cleanup** on success: TanStack Query cache cleared, `mcc_*`
-  localStorage keys removed, `supabase.auth.signOut()` invoked, and
-  navigation forced to `/` (welcome). If the server returns HTTP 207
-  (local row anonymized but Supabase auth-user deletion failed), the
-  client surfaces the warning to the driver before bouncing.
+  localStorage keys removed, `sessionStorage` cleared, the entire
+  `mcc-driver` IndexedDB hard-deleted via `purgeAllOfflineData()` in
+  `artifacts/driver/src/services/offline/storage.ts` (removes offline
+  active-ride snapshot, pending-actions queue, cached driver-state so a
+  deleted account leaves zero on-device residue), `supabase.auth.signOut()`
+  invoked, and navigation forced to `/` (welcome). If the server returns
+  HTTP 207 (local row anonymized but Supabase auth-user deletion failed),
+  the client surfaces the warning to the driver before bouncing.
 
 Out of scope (separate tasks if needed): admin-initiated soft-delete tooling
 and a GDPR / CCPA data-export endpoint.

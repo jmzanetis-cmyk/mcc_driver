@@ -21,6 +21,7 @@ import {
 } from '@/services/api/edgeFunctions';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { purgeAllOfflineData } from '@/services/offline/storage';
 
 const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 
@@ -106,12 +107,16 @@ export function SettingsScreen() {
     setDeleting(false);
 
     if (result.success) {
-      // Clear all in-memory client state before bouncing to welcome:
+      // Clear ALL on-device state before bouncing to welcome — a deleted
+      // driver must leave no recoverable residue on the device:
       //  - TanStack Query cache (driver + payout queries)
-      //  - Supabase session (revokes any locally cached tokens; the server
-      //    already deleted the auth user, but signOut() also tears down the
-      //    Zustand auth store via the AuthProvider listener)
+      //  - SessionStorage (any transient flow state)
       //  - LocalStorage keys we own (preferred partner cache, nav prefs)
+      //  - IndexedDB `mcc-driver` (offline active-ride snapshot,
+      //    pending-actions queue, cached driver-state)
+      //  - Supabase auth session (revokes locally cached tokens; the
+      //    server already deleted the auth user, but signOut() also tears
+      //    down the Zustand auth store via the AuthProvider listener)
       try { queryClient.clear(); } catch { /* ignore */ }
       try {
         // Strip any keys we wrote so the next phone-number sign-in starts fresh.
@@ -119,6 +124,10 @@ export function SettingsScreen() {
           .filter((k) => k.startsWith('mcc_'))
           .forEach((k) => localStorage.removeItem(k));
       } catch { /* ignore */ }
+      try { sessionStorage.clear(); } catch { /* ignore */ }
+      // Hard-delete the entire offline IndexedDB so cached ride/driver
+      // data cannot be recovered by re-opening the app.
+      try { await purgeAllOfflineData(); } catch { /* ignore */ }
       try { await supabase.auth.signOut(); } catch { /* ignore */ }
       // signOut() above also fires onAuthStateChange → clear() in AuthProvider,
       // but call signOut from useAuth as well for safety (it unregisters push).
