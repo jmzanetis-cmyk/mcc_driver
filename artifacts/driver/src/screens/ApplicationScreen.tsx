@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createDriverApplication } from '@/services/auth/authService';
 import { uploadDriverDocument, type DocumentType } from '@/services/documents/documentService';
 import { supabase } from '@/services/supabase/client';
@@ -426,9 +426,9 @@ export function ApplicationScreen() {
 
             <div style={{ fontSize: 12, color: colors.textMuted, lineHeight: 1.6, marginBottom: 20 }}>
               By submitting, you consent to a background check and driving record review through BackgroundChecks.com. You must be at least 21 years old with a valid driver's license. You also agree to the{' '}
-              <a href="/driver/legal/terms" style={{ color: colors.gold, textDecoration: 'underline' }}>Terms of Service</a>
+              <Link to="/legal/terms" style={{ color: colors.gold, textDecoration: 'underline' }}>Terms of Service</Link>
               {' '}and{' '}
-              <a href="/driver/legal/privacy" style={{ color: colors.gold, textDecoration: 'underline' }}>Privacy Policy</a>.
+              <Link to="/legal/privacy" style={{ color: colors.gold, textDecoration: 'underline' }}>Privacy Policy</Link>.
             </div>
 
             {error && (
