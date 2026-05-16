@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "smoke-dispatch": "tsx ./src/smoke-dispatch.ts",
+    "smoke-notifications": "tsx ./src/smoke-notifications.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

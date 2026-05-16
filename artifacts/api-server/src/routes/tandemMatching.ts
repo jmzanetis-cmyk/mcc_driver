@@ -24,6 +24,13 @@ import {
   type SupabaseUser,
 } from "../lib/adminAuth";
 import { tandemEvents } from "../lib/tandemEvents";
+import {
+  notifyApprovalOutcome,
+  notifyBroadcastToDrivers,
+  notifyMatchExpired,
+  notifyMemberAwaitingApproval,
+  notifyProviderMatched,
+} from "../lib/notifications";
 import { upsertTandemJobViaSupabase } from "../lib/supabaseAdmin";
 
 const router: IRouter = Router();
@@ -309,11 +316,18 @@ async function reopenBroadcast(tandemJobId: string): Promise<BroadcastResult> {
 
   const eligible = await computeEligibleDrivers(tandemJobId);
 
+  const eligibleDriverIds = eligible.map((r) => r.driver.id);
   tandemEvents.emit("tandem.broadcast.opened", {
     tandemJobId,
-    eligibleDriverIds: eligible.map((r) => r.driver.id),
+    eligibleDriverIds,
     matchDeadline,
   });
+
+  // Phase 3c: fan-out push (Realtime) + SMS to every eligible ride-along driver.
+  // Fire-and-forget; per-recipient failures are logged inside the helper.
+  void notifyBroadcastToDrivers(tandemJobId, eligibleDriverIds).catch((err) =>
+    logger.error({ err, tandemJobId }, "tandem.notify.broadcast_failed"),
+  );
 
   return { tandemJob: updated, eligible, matchDeadline };
 }
@@ -672,6 +686,10 @@ router.post(
         tandemJobId,
         rideAlongDriverId: partner.id,
       });
+      // Phase 3c: notify the provider that a ride-along driver matched.
+      void notifyProviderMatched(tandemJobId).catch((err) =>
+        logger.error({ err, tandemJobId }, "tandem.notify.provider_matched_failed"),
+      );
       res.status(200).json(winner[0]);
     } catch (err) {
       logger.error({ err }, "tandem.matching.accept failed");
@@ -811,7 +829,10 @@ router.patch(
       }
 
       req.log.info({ tandemJobId }, "tandem.member.approved");
-      // TODO(phase-3c): notify provider + ride-along driver of confirmation.
+      // Phase 3c: notify provider + matched ride-along driver of the approval.
+      void notifyApprovalOutcome(tandemJobId, true).catch((err) =>
+        logger.error({ err, tandemJobId }, "tandem.notify.approval_outcome_failed"),
+      );
       res.status(200).json(updated);
     } catch (err) {
       logger.error({ err }, "tandem.member.approve failed");
@@ -889,6 +910,10 @@ router.patch(
       }
 
       req.log.info({ tandemJobId }, "tandem.provider.accepted");
+      // Phase 3c: forward the approval request to the member.
+      void notifyMemberAwaitingApproval(tandemJobId).catch((err) =>
+        logger.error({ err, tandemJobId }, "tandem.notify.member_awaiting_failed"),
+      );
       res.status(200).json(updated);
     } catch (err) {
       logger.error({ err }, "tandem.provider.accept failed");
@@ -966,7 +991,11 @@ router.patch(
         { tandemJobId, eligibleCount: result.eligible.length },
         "tandem.member.declined",
       );
-      // TODO(phase-3c): notify the rejected driver and fan out new broadcast.
+      // Phase 3c: notify provider + previously matched driver of the decline.
+      // (The re-broadcast fan-out is fired inside reopenBroadcast above.)
+      void notifyApprovalOutcome(tandemJobId, false).catch((err) =>
+        logger.error({ err, tandemJobId }, "tandem.notify.approval_outcome_failed"),
+      );
       res.status(200).json({
         tandemJob: result.tandemJob,
         eligibleCount: result.eligible.length,
@@ -1107,6 +1136,13 @@ export function startTandemExpiryWorker(intervalMs = 5 * 60 * 1000): NodeJS.Time
         }
         // Internal event for downstream provider notifications (Phase 3c).
         tandemEvents.emit("tandem.expired", { tandemJobIds: ids });
+
+        // Phase 3c: SMS + push the provider so they can switch to Mode A/C.
+        for (const id of ids) {
+          void notifyMatchExpired(id).catch((err) =>
+            logger.error({ err, tandemJobId: id }, "tandem.notify.expired_failed"),
+          );
+        }
       }
     } catch (err) {
       logger.error({ err }, "tandem.expiryWorker: sweep error");

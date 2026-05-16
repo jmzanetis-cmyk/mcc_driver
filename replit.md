@@ -14,6 +14,8 @@ A real-time driver portal for My Car Concierge — a premium vehicle concierge s
 - Required env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — Supabase project credentials
 - Required env: `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (API server writes to Supabase)
 - Optional env: `DISPATCH_API_KEY` — restricts dispatch endpoint to service callers via `x-api-key` header
+- Optional env: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` — Phase 3c tandem SMS notifications. If unset, `notifications.ts` logs `sms_skipped` and skips delivery; push (Realtime) still fires. A Replit Twilio integration is available and preferred.
+- Optional env: `APP_BASE_URL` — base URL used in SMS deep links; falls back to first entry of `REPLIT_DOMAINS`.
 
 ## Stack
 
@@ -35,6 +37,7 @@ A real-time driver portal for My Car Concierge — a premium vehicle concierge s
 - `artifacts/driver/src/hooks/useRideCancellation.ts` — Realtime UPDATE subscription on rides (primary) + driver_assignments (fallback) for cancellation detection
 - `artifacts/driver/src/components/ActiveRideWatcher.tsx` — app-level component that mounts useRideCancellation and auto-navigates home on cancellation
 - `artifacts/api-server/src/lib/scenarioConfig.ts` — Server-side ride scenario definitions
+- `artifacts/api-server/src/lib/notifications.ts` — Phase 3c tandem notification helpers (Twilio SMS + Realtime push)
 - `artifacts/driver/src/hooks/useRideRequests.ts` — Supabase Realtime subscription for live ride requests
 - `artifacts/driver/src/services/api/edgeFunctions.ts` — API server calls (accept, decline, stage, complete)
 - `artifacts/driver/src/store/dispatchStore.ts` — Zustand store for ride lifecycle state
