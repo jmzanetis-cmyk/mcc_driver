@@ -77,7 +77,7 @@ const CANCELLABLE_STATUSES = new Set([
 
 function rideStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   if (status === 'completed') return 'default';
-  if (status === 'accepted' || status === 'in_progress') return 'secondary';
+  if (['driver_accepted', 'driver_en_route', 'driver_arrived', 'in_progress'].includes(status)) return 'secondary';
   if (status === 'cancelled' || status === 'dispatch_failed') return 'destructive';
   return 'outline';
 }
