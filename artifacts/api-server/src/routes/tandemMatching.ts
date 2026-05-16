@@ -853,7 +853,7 @@ router.patch(
         return;
       }
       if (job.matchStatus === "member_pending" || job.matchStatus === "confirmed") {
-        res.status(200).json({ tandemJob: job, alreadyAccepted: true });
+        res.status(200).json(job);
         return;
       }
 
@@ -889,7 +889,7 @@ router.patch(
       }
 
       req.log.info({ tandemJobId }, "tandem.provider.accepted");
-      res.status(200).json({ tandemJob: updated });
+      res.status(200).json(updated);
     } catch (err) {
       logger.error({ err }, "tandem.provider.accept failed");
       res.status(500).json({ error: "Internal error" });

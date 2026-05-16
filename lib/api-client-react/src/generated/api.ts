@@ -2835,6 +2835,98 @@ export const useDeclineTandemMatch = <
 };
 
 /**
+ * Provider explicitly accepts the matched ride-along driver and forwards
+the approval request to the member. Atomically transitions the job
+from `matched` to `member_pending`. Idempotent: returns the existing
+record if the job has already advanced.
+
+ * @summary Provider confirms the matched ride-along driver
+ */
+export const getProviderAcceptTandemMatchUrl = (tandemJobId: string) => {
+  return `/api/tandem-jobs/${tandemJobId}/provider-accept`;
+};
+
+export const providerAcceptTandemMatch = async (
+  tandemJobId: string,
+  options?: RequestInit,
+): Promise<TandemJobRecord> => {
+  return customFetch<TandemJobRecord>(
+    getProviderAcceptTandemMatchUrl(tandemJobId),
+    {
+      ...options,
+      method: "PATCH",
+    },
+  );
+};
+
+export const getProviderAcceptTandemMatchMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof providerAcceptTandemMatch>>,
+    TError,
+    { tandemJobId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof providerAcceptTandemMatch>>,
+  TError,
+  { tandemJobId: string },
+  TContext
+> => {
+  const mutationKey = ["providerAcceptTandemMatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof providerAcceptTandemMatch>>,
+    { tandemJobId: string }
+  > = (props) => {
+    const { tandemJobId } = props ?? {};
+
+    return providerAcceptTandemMatch(tandemJobId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ProviderAcceptTandemMatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof providerAcceptTandemMatch>>
+>;
+
+export type ProviderAcceptTandemMatchMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Provider confirms the matched ride-along driver
+ */
+export const useProviderAcceptTandemMatch = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof providerAcceptTandemMatch>>,
+    TError,
+    { tandemJobId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof providerAcceptTandemMatch>>,
+  TError,
+  { tandemJobId: string },
+  TContext
+> => {
+  return useMutation(getProviderAcceptTandemMatchMutationOptions(options));
+};
+
+/**
  * Marks the tandem job as `confirmed` and stamps `memberApproved=true`.
 Idempotent: returns the existing record if the job is already confirmed.
 

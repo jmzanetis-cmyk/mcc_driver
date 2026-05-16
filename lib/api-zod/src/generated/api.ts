@@ -752,6 +752,33 @@ export const DeclineTandemMatchResponse = zod.object({
 });
 
 /**
+ * Provider explicitly accepts the matched ride-along driver and forwards
+the approval request to the member. Atomically transitions the job
+from `matched` to `member_pending`. Idempotent: returns the existing
+record if the job has already advanced.
+
+ * @summary Provider confirms the matched ride-along driver
+ */
+export const ProviderAcceptTandemMatchParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const ProviderAcceptTandemMatchResponse = zod.object({
+  id: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+  providerId: zod.string().uuid(),
+  tandemMode: zod.enum(["A", "B", "C"]),
+  rideAlongDriverId: zod.string().uuid().nullish(),
+  matchStatus: zod.string(),
+  matchDeadline: zod.coerce.date().nullish(),
+  matchedRideAlongDriverId: zod.string().uuid().nullish(),
+  memberApproved: zod.boolean().nullish(),
+  rideAlongFee: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
  * Marks the tandem job as `confirmed` and stamps `memberApproved=true`.
 Idempotent: returns the existing record if the job is already confirmed.
 
