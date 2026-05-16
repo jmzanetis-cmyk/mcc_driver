@@ -92,6 +92,7 @@ export function useRideRequests(driverId: string | null, isOnline: boolean) {
             tandemRequired,
             tandemFee,
             tandemJobId: null,
+            tandemMode: null,
             tandemModeConfirmed: false,
           });
 

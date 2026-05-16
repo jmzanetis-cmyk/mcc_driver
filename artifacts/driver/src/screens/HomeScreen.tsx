@@ -2,8 +2,9 @@
 // MCC Driver — Home Dashboard Screen
 // ============================================================
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDriverStatus } from '@/hooks/useDriverStatus';
 import { useRideRequests } from '@/hooks/useRideRequests';
@@ -23,6 +24,28 @@ export function HomeScreen() {
 
   const serverCancelled = useDispatchStore((s) => s.serverCancelled);
   const setServerCancelled = useDispatchStore((s) => s.setServerCancelled);
+
+  // Gate the Ride-Along Dashboard entry by checking the caller's
+  // ride_along_drivers profile. Only drivers with a record see the card.
+  const [hasRideAlongProfile, setHasRideAlongProfile] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+        const res = await fetch(`${base}/api/ride-along-drivers/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!cancelled) setHasRideAlongProfile(res.ok);
+      } catch {
+        if (!cancelled) setHasRideAlongProfile(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   if (!driver) return null;
 
@@ -99,23 +122,24 @@ export function HomeScreen() {
           </Card>
         </div>
 
-        {/* Ride-Along Driver Dashboard entry — visible to all drivers; the
-            dashboard screen itself gates access by checking the
-            ride_along_drivers profile and redirects if not verified. */}
-        <Card
-          onClick={() => navigate('/ride-along')}
-          style={{ marginTop: 12, cursor: 'pointer', border: `1px solid ${colors.gold}` }}
-          padding={14}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 24 }}>🚖</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>Ride-Along Jobs</div>
-              <div style={{ fontSize: 12, color: colors.textMuted }}>Tandem dashboard — live broadcasts & matches</div>
+        {/* Ride-Along Driver Dashboard entry — visible only to drivers
+            with an existing ride_along_drivers record. */}
+        {hasRideAlongProfile && (
+          <Card
+            onClick={() => navigate('/ride-along')}
+            style={{ marginTop: 12, cursor: 'pointer', border: `1px solid ${colors.gold}` }}
+            padding={14}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 24 }}>🚖</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>Ride-Along Jobs</div>
+                <div style={{ fontSize: 12, color: colors.textMuted }}>Tandem dashboard — live broadcasts & matches</div>
+              </div>
+              <div style={{ fontSize: 18, color: colors.gold }}>→</div>
             </div>
-            <div style={{ fontSize: 18, color: colors.gold }}>→</div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* AI Support button */}
         <Card onClick={() => navigate('/support')} style={{ marginTop: 12, cursor: 'pointer', border: `1px solid ${colors.gold}` }} padding={14}>

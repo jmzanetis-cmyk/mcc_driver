@@ -46,6 +46,7 @@ interface DispatchState {
   tandemRequired: boolean;
   tandemFee: number | null;
   tandemJobId: string | null;
+  tandemMode: 'A' | 'B' | 'C' | null;
   tandemModeConfirmed: boolean;
 
   // Set when the server/member/admin cancels an accepted ride — intentionally
@@ -58,7 +59,7 @@ interface DispatchState {
   setCancelled: (reason?: string) => void;
   clearDispatch: () => void;
   setServerCancelled: (value: boolean) => void;
-  setTandemJob: (tandemJobId: string) => void;
+  setTandemJob: (tandemJobId: string, tandemMode: 'A' | 'B' | 'C') => void;
 }
 
 const INITIAL = {
@@ -87,6 +88,7 @@ const INITIAL = {
   tandemRequired: false,
   tandemFee: null as number | null,
   tandemJobId: null as string | null,
+  tandemMode: null as 'A' | 'B' | 'C' | null,
   tandemModeConfirmed: false,
 };
 
@@ -105,5 +107,5 @@ export const useDispatchStore = create<DispatchState>((set) => ({
 
   setServerCancelled: (value) => set({ serverCancelled: value }),
 
-  setTandemJob: (tandemJobId) => set({ tandemJobId, tandemModeConfirmed: true }),
+  setTandemJob: (tandemJobId, tandemMode) => set({ tandemJobId, tandemMode, tandemModeConfirmed: true }),
 }));

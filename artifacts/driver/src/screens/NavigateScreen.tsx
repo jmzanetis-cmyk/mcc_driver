@@ -51,6 +51,7 @@ export function NavigateScreen() {
   const tandemRequired = useDispatchStore((s) => s.tandemRequired);
   const tandemFee = useDispatchStore((s) => s.tandemFee);
   const tandemModeConfirmed = useDispatchStore((s) => s.tandemModeConfirmed);
+  const persistedTandemMode = useDispatchStore((s) => s.tandemMode);
   const existingTandemJobId = useDispatchStore((s) => s.tandemJobId);
   const setTandemJob = useDispatchStore((s) => s.setTandemJob);
   const rideId = useDispatchStore((s) => s.rideId);
@@ -181,7 +182,7 @@ export function NavigateScreen() {
     }
 
     setTandemConfirming(false);
-    setTandemJob(tandemJobId);
+    setTandemJob(tandemJobId, selectedMode);
   };
 
   if (!activeRide) {
@@ -525,8 +526,9 @@ export function NavigateScreen() {
         </div>
 
         {/* Mode B platform match: show match card / waiting state.
-            Gated to Mode B only — rematch semantics don't apply to Modes A/C. */}
-        {existingTandemJobId && tandemModeConfirmed && selectedMode === 'B' && (
+            Gated by persisted tandem mode (not the transient local selector)
+            so the panel survives remount/reload. */}
+        {existingTandemJobId && tandemModeConfirmed && persistedTandemMode === 'B' && (
           <ProviderTandemMatchPanel tandemJobId={existingTandemJobId} />
         )}
 
