@@ -14,6 +14,67 @@ import { logger } from "@/services/telemetry/logger";
 let registered = false;
 let lastToken: string | null = null;
 
+// ── Permission state persistence ─────────────────────────────────────
+// Stored so we (a) don't re-show the rationale to a driver who already
+// answered, and (b) can surface "notifications are off" UX elsewhere
+// in the app by reading getStoredNotificationPermission().
+const PERMISSION_KEY = "mcc.push.permission";
+const RATIONALE_KEY = "mcc.push.rationale_shown";
+
+export type StoredPermission = "granted" | "denied" | "prompt" | "unknown";
+
+export function getStoredNotificationPermission(): StoredPermission {
+  try {
+    const v = localStorage.getItem(PERMISSION_KEY);
+    if (v === "granted" || v === "denied" || v === "prompt") return v;
+  } catch {
+    // localStorage unavailable
+  }
+  return "unknown";
+}
+
+function setStoredPermission(state: StoredPermission): void {
+  try {
+    localStorage.setItem(PERMISSION_KEY, state);
+  } catch {
+    // ignore
+  }
+}
+
+function rationaleAlreadyShown(): boolean {
+  try {
+    return localStorage.getItem(RATIONALE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markRationaleShown(): void {
+  try {
+    localStorage.setItem(RATIONALE_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
+
+const RATIONALE_COPY =
+  "My Car Concierge needs to send notifications so you can hear new ride " +
+  "requests, pickup updates, and payouts — even when the app is in the " +
+  "background or your screen is locked. Without this, you may miss rides.";
+
+/** Show a native confirm dialog explaining why we need notifications.
+ * Returns true if the driver chose to continue to the OS prompt. */
+async function showRationale(): Promise<boolean> {
+  if (rationaleAlreadyShown()) return true;
+  markRationaleShown();
+  try {
+    // window.confirm renders as a native iOS alert inside WKWebView.
+    return window.confirm(RATIONALE_COPY);
+  } catch {
+    return true;
+  }
+}
+
 async function postToken(token: string): Promise<void> {
   const { data } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
@@ -124,9 +185,21 @@ export async function registerNativePush(): Promise<void> {
 
     const perm = await PushNotifications.checkPermissions();
     let granted = perm.receive === "granted";
-    if (perm.receive === "prompt" || perm.receive === "prompt-with-rationale") {
+    if (granted) {
+      setStoredPermission("granted");
+    } else if (perm.receive === "denied") {
+      setStoredPermission("denied");
+    } else if (perm.receive === "prompt" || perm.receive === "prompt-with-rationale") {
+      // Show our in-app rationale before triggering the one-shot iOS prompt.
+      const proceed = await showRationale();
+      if (!proceed) {
+        setStoredPermission("prompt");
+        logger.info("native_push.rationale_dismissed");
+        return;
+      }
       const req = await PushNotifications.requestPermissions();
       granted = req.receive === "granted";
+      setStoredPermission(granted ? "granted" : "denied");
     }
     if (!granted) {
       logger.info("native_push.permission_denied");
