@@ -342,7 +342,6 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderProps) {
   return (
     <header
-      role="banner"
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '12px 16px', background: colors.surfaceDark,
@@ -394,24 +393,12 @@ interface InputProps {
   error?: string;
 }
 
-// React 18+ provides a stable cross-render id generator; we use
-// it to wire the <label htmlFor> ↔ <input id> association and
-// the error message's aria-describedby. Without this, VoiceOver
-// reads the field as "edit text" with no label.
-let __inputIdCounter = 0;
-function useStableInputId(): string {
-  // useId isn't strictly necessary for SSR-less Vite, but it's
-  // the React-blessed way; fallback to a module counter for
-  // environments without it.
-  const reactUseId = (React as unknown as { useId?: () => string }).useId;
-  if (reactUseId) return reactUseId();
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const [id] = useState(() => `mcc-input-${++__inputIdCounter}`);
-  return id;
-}
-
 export function Input({ label, value, onChange, type = 'text', placeholder, required, error }: InputProps) {
-  const id = useStableInputId();
+  // Stable cross-render id wires <label htmlFor> ↔ <input id> and
+  // the error message's aria-describedby. Without this, VoiceOver
+  // reads the field as "edit text" with no label.
+  const reactId = React.useId();
+  const id = `mcc-input-${reactId}`;
   const errorId = `${id}-error`;
   return (
     <div style={{ marginBottom: 16 }}>
