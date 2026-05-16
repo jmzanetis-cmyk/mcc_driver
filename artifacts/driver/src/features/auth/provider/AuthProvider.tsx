@@ -9,6 +9,7 @@ import { supabase } from '@/services/supabase/client';
 import { useAuthStore, type DriverProfile } from '@/store/authStore';
 import { logger } from '@/services/telemetry/logger';
 import { recoverRideState, replayOfflineActions } from '@/services/offline/recovery';
+import { registerPushSubscription, unregisterPushSubscription } from '@/services/push/registerPush';
 import type { DriverRow, PartnerRow } from '@/services/supabase/types';
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
@@ -33,6 +34,11 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
           await recoverRideState(driver.id);
           await replayOfflineActions();
         }
+        // Register this device for real native push notifications. The server
+        // resolves the Supabase user to either a `driver` or `ride_along_driver`
+        // record, so this runs for both audiences (ride-along users have no
+        // `drivers` row but still receive Phase 3 tandem pushes).
+        void registerPushSubscription();
       }
 
       setLoading(false);
@@ -46,11 +52,15 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
         setSession(session);
 
         if (!session?.user) {
+          await unregisterPushSubscription().catch(() => {});
           clear();
           return;
         }
 
         await hydrateDriver(session.user.id);
+        // Register for native push regardless of whether a `drivers` row was
+        // found — ride-along-only sessions still need to receive Phase 3 pushes.
+        void registerPushSubscription();
       }
     );
 

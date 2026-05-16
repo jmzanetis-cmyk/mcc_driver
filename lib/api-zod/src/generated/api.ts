@@ -562,6 +562,41 @@ export const UpdateDriverServicesResponse = zod.object({
 });
 
 /**
+ * Stores a Web Push subscription (or FCM/APNs token) so the API server can
+deliver real native push notifications to this device even when the app
+is closed. The Supabase user is resolved to either a `driver` or
+`ride_along_driver` record and the token is associated with that owner.
+
+ * @summary Register or refresh a push notification token for the authenticated driver
+ */
+export const RegisterDeviceTokenBody = zod.object({
+  platform: zod.enum(["web", "fcm", "apns"]),
+  token: zod.string(),
+  p256dh: zod.string().optional(),
+  auth: zod.string().optional(),
+  userAgent: zod.string().optional(),
+});
+
+export const RegisterDeviceTokenResponse = zod.object({
+  id: zod.string().uuid().optional(),
+  refreshed: zod.boolean(),
+});
+
+/**
+ * @summary Revoke a previously registered push token
+ */
+export const RevokeDeviceTokenBody = zod.object({
+  token: zod.string(),
+});
+
+/**
+ * @summary Get the server's VAPID public key for Web Push subscription
+ */
+export const GetVapidPublicKeyResponse = zod.object({
+  publicKey: zod.string(),
+});
+
+/**
  * Returns ride records for admin review. Requires admin authentication.
  * @summary List rides filtered by status
  */

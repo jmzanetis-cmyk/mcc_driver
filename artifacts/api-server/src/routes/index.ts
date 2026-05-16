@@ -8,6 +8,7 @@ import stripeConnectRouter from "./stripeConnect";
 import tandemJobsRouter from "./tandemJobs";
 import tandemMatchingRouter from "./tandemMatching";
 import payoutsRouter from "./payouts";
+import deviceTokensRouter from "./deviceTokens";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(stripeConnectRouter);
 router.use(tandemJobsRouter);
 router.use(tandemMatchingRouter);
 router.use(payoutsRouter);
+router.use(deviceTokensRouter);
 
 export default router;

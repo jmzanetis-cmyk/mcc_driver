@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useAuthStore, type DriverProfile } from '@/store/authStore';
 import { supabase } from '@/services/supabase/client';
+import { unregisterPushSubscription } from '@/services/push/registerPush';
 import type { DriverRow, PartnerRow } from '@/services/supabase/types';
 
 export { type DriverProfile } from '@/store/authStore';
@@ -14,6 +15,9 @@ export function useAuth() {
   const clear = useAuthStore((s) => s.clear);
 
   const signOut = useCallback(async () => {
+    // Revoke the push token BEFORE we drop the auth session — the server
+    // revoke endpoint needs a valid access token to authenticate the call.
+    await unregisterPushSubscription().catch(() => {});
     if (driver) {
       await supabase.from('drivers').update({ is_online: false }).eq('id', driver.id);
     }

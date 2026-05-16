@@ -26,6 +26,7 @@ import {
 } from "@workspace/db";
 import { logger } from "./logger";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { sendNativePush, type PushAudience, type PushPayload } from "./webPush";
 
 // ── Twilio client (lazy) ────────────────────────────────────────────────────
 type TwilioClient = import("twilio").Twilio;
@@ -104,9 +105,24 @@ async function sendSms(to: string, body: string): Promise<void> {
 // without depending on the existing `tandem_jobs` mirror.
 async function sendPush(
   event: string,
-  audience: { kind: string; id: string },
-  payload: Record<string, unknown>,
+  audience: PushAudience,
+  payload: Record<string, unknown> & { link?: string; title?: string; body?: string },
 ): Promise<void> {
+  // 1. Fire native push (Web Push / FCM / APNs) to registered devices first
+  //    so the user is notified even if their app is not open. Skips
+  //    gracefully when no tokens or VAPID keys are configured.
+  const nativePayload: PushPayload = {
+    event,
+    title: payload.title ?? defaultTitleFor(event),
+    body: payload.body ?? defaultBodyFor(event),
+    url: typeof payload.link === "string" ? payload.link : undefined,
+    data: { event, audience, ...payload },
+  };
+  // Don't await failures of the native send — keep the Realtime path on the
+  // critical timeline. Errors are logged inside sendNativePush.
+  void sendNativePush(audience, nativePayload).catch(() => {});
+
+  // 2. Realtime broadcast (legacy in-app transport — still useful for live UI updates).
   const channelName = `notifications:${audience.kind}:${audience.id}`;
   const channel = supabaseAdmin.channel(channelName, {
     config: { broadcast: { ack: true, self: false } },
@@ -150,6 +166,44 @@ async function sendPush(
     );
   } finally {
     await supabaseAdmin.removeChannel(channel).catch(() => {});
+  }
+}
+
+// Default native push titles/bodies by event — used when a caller doesn't pass an
+// explicit title/body. Kept here so notification copy lives next to the SMS copy.
+function defaultTitleFor(event: string): string {
+  switch (event) {
+    case "tandem.broadcast":
+      return "MCC Ride-Along: new job available";
+    case "tandem.matched.provider":
+      return "MCC Tandem: ride-along driver matched";
+    case "tandem.member.approval_requested":
+      return "MCC: your ride needs approval";
+    case "tandem.approval.outcome.provider":
+    case "tandem.approval.outcome.ride_along":
+      return "MCC Tandem: match update";
+    case "tandem.expired.provider":
+      return "MCC Tandem: broadcast expired";
+    default:
+      return "MCC notification";
+  }
+}
+function defaultBodyFor(event: string): string {
+  switch (event) {
+    case "tandem.broadcast":
+      return "Open the dashboard to accept.";
+    case "tandem.matched.provider":
+      return "A ride-along driver accepted your job. Review and confirm.";
+    case "tandem.member.approval_requested":
+      return "Tap to review and approve your ride-along match.";
+    case "tandem.approval.outcome.provider":
+      return "The member responded to the ride-along match.";
+    case "tandem.approval.outcome.ride_along":
+      return "The member responded to your match.";
+    case "tandem.expired.provider":
+      return "No ride-along driver matched. Switch tandem mode to continue.";
+    default:
+      return "You have a new update from MCC.";
   }
 }
 

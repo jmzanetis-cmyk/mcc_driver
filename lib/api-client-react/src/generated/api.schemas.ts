@@ -225,6 +225,32 @@ export interface UpdateDriverServicesResult {
   canDoDelivery: boolean;
 }
 
+export type RegisterDeviceTokenRequestPlatform =
+  (typeof RegisterDeviceTokenRequestPlatform)[keyof typeof RegisterDeviceTokenRequestPlatform];
+
+export const RegisterDeviceTokenRequestPlatform = {
+  web: "web",
+  fcm: "fcm",
+  apns: "apns",
+} as const;
+
+export interface RegisterDeviceTokenRequest {
+  platform: RegisterDeviceTokenRequestPlatform;
+  token: string;
+  p256dh?: string;
+  auth?: string;
+  userAgent?: string;
+}
+
+export interface RegisterDeviceTokenResult {
+  id?: string;
+  refreshed: boolean;
+}
+
+export interface RevokeDeviceTokenRequest {
+  token: string;
+}
+
 export interface CreateRideAlongDriverRequest {
   firstName: string;
   lastName: string;
@@ -455,6 +481,10 @@ was written by this admin email (case-insensitive).
 
  */
   reviewerEmail?: string;
+};
+
+export type GetVapidPublicKey200 = {
+  publicKey: string;
 };
 
 export type ListAdminRidesParams = {

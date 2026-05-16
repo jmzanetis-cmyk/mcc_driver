@@ -32,14 +32,18 @@ import type {
   DispatchRideResponse,
   DriverAuditLogEntry,
   ErrorResponse,
+  GetVapidPublicKey200,
   HealthStatus,
   ListAdminDriversParams,
   ListAdminRideAlongDriversParams,
   ListAdminRidesParams,
   LookupTandemPartnerParams,
   PartnerLookupResult,
+  RegisterDeviceTokenRequest,
+  RegisterDeviceTokenResult,
   RejectDocumentsRequest,
   RejectDriverRequest,
+  RevokeDeviceTokenRequest,
   RideAlongDriverRecord,
   RideCompletionResult,
   SetKnownPartnerRequest,
@@ -2091,6 +2095,259 @@ export const useUpdateDriverServices = <
 > => {
   return useMutation(getUpdateDriverServicesMutationOptions(options));
 };
+
+/**
+ * Stores a Web Push subscription (or FCM/APNs token) so the API server can
+deliver real native push notifications to this device even when the app
+is closed. The Supabase user is resolved to either a `driver` or
+`ride_along_driver` record and the token is associated with that owner.
+
+ * @summary Register or refresh a push notification token for the authenticated driver
+ */
+export const getRegisterDeviceTokenUrl = () => {
+  return `/api/device-tokens`;
+};
+
+export const registerDeviceToken = async (
+  registerDeviceTokenRequest: RegisterDeviceTokenRequest,
+  options?: RequestInit,
+): Promise<RegisterDeviceTokenResult> => {
+  return customFetch<RegisterDeviceTokenResult>(getRegisterDeviceTokenUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerDeviceTokenRequest),
+  });
+};
+
+export const getRegisterDeviceTokenMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerDeviceToken>>,
+    TError,
+    { data: BodyType<RegisterDeviceTokenRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerDeviceToken>>,
+  TError,
+  { data: BodyType<RegisterDeviceTokenRequest> },
+  TContext
+> => {
+  const mutationKey = ["registerDeviceToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerDeviceToken>>,
+    { data: BodyType<RegisterDeviceTokenRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerDeviceToken(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterDeviceTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerDeviceToken>>
+>;
+export type RegisterDeviceTokenMutationBody =
+  BodyType<RegisterDeviceTokenRequest>;
+export type RegisterDeviceTokenMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Register or refresh a push notification token for the authenticated driver
+ */
+export const useRegisterDeviceToken = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerDeviceToken>>,
+    TError,
+    { data: BodyType<RegisterDeviceTokenRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerDeviceToken>>,
+  TError,
+  { data: BodyType<RegisterDeviceTokenRequest> },
+  TContext
+> => {
+  return useMutation(getRegisterDeviceTokenMutationOptions(options));
+};
+
+/**
+ * @summary Revoke a previously registered push token
+ */
+export const getRevokeDeviceTokenUrl = () => {
+  return `/api/device-tokens`;
+};
+
+export const revokeDeviceToken = async (
+  revokeDeviceTokenRequest: RevokeDeviceTokenRequest,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRevokeDeviceTokenUrl(), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(revokeDeviceTokenRequest),
+  });
+};
+
+export const getRevokeDeviceTokenMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeDeviceToken>>,
+    TError,
+    { data: BodyType<RevokeDeviceTokenRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeDeviceToken>>,
+  TError,
+  { data: BodyType<RevokeDeviceTokenRequest> },
+  TContext
+> => {
+  const mutationKey = ["revokeDeviceToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeDeviceToken>>,
+    { data: BodyType<RevokeDeviceTokenRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return revokeDeviceToken(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeDeviceTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeDeviceToken>>
+>;
+export type RevokeDeviceTokenMutationBody = BodyType<RevokeDeviceTokenRequest>;
+export type RevokeDeviceTokenMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Revoke a previously registered push token
+ */
+export const useRevokeDeviceToken = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeDeviceToken>>,
+    TError,
+    { data: BodyType<RevokeDeviceTokenRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeDeviceToken>>,
+  TError,
+  { data: BodyType<RevokeDeviceTokenRequest> },
+  TContext
+> => {
+  return useMutation(getRevokeDeviceTokenMutationOptions(options));
+};
+
+/**
+ * @summary Get the server's VAPID public key for Web Push subscription
+ */
+export const getGetVapidPublicKeyUrl = () => {
+  return `/api/device-tokens/vapid-key`;
+};
+
+export const getVapidPublicKey = async (
+  options?: RequestInit,
+): Promise<GetVapidPublicKey200> => {
+  return customFetch<GetVapidPublicKey200>(getGetVapidPublicKeyUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetVapidPublicKeyQueryKey = () => {
+  return [`/api/device-tokens/vapid-key`] as const;
+};
+
+export const getGetVapidPublicKeyQueryOptions = <
+  TData = Awaited<ReturnType<typeof getVapidPublicKey>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getVapidPublicKey>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetVapidPublicKeyQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getVapidPublicKey>>
+  > = ({ signal }) => getVapidPublicKey({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getVapidPublicKey>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetVapidPublicKeyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getVapidPublicKey>>
+>;
+export type GetVapidPublicKeyQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the server's VAPID public key for Web Push subscription
+ */
+
+export function useGetVapidPublicKey<
+  TData = Awaited<ReturnType<typeof getVapidPublicKey>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getVapidPublicKey>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetVapidPublicKeyQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns ride records for admin review. Requires admin authentication.

@@ -888,6 +888,96 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /device-tokens:
+    post:
+      operationId: registerDeviceToken
+      tags: [rides]
+      summary: Register or refresh a push notification token for the authenticated driver
+      description: |
+        Stores a Web Push subscription (or FCM/APNs token) so the API server can
+        deliver real native push notifications to this device even when the app
+        is closed. The Supabase user is resolved to either a `driver` or
+        `ride_along_driver` record and the token is associated with that owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDeviceTokenRequest"
+      responses:
+        "200":
+          description: Token refreshed (already existed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterDeviceTokenResult"
+        "201":
+          description: Token registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterDeviceTokenResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: revokeDeviceToken
+      tags: [rides]
+      summary: Revoke a previously registered push token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeDeviceTokenRequest"
+      responses:
+        "204":
+          description: Token revoked
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /device-tokens/vapid-key:
+    get:
+      operationId: getVapidPublicKey
+      tags: [rides]
+      summary: Get the server's VAPID public key for Web Push subscription
+      responses:
+        "200":
+          description: VAPID public key
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [publicKey]
+                properties:
+                  publicKey:
+                    type: string
+        "503":
+          description: Push notifications not configured on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/rides:
     get:
       operationId: listAdminRides
@@ -2018,6 +2108,43 @@ components:
         - id
         - canDoRideshare
         - canDoDelivery
+
+    RegisterDeviceTokenRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: [web, fcm, apns]
+        token:
+          type: string
+        p256dh:
+          type: string
+        auth:
+          type: string
+        userAgent:
+          type: string
+      required:
+        - platform
+        - token
+
+    RegisterDeviceTokenResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        refreshed:
+          type: boolean
+      required:
+        - refreshed
+
+    RevokeDeviceTokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+        - token
 
     CreateRideAlongDriverRequest:
       type: object

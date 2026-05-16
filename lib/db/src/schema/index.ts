@@ -313,3 +313,43 @@ export const tandemJobDeclinesTable = pgTable(
 );
 
 export type TandemJobDecline = typeof tandemJobDeclinesTable.$inferSelect;
+
+// ── Device Tokens ─────────────────────────────────────────────────────────────
+// Real native push transport. Each driver or ride-along driver device that
+// opts in registers a token here on sign-in so the server can push
+// notifications even when the app is closed (Web Push / FCM / APNs).
+// Tokens are revoked on sign-out (revokedAt set) and deduped by (token).
+
+export const deviceTokensTable = pgTable(
+  "device_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Which kind of account this token belongs to: 'driver' | 'ride_along_driver'.
+    ownerKind: text("owner_kind").notNull(),
+    // FK by convention only — no DB constraint because ownerId points at
+    // either drivers.id or ride_along_drivers.id depending on ownerKind.
+    ownerId: uuid("owner_id").notNull(),
+    // Transport platform: 'web' (Web Push), 'fcm' (Android), 'apns' (iOS).
+    platform: text("platform").notNull(),
+    // For Web Push, this is the PushSubscription.endpoint URL.
+    // For FCM/APNs it is the device token string.
+    token: text("token").notNull(),
+    // Web Push only — required by `web-push` library to encrypt payloads.
+    p256dh: text("p256dh"),
+    auth: text("auth"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [uniqueIndex("device_tokens_token_unique").on(table.token)],
+);
+
+export type DeviceToken = typeof deviceTokensTable.$inferSelect;
+export const insertDeviceTokenSchema = createInsertSchema(deviceTokensTable).omit({
+  id: true,
+  createdAt: true,
+  lastSeenAt: true,
+  revokedAt: true,
+});
+export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
