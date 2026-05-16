@@ -10,6 +10,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { initiateStripeConnect, getStripeConnectStatus, refreshStripeConnectLink } from '@/services/api/edgeFunctions';
 import { PageHeader, Card, Button, Spinner } from '@/components';
+import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius } from '@/theme';
 
 type SetupState =
@@ -96,6 +97,11 @@ export function SetupPaymentsScreen() {
   }, [state]);
 
   const handleStartOnboarding = async () => {
+    if (isOffline()) {
+      setState('error');
+      setErrorMsg("You're offline — connect to set up your payment account.");
+      return;
+    }
     setState('launching');
     const result = await initiateStripeConnect();
     if (!result.success || !result.data?.url) {
@@ -110,6 +116,11 @@ export function SetupPaymentsScreen() {
   };
 
   const handleContinueOnboarding = async () => {
+    if (isOffline()) {
+      setState('error');
+      setErrorMsg("You're offline — connect to continue setup.");
+      return;
+    }
     setState('refreshing');
     const result = await refreshStripeConnectLink();
     if (!result.success || !result.data?.url) {
@@ -218,6 +229,7 @@ export function SetupPaymentsScreen() {
               <FeatureRow emoji="🔒" title="Secure & Encrypted" body="Your banking details are stored and managed by Stripe, never by My Car Concierge" />
             </Card>
 
+            <OfflineNotice style={{ marginBottom: 12 }} />
             <Button
               onClick={handleStartOnboarding}
               variant="primary"
@@ -258,6 +270,7 @@ export function SetupPaymentsScreen() {
               </div>
             </Card>
 
+            <OfflineNotice style={{ marginBottom: 12 }} />
             <Button
               onClick={handleContinueOnboarding}
               variant="primary"

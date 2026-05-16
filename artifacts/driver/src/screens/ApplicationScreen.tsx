@@ -8,6 +8,7 @@ import { createDriverApplication } from '@/services/auth/authService';
 import { uploadDriverDocument, type DocumentType } from '@/services/documents/documentService';
 import { supabase } from '@/services/supabase/client';
 import { Button, Input, PageHeader } from '@/components';
+import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius } from '@/theme';
 
 interface FormData {
@@ -287,6 +288,14 @@ export function ApplicationScreen() {
     }
   };
 
+  const submitGuarded = async () => {
+    if (isOffline()) {
+      setError("You're offline — connect to submit your application. Your progress is saved.");
+      return;
+    }
+    return handleSubmit();
+  };
+
   const canProceed = () => {
     if (step === 1) return form.firstName && form.lastName && form.email && form.dateOfBirth;
     if (step === 2) {
@@ -440,16 +449,19 @@ export function ApplicationScreen() {
         )}
 
         {/* Navigation buttons */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-          {step < totalSteps ? (
-            <Button onClick={() => setStep(step + 1)} disabled={!canProceed()} fullWidth size="lg">
-              Continue
-            </Button>
-          ) : (
-            <Button onClick={handleSubmit} loading={loading} fullWidth size="lg">
-              Submit Application
-            </Button>
-          )}
+        <div style={{ marginTop: 24 }}>
+          {step === totalSteps && <OfflineNotice style={{ marginBottom: 12 }} />}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {step < totalSteps ? (
+              <Button onClick={() => setStep(step + 1)} disabled={!canProceed()} fullWidth size="lg">
+                Continue
+              </Button>
+            ) : (
+              <Button onClick={submitGuarded} loading={loading} fullWidth size="lg">
+                Submit Application
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Ride-Along Driver alternative path */}

@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { uploadDriverDocument } from '@/services/documents/documentService';
 import { Button, Input, PageHeader } from '@/components';
+import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius, withAlpha } from '@/theme';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -213,6 +214,10 @@ export function RideAlongApplyScreen() {
     }
     if (!licenseDoc.path) {
       setError("Please upload your driver's license before submitting.");
+      return;
+    }
+    if (isOffline()) {
+      setError("You're offline — connect to submit your application. Your progress is saved.");
       return;
     }
 
@@ -460,16 +465,19 @@ export function RideAlongApplyScreen() {
           </>
         )}
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-          {step < TOTAL_STEPS ? (
-            <Button onClick={() => setStep(step + 1)} disabled={!canProceed()} fullWidth size="lg">
-              Continue
-            </Button>
-          ) : (
-            <Button onClick={handleSubmit} loading={loading} disabled={!agreementChecked} fullWidth size="lg">
-              Submit Application
-            </Button>
-          )}
+        <div style={{ marginTop: 24 }}>
+          {step === TOTAL_STEPS && <OfflineNotice style={{ marginBottom: 12 }} />}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {step < TOTAL_STEPS ? (
+              <Button onClick={() => setStep(step + 1)} disabled={!canProceed()} fullWidth size="lg">
+                Continue
+              </Button>
+            ) : (
+              <Button onClick={handleSubmit} loading={loading} disabled={!agreementChecked} fullWidth size="lg">
+                Submit Application
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

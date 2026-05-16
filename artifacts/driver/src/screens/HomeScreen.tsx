@@ -10,7 +10,7 @@ import { useDriverStatus } from '@/hooks/useDriverStatus';
 import { useRideRequests } from '@/hooks/useRideRequests';
 import { useEarnings } from '@/hooks/useEarnings';
 import { useDispatchStore } from '@/store/dispatchStore';
-import { OnlineToggle, Card, StatCard, Button } from '@/components';
+import { OnlineToggle, Card, StatCard, Button, Spinner } from '@/components';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { colors, borderRadius } from '@/theme';
 import { formatCurrency, getStarDisplay } from '@/utils/formatters';
@@ -21,13 +21,16 @@ export function HomeScreen() {
   const { driver, signOut } = useAuth();
   const { isOnline, isToggling, toggleOnline, currentLat, currentLng } = useDriverStatus(driver?.id || null);
   const { incomingRequest, acceptRide, declineRide, dismissRequest } = useRideRequests(driver?.id || null, isOnline);
-  const { summary } = useEarnings(driver?.id || null);
+  const { summary, isLoading: earningsLoading, isError: earningsError, refreshEarnings } = useEarnings(driver?.id || null);
 
   const serverCancelled = useDispatchStore((s) => s.serverCancelled);
   const setServerCancelled = useDispatchStore((s) => s.setServerCancelled);
 
   // Gate the Ride-Along Dashboard entry by checking the caller's
   // ride_along_drivers profile. Only drivers with a record see the card.
+  // We treat a network failure as "unknown" rather than "no profile" so
+  // an offline launch doesn't hide the entry from drivers who DO have a
+  // record — the card simply stays hidden until the lookup succeeds.
   const [hasRideAlongProfile, setHasRideAlongProfile] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -40,9 +43,9 @@ export function HomeScreen() {
         const res = await fetch(`${base}/api/ride-along-drivers/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!cancelled) setHasRideAlongProfile(res.ok);
+        if (!cancelled && res.ok) setHasRideAlongProfile(true);
       } catch {
-        if (!cancelled) setHasRideAlongProfile(false);
+        // Swallow — leave hasRideAlongProfile in its current state.
       }
     })();
     return () => { cancelled = true; };
@@ -85,6 +88,30 @@ export function HomeScreen() {
       </div>
 
       <div style={{ padding: 20 }}>
+        {earningsError && (
+          <Card padding={14} style={{ marginBottom: 16, border: `1px solid ${colors.error}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ fontSize: 13, color: colors.error, fontWeight: 600 }}>
+                Couldn't refresh today's earnings.
+              </div>
+              <button
+                onClick={() => { void refreshEarnings(); }}
+                style={{
+                  padding: '6px 12px', background: colors.navy, color: colors.textWhite,
+                  border: 'none', borderRadius: borderRadius.full,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </Card>
+        )}
+        {earningsLoading && !earningsError && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 8, marginBottom: 4 }}>
+            <Spinner size={16} color={colors.textMuted} />
+          </div>
+        )}
         {/* Today's earnings */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
@@ -181,6 +208,14 @@ export function HomeScreen() {
             const result = await acceptRide();
             if (result.success) {
               navigate(`/ride/${incomingRequest.rideId}/navigate`);
+            } else {
+              // Surface the failure to RideRequestModal so it can show
+              // the inline acceptError banner instead of silently
+              // re-enabling the button with no feedback.
+              throw new Error(
+                (result as { error?: string }).error
+                  ?? "Couldn't accept that ride. Try again or wait for the next offer.",
+              );
             }
           }}
           onDecline={() => declineRide()}

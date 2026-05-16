@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { Button, Card, Spinner, StatCard } from '@/components';
+import { isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius, withAlpha } from '@/theme';
 import { formatCurrency } from '@/utils/formatters';
 import { acceptTandemMatch, declineTandemMatch } from '@/services/api/edgeFunctions';
@@ -137,6 +138,10 @@ export function RideAlongDashboardScreen() {
   const { broadcasts, isConnected, refresh } = useTandemBroadcasts(isLiveEnabled);
 
   const handleAccept = useCallback(async (job: TandemBroadcastRow) => {
+    if (isOffline()) {
+      setError("You're offline — connect to accept matches.");
+      return;
+    }
     setActingOn(job.id);
     const res = await acceptTandemMatch(job.id);
     setActingOn(null);
@@ -150,6 +155,10 @@ export function RideAlongDashboardScreen() {
   }, [refresh, fetchActiveJob, profile?.id]);
 
   const handleDecline = useCallback(async (job: TandemBroadcastRow) => {
+    if (isOffline()) {
+      setError("You're offline — connect to decline matches.");
+      return;
+    }
     setActingOn(job.id);
     const res = await declineTandemMatch(job.id);
     setActingOn(null);

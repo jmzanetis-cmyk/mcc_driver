@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useInstantPay } from '@/hooks/useInstantPay';
 import { INSTANT_PAY_FEE, MINIMUM_CASHOUT, MAX_DAILY_CASHOUTS } from '@/services/payments/instantPayService';
 import { PageHeader, Card, Button, Spinner, InfoRow } from '@/components';
+import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius, withAlpha } from '@/theme';
 import { formatCurrency, formatDate, formatTime } from '@/utils/formatters';
 
@@ -65,12 +66,14 @@ export function InstantPayScreen() {
 
   const handleInstantPayout = async () => {
     setShowConfirm(null);
+    if (isOffline()) return; // OfflineNotice + global banner show the reason
     const amount = useCustomAmount ? parseFloat(customAmount) : undefined;
     await cashOutInstant(amount);
   };
 
   const handleStandardPayout = async () => {
     setShowConfirm(null);
+    if (isOffline()) return;
     await cashOutStandard();
   };
 
@@ -191,6 +194,11 @@ export function InstantPayScreen() {
             )}
           </Card>
         )}
+
+        <OfflineNotice
+          message="You're offline — cash out will be blocked until your connection is back."
+          style={{ marginBottom: 12 }}
+        />
 
         {/* Instant Pay button */}
         <Button

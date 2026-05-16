@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { type IncomingRideRequest } from '@/hooks/useRideRequests';
 import { Button, CountdownTimer, InfoRow, Card } from '@/components';
+import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius } from '@/theme';
 import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
@@ -20,11 +21,22 @@ interface RideRequestModalProps {
 
 export function RideRequestModal({ request, onAccept, onDecline, onExpired }: RideRequestModalProps) {
   const [accepting, setAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const handleAccept = async () => {
+    setAcceptError(null);
+    if (isOffline()) {
+      setAcceptError("You're offline. Reconnect and try again before the timer expires.");
+      return;
+    }
     setAccepting(true);
-    await onAccept();
-    setAccepting(false);
+    try {
+      await onAccept();
+    } catch (err) {
+      setAcceptError(err instanceof Error ? err.message : 'Could not accept — try again.');
+    } finally {
+      setAccepting(false);
+    }
   };
 
   const tierColors: Record<string, string> = {
@@ -225,6 +237,16 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
           </Card>
         )}
 
+        <OfflineNotice style={{ marginBottom: 12 }} />
+        {acceptError && (
+          <div style={{
+            marginBottom: 12, padding: '10px 12px',
+            background: '#FEF2F2', border: '1px solid #FCA5A5',
+            color: '#991B1B', borderRadius: 8, fontSize: 12, fontWeight: 600,
+          }}>
+            {acceptError}
+          </div>
+        )}
         {/* Accept / Decline buttons */}
         <div style={{ display: 'flex', gap: 12 }}>
           <Button

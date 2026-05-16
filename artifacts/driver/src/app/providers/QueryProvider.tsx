@@ -32,9 +32,15 @@ const queryClient = new QueryClient({
       networkMode: 'offlineFirst',
     },
     mutations: {
+      // Mutations are user-initiated and must fail fast when the
+      // device is offline — silently pausing a "Submit Application"
+      // or "Cash Out" press would leave the driver staring at a
+      // disabled spinner with no idea what happened. Pair with
+      // OfflineBanner + per-screen inline error surfacing for the
+      // user-visible signal.
       retry: 1,
       retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 8000),
-      networkMode: 'offlineFirst',
+      networkMode: 'online',
     },
   },
 });

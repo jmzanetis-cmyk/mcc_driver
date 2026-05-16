@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { sendOTP, verifyOTP } from '@/services/auth/authService';
 import { Button, Input, Spinner } from '@/components';
+import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius } from '@/theme';
 
 export function SignInScreen() {
@@ -19,6 +20,10 @@ export function SignInScreen() {
   const handleSendOTP = async () => {
     if (phone.length < 10) {
       setError('Enter a valid phone number');
+      return;
+    }
+    if (isOffline()) {
+      setError("You're offline — connect to send a verification code.");
       return;
     }
     setLoading(true);
@@ -38,6 +43,10 @@ export function SignInScreen() {
   const handleVerifyOTP = async () => {
     if (code.length < 6) {
       setError('Enter the 6-digit code');
+      return;
+    }
+    if (isOffline()) {
+      setError("You're offline — connect to verify the code.");
       return;
     }
     setLoading(true);
@@ -81,6 +90,7 @@ export function SignInScreen() {
         background: colors.bgCard, borderRadius: borderRadius.lg,
         padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
       }}>
+        <OfflineNotice style={{ marginBottom: 16 }} />
         {step === 'phone' ? (
           <>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
