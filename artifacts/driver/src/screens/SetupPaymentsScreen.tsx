@@ -215,7 +215,7 @@ export function SetupPaymentsScreen() {
             <Card padding={16} style={{ marginBottom: 20 }}>
               <FeatureRow emoji="⚡" title="Instant Pay" body="Cash out to a debit card in minutes (small fee applies)" />
               <FeatureRow emoji="🏦" title="Standard Payout" body="Free weekly transfer to your bank account" />
-              <FeatureRow emoji="🔒" title="Secure & Encrypted" body="Your banking details are stored and managed by Stripe, never MCC" />
+              <FeatureRow emoji="🔒" title="Secure & Encrypted" body="Your banking details are stored and managed by Stripe, never by My Car Concierge" />
             </Card>
 
             <Button

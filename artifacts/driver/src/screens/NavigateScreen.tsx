@@ -283,7 +283,7 @@ export function NavigateScreen() {
             Self-Sufficient Acknowledgment
           </div>
           <div style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
-            By selecting Self-Sufficient (Mode C), you confirm that you will personally manage both vehicles for this tandem job. You accept full liability for any incidents involving the second vehicle and acknowledge that MCC is not responsible for co-driver arrangements made outside the platform.
+            By selecting Self-Sufficient (Mode C), you confirm that you will personally manage both vehicles for this tandem job. You accept full liability for any incidents involving the second vehicle and acknowledge that My Car Concierge is not responsible for co-driver arrangements made outside the platform.
           </div>
           {tandemError && (
             <div style={{ fontSize: 12, color: colors.error, marginBottom: 12, padding: '8px 12px', background: 'rgba(220,53,69,0.08)', borderRadius: borderRadius.sm }}>
@@ -311,8 +311,8 @@ export function NavigateScreen() {
   // ── Tandem Mode Selector panel ────────────────────────────────────────────────
   if (tandemRequired && !tandemModeConfirmed) {
     const modeCards: { mode: TandemMode; icon: string; label: string; subtitle: string; comingSoon?: boolean }[] = [
-      { mode: 'A', icon: '🤝', label: 'Known Partner', subtitle: 'A pre-approved MCC ride-along driver you designate' },
-      { mode: 'B', icon: '🔍', label: 'Platform Match', subtitle: 'MCC finds a verified co-driver for you' },
+      { mode: 'A', icon: '🤝', label: 'Known Partner', subtitle: 'A pre-approved My Car Concierge ride-along driver you designate' },
+      { mode: 'B', icon: '🔍', label: 'Platform Match', subtitle: 'My Car Concierge finds a verified co-driver for you' },
       { mode: 'C', icon: '🚘', label: 'Self-Sufficient', subtitle: 'You handle both vehicles and accept liability' },
     ];
 

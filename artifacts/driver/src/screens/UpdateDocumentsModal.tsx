@@ -295,7 +295,7 @@ export function UpdateDocumentsModal({ onClose, rejectionReason }: UpdateDocumen
               </h2>
               <p style={{ fontSize: 13, color: colors.textMuted, margin: '4px 0 0' }}>
                 {rejectionReason
-                  ? 'Your documents were flagged by an MCC reviewer. Please re-upload them below.'
+                  ? 'Your documents were flagged by a My Car Concierge reviewer. Please re-upload them below.'
                   : 'Re-upload any documents that need to be replaced.'}
               </p>
             </div>

@@ -118,7 +118,7 @@ export function SettingsScreen() {
           `Partner found but not eligible — status: ${preview.data.status}, verified: ${String(preview.data.verified)}`,
         );
       } else {
-        setPartnerLookupError(result.error ?? 'Partner not found. Enter a valid email or MCC driver ID.');
+        setPartnerLookupError(result.error ?? 'Partner not found. Enter a valid email or My Car Concierge driver ID.');
       }
     }
   };
@@ -361,7 +361,7 @@ export function SettingsScreen() {
         <SectionLabel>Known Tandem Partner</SectionLabel>
         <Card style={{ marginBottom: 16 }} padding={14}>
           <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>
-            Save a preferred co-driver for tandem jobs. They must be an MCC-verified ride-along driver.
+            Save a preferred co-driver for tandem jobs. They must be a My Car Concierge–verified ride-along driver.
           </div>
 
           {savedPartner ? (
@@ -420,7 +420,7 @@ export function SettingsScreen() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   type="email"
-                  placeholder="Email or MCC driver ID"
+                  placeholder="Email or My Car Concierge driver ID"
                   value={partnerEmail}
                   onChange={(e) => setPartnerEmail(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') void handlePartnerLookup(); }}

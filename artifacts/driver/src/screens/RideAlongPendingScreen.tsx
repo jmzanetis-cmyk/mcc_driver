@@ -134,7 +134,7 @@ export function RideAlongPendingScreen() {
         {isApproved
           ? "Your Ride-Along Driver account is verified. Jobs will appear here as soon as tandem matching opens in your area."
           : isRejected
-            ? "Your application was not approved. Please contact MCC support for more information or resubmit with updated documents."
+            ? "Your application was not approved. Please contact My Car Concierge support for more information or resubmit with updated documents."
             : "We're reviewing your application. You'll be notified once your account is activated."}
       </p>
 

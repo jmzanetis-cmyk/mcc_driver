@@ -120,10 +120,10 @@ function buildSystemPrompt(driver: DriverContext): string {
     `  - [${i.type}] ${i.description} — ${i.status} — opened ${i.createdAt}`
   ).join('\n') || '  No open issues';
 
-  return `You are MCC Driver Support, the AI assistant built into the My Car Concierge Driver app. You help drivers with everything they need — support questions, earnings/payout inquiries, adding vehicles, document verification, ride issues, and onboarding guidance.
+  return `You are My Car Concierge Driver Support, the AI assistant built into the My Car Concierge Driver app. You help drivers with everything they need — support questions, earnings/payout inquiries, adding vehicles, document verification, ride issues, and onboarding guidance.
 
-## About MCC
-My Car Concierge (MCC) is a two-sided auto service marketplace. Members book auto services through providers (mechanics, detailers, body shops). The transportation module provides rides and vehicle shuttles so members don't need to arrange their own transportation while their vehicle is being serviced.
+## About My Car Concierge
+My Car Concierge is a two-sided auto service marketplace. Members book auto services through providers (mechanics, detailers, body shops). The transportation module provides rides and vehicle shuttles so members don't need to arrange their own transportation while their vehicle is being serviced.
 
 ## Service Tiers & Pricing
 - Tier 1 (Passenger): $10 base + $1.50/mi, $12 min — standard rides
@@ -133,13 +133,13 @@ My Car Concierge (MCC) is a two-sided auto service marketplace. Members book aut
 
 ## Revenue Split
 - Driver share: 85% of fare
-- MCC platform fee: 15%
+- My Car Concierge platform fee: 15%
 - Tips: 100% to driver
 - Partner drivers: 85% goes to partner company, partner pays drivers per their own structure
 
 ## Instant Pay
 - Drivers can cash out available earnings instantly to a debit card
-- Instant Pay fee: $0.50 per cash-out (MCC keeps this)
+- Instant Pay fee: $0.50 per cash-out (retained by My Car Concierge)
 - Minimum cash-out: $5.00
 - Maximum: full available balance
 - Daily limit: 5 instant payouts per day
@@ -150,14 +150,14 @@ My Car Concierge (MCC) is a two-sided auto service marketplace. Members book aut
 
 ## Driver Types
 - Partner drivers: affiliated with a transportation partner company (partner_id is set)
-- Independent drivers: no partner, direct MCC relationship, own Stripe Connect account
+- Independent drivers: no partner, direct My Car Concierge relationship, own Stripe Connect account
 
 ## Current Driver Profile
 Name: ${driver.firstName} ${driver.lastName}
 Email: ${driver.email}
 Phone: ${driver.phone}
 Status: ${driver.status}
-Type: ${driver.partnerId ? `Partner driver (${driver.partnerName ?? 'partner company'})` : 'Independent MCC driver'}
+Type: ${driver.partnerId ? `Partner driver (${driver.partnerName ?? 'partner company'})` : 'Independent My Car Concierge driver'}
 Online: ${driver.isOnline ? 'Yes' : 'No'}
 Can drive member vehicles: ${driver.canDriveMemberVehicle ? 'Yes (Tier 2+ eligible)' : 'No (Tier 1 only — needs insurance verification)'}
 Total rides: ${driver.totalRidesCompleted}
@@ -210,7 +210,7 @@ When the driver asks you to do something, respond with the action in a structure
 - Fare breakdowns for any ride (use the data above)
 - Payout schedule and history
 - How to get Tier 2+ certified (insurance requirements)
-- MCC policies (cancellation, rating thresholds, deactivation criteria)
+- My Car Concierge policies (cancellation, rating thresholds, deactivation criteria)
 - Tax guidance (1099-NEC issued for earnings > $600, track mileage, quarterly estimates)
 - Vehicle requirements (4-door, 2010+, clean title, pass inspection)
 - Background check status and timeline
@@ -473,7 +473,7 @@ async function executeAction(
         priority: 'high',
       });
       if (error) return { success: false, message: 'Failed to escalate' };
-      return { success: true, message: 'Escalated to MCC support team — a human will reach out within 4 hours' };
+      return { success: true, message: 'Escalated to My Car Concierge support — a human will reach out within 4 hours' };
     }
 
     case 'SET_STATUS': {
@@ -527,7 +527,7 @@ function describeAction(action: ParsedAction): string {
     case 'CREATE_ISSUE':
       return `Report ride issue: ${action.params.description ?? ''}`;
     case 'ESCALATE':
-      return `Escalate to MCC support: ${action.params.reason ?? ''}`;
+      return `Escalate to My Car Concierge support: ${action.params.reason ?? ''}`;
     case 'SET_STATUS':
       return `Go ${action.params.online === 'true' ? 'online' : 'offline'}`;
     case 'SEND_DOCUMENT_REMINDER':
@@ -676,7 +676,7 @@ export const QUICK_ACTIONS = [
   { id: 'payout_status', label: 'Payout status', icon: '💳', prompt: 'When is my next payout and how much?' },
   { id: 'tier2_cert', label: 'Get Tier 2 certified', icon: '📋', prompt: 'How do I get certified to drive member vehicles (Tier 2+)?' },
   { id: 'ride_issue', label: 'Report ride issue', icon: '⚠️', prompt: 'I have an issue with a recent ride' },
-  { id: 'tax_help', label: 'Tax info', icon: '📊', prompt: 'What do I need to know about taxes as an MCC driver?' },
+  { id: 'tax_help', label: 'Tax info', icon: '📊', prompt: 'What do I need to know about taxes as a My Car Concierge driver?' },
   { id: 'insurance', label: 'Insurance help', icon: '🛡️', prompt: 'What insurance do I need and how do I upload it?' },
   { id: 'update_license', label: 'Update license', icon: '🪪', prompt: "My driver's license is expiring, how do I update it?" },
 ];

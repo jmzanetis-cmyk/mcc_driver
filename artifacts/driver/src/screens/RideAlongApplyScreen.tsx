@@ -432,7 +432,7 @@ export function RideAlongApplyScreen() {
                   <li>I am at least 21 years old with a valid driver's license.</li>
                   <li>I consent to a background check and driving record review.</li>
                   <li>I understand I will ride as a passenger in the primary driver's vehicle or a separate vehicle depending on the job type.</li>
-                  <li>I will comply with all MCC policies and applicable laws while on the job.</li>
+                  <li>I will comply with all My Car Concierge policies and applicable laws while on the job.</li>
                   <li>I acknowledge that job availability depends on matching and dispatch (Phase 2).</li>
                 </ul>
               </div>

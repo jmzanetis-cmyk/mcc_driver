@@ -62,7 +62,7 @@ function AuthRedirect() {
           Account {driver.status === 'suspended' ? 'Suspended' : 'Deactivated'}
         </div>
         <div style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', maxWidth: 300 }}>
-          Contact MCC support for more information.
+          Contact My Car Concierge support for more information.
         </div>
       </div>
     );

@@ -285,7 +285,7 @@ export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderP
       ) : (
         <img
           src="/driver/mcc-driver-logo.png"
-          alt="MCC Driver"
+          alt="My Car Concierge Driver"
           style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }}
         />
       )}

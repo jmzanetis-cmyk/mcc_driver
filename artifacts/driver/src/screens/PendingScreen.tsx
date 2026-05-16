@@ -129,7 +129,7 @@ export function PendingScreen() {
       </h1>
       <p style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', maxWidth: 320, marginBottom: 32 }}>
         {hasRejection
-          ? 'An MCC reviewer has flagged your documents. Please re-upload them to continue your application.'
+          ? 'A My Car Concierge reviewer has flagged your documents. Please re-upload them to continue your application.'
           : "We're reviewing your application. You'll receive a push notification when you're approved to start driving."}
       </p>
 

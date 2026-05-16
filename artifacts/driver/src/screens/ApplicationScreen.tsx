@@ -457,7 +457,7 @@ export function ApplicationScreen() {
             textAlign: 'center',
           }}>
             <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 8 }}>
-              Not an MCC provider driver?
+              Not a My Car Concierge provider driver?
             </div>
             <button
               type="button"

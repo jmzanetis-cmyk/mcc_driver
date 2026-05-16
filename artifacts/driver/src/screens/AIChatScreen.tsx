@@ -83,7 +83,7 @@ export function AIChatScreen() {
           ←
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: colors.textWhite }}>MCC Driver Support</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: colors.textWhite }}>Driver Support</div>
           <div style={{ fontSize: 11, color: colors.gold }}>
             AI-powered • {categoryIcons[category]} {categoryLabels[category]}
           </div>
