@@ -425,7 +425,10 @@ export function ApplicationScreen() {
             </div>
 
             <div style={{ fontSize: 12, color: colors.textMuted, lineHeight: 1.6, marginBottom: 20 }}>
-              By submitting, you consent to a background check and driving record review through BackgroundChecks.com. You must be at least 21 years old with a valid driver's license.
+              By submitting, you consent to a background check and driving record review through BackgroundChecks.com. You must be at least 21 years old with a valid driver's license. You also agree to the{' '}
+              <a href="/driver/legal/terms" style={{ color: colors.gold, textDecoration: 'underline' }}>Terms of Service</a>
+              {' '}and{' '}
+              <a href="/driver/legal/privacy" style={{ color: colors.gold, textDecoration: 'underline' }}>Privacy Policy</a>.
             </div>
 
             {error && (

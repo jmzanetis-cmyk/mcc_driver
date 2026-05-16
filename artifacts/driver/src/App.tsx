@@ -25,6 +25,9 @@ import { SettingsScreen } from '@/screens/SettingsScreen';
 import { AIChatScreen } from '@/screens/AIChatScreen';
 import { InstantPayScreen } from '@/screens/InstantPayScreen';
 import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
+import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
+import { TermsScreen } from '@/screens/legal/TermsScreen';
+import { SupportScreen as LegalSupportScreen } from '@/screens/legal/SupportScreen';
 
 function AuthRedirect() {
   const { isLoading, isAuthenticated, driver } = useAuth();
@@ -109,6 +112,13 @@ export default function App() {
             <Route path="/instant-pay" element={<ProtectedRoute><InstantPayScreen /></ProtectedRoute>} />
             <Route path="/settings/payments" element={<ProtectedRoute><SetupPaymentsScreen /></ProtectedRoute>} />
             <Route path="/scheduled" element={<ProtectedRoute><ScheduledPlaceholder /></ProtectedRoute>} />
+            {/* Public legal routes — required by App Store Connect for the
+                Privacy Policy URL, Terms of Use URL, and Support URL fields.
+                These resolve over HTTPS via the deployed driver app domain
+                and are linked from SignIn, Application, and Settings. */}
+            <Route path="/legal/privacy" element={<PrivacyScreen />} />
+            <Route path="/legal/terms" element={<TermsScreen />} />
+            <Route path="/legal/support" element={<LegalSupportScreen />} />
             <Route path="*" element={<AuthRedirect />} />
           </Routes>
         </AuthProvider>

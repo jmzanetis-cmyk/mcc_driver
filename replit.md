@@ -193,6 +193,28 @@ Drivers can permanently delete their account from Settings → Delete Account
 Out of scope (separate tasks if needed): admin-initiated soft-delete tooling
 and a GDPR / CCPA data-export endpoint.
 
+## App Store listing assets
+
+Drafted material for App Store Connect submission (Task #77) lives in `docs/app-store/`:
+
+- `privacy-policy.md` — full driver privacy policy (publishable + in-app)
+- `terms-of-service.md` — full driver terms of service (publishable + in-app)
+- `app-privacy.md` — App Privacy "nutrition label" worksheet ready to paste into App Store Connect
+- `listing-copy.md` — name, subtitle, promotional text, description, keywords, support/marketing/privacy/EULA URLs, age-rating answers, App Review notes
+- `support.md` — driver support content (in-app + marketing site)
+- `screenshots/README.md` — required device sizes and capture procedure (must run on a Mac simulator for the App Store upload); web-preview reference captures live alongside
+
+In-app legal routes (publicly reachable over HTTPS via the deployed driver
+app domain, so they satisfy App Store Connect's Privacy / EULA / Support
+URL fields even before mycarconcierge.com hosts them):
+
+- `/legal/privacy` — `artifacts/driver/src/screens/legal/PrivacyScreen.tsx`
+- `/legal/terms` — `artifacts/driver/src/screens/legal/TermsScreen.tsx`
+- `/legal/support` — `artifacts/driver/src/screens/legal/SupportScreen.tsx`
+
+Links are wired from `SignInScreen` (footer), `ApplicationScreen`
+(submission consent text), and `SettingsScreen` (Legal & About card).
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details

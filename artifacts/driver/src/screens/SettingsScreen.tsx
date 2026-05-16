@@ -585,10 +585,45 @@ export function SettingsScreen() {
         </Card>
 
         {/* Legal / About */}
-        <SectionLabel>About</SectionLabel>
-        <Card style={{ marginBottom: 24 }} padding={14}>
-          <SettingRow label="App Version" value="1.0.0 (Phase 1)" />
-          <SettingRow label="Driver ID" value={driver.id.substring(0, 8) + '...'} />
+        <SectionLabel>Legal & About</SectionLabel>
+        <Card style={{ marginBottom: 24 }} padding={0}>
+          <button
+            onClick={() => navigate('/legal/privacy')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 14px', background: 'transparent', border: 'none',
+              borderBottom: `1px solid ${colors.border}`, cursor: 'pointer',
+              fontSize: 14, color: colors.textPrimary, textAlign: 'left',
+            }}
+          >
+            <span>Privacy Policy</span><span style={{ color: colors.textMuted }}>›</span>
+          </button>
+          <button
+            onClick={() => navigate('/legal/terms')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 14px', background: 'transparent', border: 'none',
+              borderBottom: `1px solid ${colors.border}`, cursor: 'pointer',
+              fontSize: 14, color: colors.textPrimary, textAlign: 'left',
+            }}
+          >
+            <span>Terms of Service</span><span style={{ color: colors.textMuted }}>›</span>
+          </button>
+          <button
+            onClick={() => navigate('/legal/support')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 14px', background: 'transparent', border: 'none',
+              borderBottom: `1px solid ${colors.border}`, cursor: 'pointer',
+              fontSize: 14, color: colors.textPrimary, textAlign: 'left',
+            }}
+          >
+            <span>Support</span><span style={{ color: colors.textMuted }}>›</span>
+          </button>
+          <div style={{ padding: 14 }}>
+            <SettingRow label="App Version" value="1.0.0 (Phase 1)" />
+            <SettingRow label="Driver ID" value={driver.id.substring(0, 8) + '...'} />
+          </div>
         </Card>
 
         {/* Sign out */}

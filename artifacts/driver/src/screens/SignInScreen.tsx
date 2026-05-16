@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { sendOTP, verifyOTP } from '@/services/auth/authService';
 import { Button, Input, Spinner } from '@/components';
 import { colors, borderRadius } from '@/theme';
@@ -139,6 +139,17 @@ export function SignInScreen() {
         marginTop: 24,
       }}>
         Have a partner invitation code? You'll enter it during sign-up.
+      </p>
+
+      {/* Legal footer — required by App Store Guideline 5.1.1 / EULA */}
+      <p style={{
+        textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.5)',
+        marginTop: 16, lineHeight: 1.6,
+      }}>
+        By signing in you agree to our{' '}
+        <Link to="/legal/terms" style={{ color: colors.gold, textDecoration: 'underline' }}>Terms</Link>
+        {' '}and{' '}
+        <Link to="/legal/privacy" style={{ color: colors.gold, textDecoration: 'underline' }}>Privacy Policy</Link>.
       </p>
     </div>
   );
