@@ -4,10 +4,10 @@ import {
   useListAdminRides,
   getListAdminRidesQueryKey,
   useAdminCancelRide,
-  useDispatchRide,
 } from '@workspace/api-client-react';
 import type { AdminRideRecord } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -113,17 +113,32 @@ function DispatchDialog({ onDispatched }: { onDispatched: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...BLANK_FORM });
 
-  const dispatch = useDispatchRide({
-    mutation: {
-      onSuccess: () => {
-        toast({ title: 'Ride dispatched', description: 'Drivers are being notified.' });
-        setOpen(false);
-        setForm({ ...BLANK_FORM });
-        onDispatched();
-      },
-      onError: (err) => {
-        toast({ title: 'Dispatch failed', description: err.message, variant: 'destructive' });
-      },
+  const dispatch = useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch('/api/admin/rides/dispatch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Ride dispatched', description: 'Drivers are being notified.' });
+      setOpen(false);
+      setForm({ ...BLANK_FORM });
+      onDispatched();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Dispatch failed', description: err.message, variant: 'destructive' });
     },
   });
 
@@ -155,7 +170,7 @@ function DispatchDialog({ onDispatched }: { onDispatched: () => void }) {
       toast({ title: 'Missing fields', description: 'Please fill all required fields.', variant: 'destructive' });
       return;
     }
-    dispatch.mutate({ data: {
+    dispatch.mutate({
       scenario: form.scenario,
       tier: form.tier,
       serviceType: form.serviceType,
@@ -166,9 +181,8 @@ function DispatchDialog({ onDispatched }: { onDispatched: () => void }) {
       dropoffAddress: form.dropoffAddress,
       dropoffLat: lat2,
       dropoffLng: lng2,
-      estimatedFare: 0,
       estimatedDistanceMiles: dist,
-    }});
+    });
   }
 
   return (

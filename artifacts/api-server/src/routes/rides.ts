@@ -25,15 +25,15 @@ const router: IRouter = Router();
 // perMinute is applied at completion when actual duration is known.
 // deliveryPickupFee is applied at both dispatch estimate and completion for delivery rides.
 const TIER_RATES: Record<string, { base: number; perMile: number; perMinute: number; deliveryPickupFee: number; minimum: number }> = {
-  tier_0_rideshare: { base: 5, perMile: 1.5, perMinute: 0.25, deliveryPickupFee: 0, minimum: 8 },
-  tier_0_delivery:  { base: 6, perMile: 2.0, perMinute: 0.15, deliveryPickupFee: 2.0, minimum: 10 },
+  tier_0_rideshare: { base: 5, perMile: 1.5, perMinute: 0.30, deliveryPickupFee: 0, minimum: 8 },
+  tier_0_delivery:  { base: 6, perMile: 2.0, perMinute: 0.35, deliveryPickupFee: 1.50, minimum: 10 },
   tier_1_passenger: { base: 10, perMile: 1.5, perMinute: 0, deliveryPickupFee: 0, minimum: 12 },
   tier_2_vehicle_solo: { base: 20, perMile: 2.0, perMinute: 0, deliveryPickupFee: 0, minimum: 25 },
   tier_3_vehicle_paired: { base: 35, perMile: 2.5, perMinute: 0, deliveryPickupFee: 0, minimum: 40 },
   tier_4_full_concierge: { base: 40, perMile: 3.0, perMinute: 0, deliveryPickupFee: 0, minimum: 45 },
 };
 
-function computeFare(tier: string, distanceMiles: number, durationMinutes?: number): number {
+export function computeFare(tier: string, distanceMiles: number, durationMinutes?: number): number {
   const rates = TIER_RATES[tier] ?? TIER_RATES["tier_1_passenger"]!;
   const raw = rates.base + rates.deliveryPickupFee + distanceMiles * rates.perMile + (durationMinutes ?? 0) * rates.perMinute;
   return Math.round(Math.max(raw, rates.minimum) * 100) / 100;
@@ -469,12 +469,12 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
         dropoffAddress: body.dropoffAddress,
         dropoffLat: body.dropoffLat,
         dropoffLng: body.dropoffLng,
-        // For rideshare/delivery, compute fare server-side so the estimate is consistent
-        // with our published rate card rather than whatever the caller provided.
-        // For concierge tiers the caller's estimate is used unchanged (complex bespoke pricing).
-        estimatedFare: (serviceType === "rideshare" || serviceType === "delivery")
-          ? computeFare(body.tier, body.estimatedDistanceMiles)
-          : body.estimatedFare,
+        // Always compute the estimate server-side from the published rate card.
+        // At dispatch time we have distance but not duration, so perMinute is excluded
+        // from the estimate — it will be factored in at completion with actual duration.
+        // This ensures the stored estimate is always consistent with our rate card,
+        // regardless of what the caller provided.
+        estimatedFare: computeFare(body.tier, body.estimatedDistanceMiles),
         estimatedDistanceMiles: body.estimatedDistanceMiles,
         memberVehicleYear: body.memberVehicleYear ?? null,
         memberVehicleMake: body.memberVehicleMake ?? null,

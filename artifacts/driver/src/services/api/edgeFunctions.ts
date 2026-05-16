@@ -120,12 +120,13 @@ export async function cancelRide(
 export async function completeRide(
   rideId: string,
   assignmentId: string,
-  actualDistanceMiles: number
+  actualDistanceMiles: number,
+  actualDurationMinutes?: number
 ): Promise<ApiResult<{ finalFare: number; driverPayout: number }>> {
   return callApi<{ finalFare: number; driverPayout: number }>(
     `/rides/${rideId}/complete`,
     'POST',
-    { assignmentId, actualDistanceMiles }
+    { assignmentId, actualDistanceMiles, actualDurationMinutes }
   );
 }
 

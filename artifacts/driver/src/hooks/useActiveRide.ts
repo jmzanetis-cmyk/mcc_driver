@@ -51,12 +51,20 @@ export function useActiveRide() {
     if (!dispatch.rideId || !dispatch.assignmentId) return { success: false };
 
     dispatch.setStage('completing');
-    logger.info('ride.completing', { rideId: dispatch.rideId, distance: actualDistanceMiles });
+
+    // Compute actual ride duration from when the ride entered in_progress.
+    // This feeds the perMinute fare component for rideshare/delivery.
+    const actualDurationMinutes = dispatch.startedAt
+      ? Math.round((Date.now() - new Date(dispatch.startedAt).getTime()) / 60000)
+      : undefined;
+
+    logger.info('ride.completing', { rideId: dispatch.rideId, distance: actualDistanceMiles, durationMinutes: actualDurationMinutes });
 
     const result = await completeRideEdge(
       dispatch.rideId,
       dispatch.assignmentId,
-      actualDistanceMiles
+      actualDistanceMiles,
+      actualDurationMinutes
     );
 
     if (result.success) {

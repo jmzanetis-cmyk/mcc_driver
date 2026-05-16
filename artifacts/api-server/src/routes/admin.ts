@@ -7,14 +7,16 @@
 // ============================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, inArray, and, desc, notInArray } from "drizzle-orm";
+import { eq, inArray, and, desc, notInArray, isNotNull, asc } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@workspace/db";
 import { driversTable, ridesTable, driverAssignmentsTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { requireAdminAuth } from "../lib/adminAuth";
 import { sendDriverApprovedEmail, sendDriverRejectedEmail } from "../lib/email";
-import { updateRideViaSupabase, updateAssignmentViaSupabase } from "../lib/supabaseAdmin";
+import { updateRideViaSupabase, updateAssignmentViaSupabase, insertAssignmentViaSupabase } from "../lib/supabaseAdmin";
+import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
+import { computeFare } from "./rides";
 
 const RejectDocumentsBody = z.object({
   reason: z.string().trim().min(1).max(1000),
@@ -398,6 +400,140 @@ router.post("/admin/rides/:rideId/cancel", async (req: Request, res: Response): 
     res.json({ success: true, rideId, driversNotified: activeAssignments.length });
   } catch (err) {
     logger.error({ err }, "admin.rides.cancel failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/admin/rides/dispatch ────────────────────────────────────────────
+// Admin-auth–protected ride dispatch. Same logic as the service-key–protected
+// /api/rides/dispatch, but authenticated by admin JWT instead of DISPATCH_API_KEY.
+
+const AdminDispatchBody = z.object({
+  scenario: z.string().min(1),
+  tier: z.string().min(1),
+  serviceType: z.enum(["concierge", "rideshare", "delivery"]).optional(),
+  packageDescription: z.string().max(500).optional(),
+  pickupAddress: z.string().min(1),
+  pickupLat: z.number(),
+  pickupLng: z.number(),
+  dropoffAddress: z.string().min(1),
+  dropoffLat: z.number(),
+  dropoffLng: z.number(),
+  estimatedDistanceMiles: z.number().min(0),
+  responseDeadlineSeconds: z.number().int().min(10).max(120).optional(),
+});
+
+router.post("/admin/rides/dispatch", async (req: Request, res: Response): Promise<void> => {
+  const admin = await requireAdminAuth(req, res);
+  if (!admin) return;
+
+  const parsed = AdminDispatchBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request", details: parsed.error.issues });
+    return;
+  }
+
+  const body = parsed.data;
+  const config = SCENARIO_CONFIG[body.scenario];
+  if (!config) {
+    res.status(400).json({ error: `Unknown scenario: ${body.scenario}` });
+    return;
+  }
+
+  const serviceType = body.serviceType
+    ?? (body.tier === "tier_0_rideshare" ? "rideshare"
+      : body.tier === "tier_0_delivery" ? "delivery"
+      : "concierge");
+
+  try {
+    const activeStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];
+
+    const busyDriverRows = await db
+      .select({ driverId: driverAssignmentsTable.driverId })
+      .from(driverAssignmentsTable)
+      .where(inArray(driverAssignmentsTable.status, activeStatuses));
+
+    const busyIds = busyDriverRows.map((r) => r.driverId);
+
+    const eligibleDrivers = await db
+      .select({ id: driversTable.id })
+      .from(driversTable)
+      .where(
+        and(
+          eq(driversTable.isOnline, true),
+          eq(driversTable.status, "active"),
+          isNotNull(driversTable.currentLat),
+          isNotNull(driversTable.currentLng),
+          serviceType === "rideshare" ? eq(driversTable.canDoRideshare, true) : undefined,
+          serviceType === "delivery" ? eq(driversTable.canDoDelivery, true) : undefined,
+        ),
+      )
+      .orderBy(asc(driversTable.totalRidesCompleted), asc(driversTable.createdAt));
+
+    const targetDriverIds = eligibleDrivers
+      .map((d) => d.id)
+      .filter((id) => !busyIds.includes(id));
+
+    if (targetDriverIds.length < config.driversRequired) {
+      res.status(404).json({
+        error: `Not enough eligible drivers. Need ${config.driversRequired}, found ${targetDriverIds.length}.`,
+      });
+      return;
+    }
+
+    const deadlineSeconds = body.responseDeadlineSeconds ?? 30;
+    const responseDeadline = new Date(Date.now() + deadlineSeconds * 1000);
+
+    const [ride] = await db
+      .insert(ridesTable)
+      .values({
+        scenario: body.scenario,
+        tier: body.tier,
+        serviceType,
+        packageDescription: body.packageDescription ?? null,
+        status: "pending_dispatch",
+        pickupAddress: body.pickupAddress,
+        pickupLat: body.pickupLat,
+        pickupLng: body.pickupLng,
+        dropoffAddress: body.dropoffAddress,
+        dropoffLat: body.dropoffLat,
+        dropoffLng: body.dropoffLng,
+        estimatedFare: computeFare(body.tier, body.estimatedDistanceMiles),
+        estimatedDistanceMiles: body.estimatedDistanceMiles,
+      })
+      .returning();
+
+    const selectedDriverIds = targetDriverIds.slice(0, config.driversRequired);
+
+    const assignmentValues = config.assignments.map((assignmentCfg, idx) => ({
+      ride_id: ride!.id,
+      driver_id: selectedDriverIds[idx]!,
+      role: assignmentCfg.role,
+      status: "pending",
+      drives_member_vehicle: assignmentCfg.drivesMemberVehicle,
+      carries_passenger: assignmentCfg.carriesPassenger,
+      response_deadline: responseDeadline.toISOString(),
+    }));
+
+    await insertAssignmentViaSupabase(assignmentValues);
+
+    await db
+      .update(ridesTable)
+      .set({ status: "dispatched" })
+      .where(eq(ridesTable.id, ride!.id));
+
+    req.log.info(
+      { rideId: ride!.id, scenario: body.scenario, serviceType, adminEmail: admin.email },
+      "admin.rides.dispatch.success",
+    );
+
+    res.status(201).json({
+      rideId: ride!.id,
+      estimatedFare: ride!.estimatedFare,
+      driversNotified: selectedDriverIds.length,
+    });
+  } catch (err) {
+    logger.error({ err }, "admin.rides.dispatch failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
