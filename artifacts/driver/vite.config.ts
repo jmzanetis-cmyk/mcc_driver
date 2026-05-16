@@ -2,7 +2,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 const rawPort = process.env.PORT;
 
@@ -26,12 +29,52 @@ if (!basePath) {
   );
 }
 
+// Derive a deterministic release tag (pkgVersion+gitSha) so Sentry events
+// can be grouped per build. Env override wins; otherwise we compute from
+// package.json + short git SHA. Falls back gracefully if git is unavailable.
+function resolveRelease(): string {
+  if (process.env.VITE_SENTRY_RELEASE) return process.env.VITE_SENTRY_RELEASE;
+  const pkg = JSON.parse(
+    readFileSync(path.resolve(import.meta.dirname, "package.json"), "utf8"),
+  ) as { version?: string; name?: string };
+  let sha = "nogit";
+  try {
+    sha = execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim() || "nogit";
+  } catch {
+    /* no git in sandbox — keep "nogit" */
+  }
+  return `${pkg.name ?? "driver"}@${pkg.version ?? "0.0.0"}+${sha}`;
+}
+
+const release = resolveRelease();
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+const sentryOrg = process.env.SENTRY_ORG;
+const sentryProject = process.env.SENTRY_PROJECT;
+
 export default defineConfig({
   base: basePath,
+  define: {
+    __SENTRY_RELEASE__: JSON.stringify(release),
+  },
   plugins: [
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    // Sentry source-map upload. No-ops cleanly when SENTRY_AUTH_TOKEN /
+    // SENTRY_ORG / SENTRY_PROJECT are not configured (dev default), but
+    // still injects the matching release id into the bundle so future
+    // uploads (e.g. from a Mac iOS build) can attach.
+    sentryVitePlugin({
+      org: sentryOrg,
+      project: sentryProject,
+      authToken: sentryAuthToken,
+      release: { name: release, inject: true },
+      sourcemaps: { assets: "./dist/public/**" },
+      disable: !sentryAuthToken || !sentryOrg || !sentryProject,
+      telemetry: false,
+    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
@@ -57,6 +100,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    sourcemap: true,
   },
   server: {
     port,

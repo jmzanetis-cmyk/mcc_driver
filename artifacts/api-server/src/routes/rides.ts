@@ -16,6 +16,7 @@ import {
   driverPayoutsTable,
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import { setSentryRequestIdentity } from "../lib/sentry";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
 import { insertAssignmentViaSupabase, updateAssignmentViaSupabase, updateRideViaSupabase } from "../lib/supabaseAdmin";
 
@@ -94,6 +95,7 @@ async function requireUserAuth(req: Request, res: Response): Promise<SupabaseUse
     return null;
   }
 
+  setSentryRequestIdentity({ userId: user.id });
   return user;
 }
 
@@ -141,6 +143,7 @@ async function resolveCallerDriver(
     return null;
   }
 
+  setSentryRequestIdentity({ userId: user.id, driverId: driver.id });
   return driver;
 }
 

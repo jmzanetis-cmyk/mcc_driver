@@ -1,12 +1,3 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import { initSentry } from '@/services/telemetry/sentry';
-
-initSentry();
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+// Single side-effect import so Sentry initializes BEFORE the App module
+// graph is evaluated. Any import-time crashes inside App are then captured.
+import './bootstrap';

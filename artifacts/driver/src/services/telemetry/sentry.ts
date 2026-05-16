@@ -8,8 +8,14 @@ export interface Breadcrumb {
   level?: string;
 }
 
+declare const __SENTRY_RELEASE__: string | undefined;
+
 const DSN = import.meta.env['VITE_SENTRY_DSN'] as string | undefined;
-const RELEASE = import.meta.env['VITE_SENTRY_RELEASE'] as string | undefined;
+// Prefer the build-time-injected release (pkgVersion+gitSha from vite.config),
+// fall back to explicit env override, then undefined.
+const RELEASE =
+  (typeof __SENTRY_RELEASE__ !== 'undefined' ? __SENTRY_RELEASE__ : undefined) ??
+  (import.meta.env['VITE_SENTRY_RELEASE'] as string | undefined);
 const ENV =
   (import.meta.env['VITE_SENTRY_ENV'] as string | undefined) ??
   (import.meta.env.DEV ? 'development' : 'production');

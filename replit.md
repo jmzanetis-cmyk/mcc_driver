@@ -244,6 +244,27 @@ Links are wired from `SignInScreen` (footer), `ApplicationScreen`
   `lib/db` now declares `@opentelemetry/api` so drizzle-orm's optional
   Otel peer resolves to a single copy across the workspace (avoids the
   duplicate-drizzle TS2345 we hit when Sentry was first added).
+- **Release tagging** — both apps auto-generate a release tag of
+  `<pkgName>@<pkgVersion>+<gitShortSha>` at build time
+  (driver: `vite.config.ts` `resolveRelease()`; API: `lib/sentry.ts`
+  `resolveRelease()`). Env overrides (`SENTRY_RELEASE` / `VITE_SENTRY_RELEASE`)
+  still win, and the computation falls back gracefully when git is unavailable.
+- **Source maps** — `artifacts/driver/vite.config.ts` wires
+  `@sentry/vite-plugin` with `sourcemap: true` in the build output.
+  Source-map upload runs only when `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and
+  `SENTRY_PROJECT` are all set (CI / Mac build); otherwise the plugin
+  disables itself but the release id is still injected into the bundle so
+  later out-of-band uploads attach cleanly.
+- **Driver init ordering** — `main.tsx` imports only `./bootstrap`, which
+  runs `initSentry()` before the dynamic `await import('./renderApp')`.
+  This guarantees the SDK is live before the `App` module graph evaluates,
+  so import-time errors inside `App` are still captured.
+- **API request identity** — `lib/sentry.ts` exports
+  `setSentryRequestIdentity({ userId, driverId })`, which sets the user id
+  and a `driver_id` tag on the per-request isolation scope.
+  `routes/rides.ts` calls it inside `requireUserAuth` (Supabase user) and
+  `resolveCallerDriver` (driver row) so any error captured later in the
+  request lifecycle is grouped against the right account — ids only, no PII.
 
 ## Pointers
 
