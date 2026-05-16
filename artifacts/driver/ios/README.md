@@ -29,7 +29,7 @@ pnpm --filter @workspace/driver run build:ios
 
 # 3. Open the Xcode workspace
 pnpm --filter @workspace/driver run ios:open
-# (equivalent to: cd artifacts/driver/ios/App && open App.xcworkspace)
+# (equivalent to: cd artifacts/driver/ios/App && open App.xcodeproj)
 ```
 
 In Xcode:
@@ -42,6 +42,17 @@ In Xcode:
 4. Add the **Background Modes** capability and tick "Location updates" —
    needed by the geolocation task; harmless to leave on.
 5. Pick a simulator (iPhone 15 Pro is a good default) and **Run**.
+
+## Safe area, notch, keyboard
+
+Audited during scaffolding — no additional iOS-specific CSS or screen
+changes were required. The web app already uses
+`env(safe-area-inset-*)` padding on `body` in
+`artifacts/driver/src/theme/global.css`, so notch / home-indicator
+spacing renders correctly inside the WKWebView. Keyboard behavior is
+configured via the `Keyboard` plugin block in `capacitor.config.ts`
+(`resize: "native"`, dark style), which avoids the white flash and
+content overlap that the default iOS keyboard causes.
 
 ## Branded icon & splash
 
@@ -99,7 +110,11 @@ deployment task).
 - `ios/App/App/App.entitlements` — push notification entitlement
 - `ios/App/App/Assets.xcassets/AppIcon.appiconset/` — app icon set
 - `ios/App/App/Assets.xcassets/Splash.imageset/` — splash images
-- `ios/App/Podfile` — not used (Capacitor 8 uses SwiftPM); ignore
+- Capacitor 8 uses Swift Package Manager — there is **no** `Podfile` and
+  no `App.xcworkspace`. Open `ios/App/App.xcodeproj` directly. Native
+  plugin dependencies (`@capacitor/app`, `status-bar`, `splash-screen`,
+  `keyboard`) are resolved via `ios/App/CapApp-SPM/Package.swift`,
+  which `cap sync ios` rewrites automatically.
 
 ## Troubleshooting
 
