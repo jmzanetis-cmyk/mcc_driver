@@ -29,6 +29,7 @@ import {
   type WatchHandle,
 } from '@/services/location';
 import { ensureWhileInUsePermission } from '@/services/location/permissionFlow';
+import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 
 const IDLE_BROADCAST_MS = 30_000;
 const IDLE_HIGH_ACCURACY = false;
@@ -168,7 +169,14 @@ export function LocationTracker() {
 
         broadcastRef.current = setInterval(() => {
           const loc = lastLocRef.current;
-          if (loc) void postLocation(driverId!, loc);
+          if (!loc) return;
+          // Skip the network round-trip while the device is offline —
+          // the watch keeps recording fixes locally, and the next tick
+          // after reconnect (or NetworkResyncBridge's invalidation)
+          // will push the latest position. Avoids burning battery on
+          // fetches that are guaranteed to fail in airplane mode.
+          if (!getNetworkStatus().online) return;
+          void postLocation(driverId!, loc);
         }, broadcastMs);
 
         logger.info('driver.location_tracking_started', { mode });

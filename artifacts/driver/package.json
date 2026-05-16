@@ -94,6 +94,7 @@
     "zustand": "^4.5.7"
   },
   "dependencies": {
+    "@capacitor/network": "^8.0.1",
     "@sentry/capacitor": "^4.0.0",
     "@sentry/react": "^10.43.0"
   }

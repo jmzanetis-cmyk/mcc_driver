@@ -43,7 +43,12 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
   weekStart.setHours(0, 0, 0, 0);
   const weekStartISO = weekStart.toISOString();
 
-  const { data: assignments } = await supabase
+  // NOTE: Both Supabase calls surface their `error` so React Query
+  // can flip `isError` and the EarningsScreen's retry UI actually
+  // fires on network drops / RLS failures. Swallowing the error
+  // here would resolve the query with an empty fallback and leave
+  // drivers staring at $0 earnings while offline.
+  const { data: assignments, error: assignmentsError } = await supabase
     .from('driver_assignments')
     .select(`
       ride_id, driver_payout_amount, completed_at,
@@ -57,12 +62,14 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
     .eq('status', 'completed')
     .order('completed_at', { ascending: false })
     .limit(100);
+  if (assignmentsError) throw assignmentsError;
 
-  const { data: driverData } = await supabase
+  const { data: driverData, error: driverError } = await supabase
     .from('drivers')
     .select('average_rating, total_rides_completed')
     .eq('id', driverId)
     .single();
+  if (driverError) throw driverError;
 
   const driver = driverData as unknown as DriverStats | null;
   const rows = (assignments ?? []) as unknown as AssignmentWithRide[];
@@ -131,6 +138,8 @@ export function useEarnings(driverId: string | null) {
     },
     recentRides: query.data?.recentRides ?? [],
     isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
     refreshEarnings: query.refetch,
   };
 }

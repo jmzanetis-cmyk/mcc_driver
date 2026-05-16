@@ -267,6 +267,16 @@ Links are wired from `SignInScreen` (footer), `ApplicationScreen`
   `resolveCallerDriver` (driver row) so any error captured later in the
   request lifecycle is grouped against the right account — ids only, no PII.
 
+## Network resilience (offline / flaky signal)
+
+- **Network status hook** — `artifacts/driver/src/hooks/useNetworkStatus.ts` exposes a singleton subscription that prefers the Capacitor Network plugin on native iOS and falls back to `navigator.onLine` + browser `online`/`offline` events on web. Also exports `getNetworkStatus()` for one-shot reads and `onNetworkRestored()` for offline → online edge callbacks.
+- **OfflineBanner** — `artifacts/driver/src/components/OfflineBanner.tsx` (mounted in `App.tsx`) shows a red "You're offline" bar while disconnected and a 2.5 s green "Back online" flash on reconnect. Respects `env(safe-area-inset-top)`.
+- **NetworkResyncBridge** — `artifacts/driver/src/components/NetworkResyncBridge.tsx` (mounted in `App.tsx`) listens for `onNetworkRestored`, invalidates every TanStack Query, and calls `supabase.realtime.connect()` to close any websocket back-off gap so missed ride offers / cancellations arrive within ~10 s of reconnect.
+- **TanStack Query defaults** — `QueryProvider.tsx`: `retry: 2` with exp-backoff (cap 8 s), `retryOnMount: true`, `refetchOnReconnect: true`, `staleTime: 30s`, `networkMode: 'offlineFirst'` (renders cached data while offline rather than holding spinners). Mutations: `retry: 1` with same backoff.
+- **Location broadcast pause** — `LocationTracker.tsx` checks `getNetworkStatus().online` inside its broadcast interval and skips the POST while offline. The watch keeps recording fixes locally; the next tick after reconnect pushes the latest position.
+- **Realtime auto-reconnect** — `supabase-js` keeps its own heartbeat / back-off, and `NetworkResyncBridge` nudges it on the offline → online edge. Existing `useRideRequests` / `useRideCancellation` subscriptions bind to the live socket via `realtimeManager`, so they pick up where they left off without remount.
+- **Out of scope** (deferred): full offline-first queued mutations, map tile caching.
+
 ## Production deployment
 
 End-to-end runbook lives in `docs/deployment.md` (managed Postgres provisioning + schema push, API server deploy + required secrets, iOS prod/staging build env vars, smoke-test loop, rollback, secret rotation). Quick pointers:

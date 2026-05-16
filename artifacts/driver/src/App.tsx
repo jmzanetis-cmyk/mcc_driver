@@ -29,6 +29,8 @@ import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
 import { SupportScreen as LegalSupportScreen } from '@/screens/legal/SupportScreen';
 import { EnvBadge } from '@/components/EnvBadge';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { NetworkResyncBridge } from '@/components/NetworkResyncBridge';
 
 function AuthRedirect() {
   const { isLoading, isAuthenticated, driver } = useAuth();
@@ -96,6 +98,8 @@ export default function App() {
         <AuthProvider>
           <ActiveRideWatcher />
           <LocationTracker />
+          <NetworkResyncBridge />
+          <OfflineBanner />
           <EnvBadge />
           <Routes>
             <Route path="/signin" element={<SignInScreen />} />

@@ -19,7 +19,7 @@ type Period = 'today' | 'week' | 'all';
 export function EarningsScreen() {
   const navigate = useNavigate();
   const { driver } = useAuth();
-  const { summary, recentRides, isLoading } = useEarnings(driver?.id || null);
+  const { summary, recentRides, isLoading, isError, refreshEarnings } = useEarnings(driver?.id || null);
   const [period, setPeriod] = useState<Period>('week');
 
   const filteredRides = recentRides.filter(ride => {
@@ -125,6 +125,25 @@ export function EarningsScreen() {
           <div style={{ textAlign: 'center', padding: 32 }}>
             <Spinner color={colors.textMuted} />
           </div>
+        ) : isError ? (
+          <Card padding={24}>
+            <div style={{ textAlign: 'center', color: colors.textMuted }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
+              <div style={{ fontSize: 14, marginBottom: 12 }}>
+                Couldn't load your earnings. Check your connection and try again.
+              </div>
+              <button
+                onClick={() => { void refreshEarnings(); }}
+                style={{
+                  padding: '10px 20px', background: colors.navy, color: colors.textWhite,
+                  border: 'none', borderRadius: borderRadius.full,
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </Card>
         ) : filteredRides.length === 0 ? (
           <Card padding={24}>
             <div style={{ textAlign: 'center', color: colors.textMuted }}>
