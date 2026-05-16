@@ -19,7 +19,13 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: process.env.DRIVER_TEST_BASE_URL ?? 'http://localhost:80/driver',
+    // Trailing slash is significant: paths in specs are written as
+    // `signin`, `legal/privacy`, etc. (relative). An absolute path like
+    // `/signin` would resolve to `http://localhost:80/signin`, escaping
+    // the `/driver` prefix and landing on the marketing artifact's
+    // 404 — which is how the first baselines were silently generated
+    // against the wrong page.
+    baseURL: process.env.DRIVER_TEST_BASE_URL ?? 'http://localhost:80/driver/',
     trace: 'retain-on-failure',
   },
   expect: {

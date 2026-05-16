@@ -14,13 +14,17 @@ import { test, expect, type Page } from '@playwright/test';
 
 type Theme = 'light' | 'dark';
 
+// Paths are RELATIVE (no leading slash) so they resolve against
+// `baseURL` (`http://localhost:80/driver/`) and stay inside the
+// driver artifact. A leading `/` would escape the prefix and hit
+// the marketing artifact at the project root.
 const SCREENS: Array<{ name: string; path: string }> = [
-  { name: 'signin', path: '/signin' },
-  { name: 'apply', path: '/apply' },
-  { name: 'pending', path: '/pending' },
-  { name: 'privacy', path: '/legal/privacy' },
-  { name: 'terms', path: '/legal/terms' },
-  { name: 'support', path: '/legal/support' },
+  { name: 'signin', path: 'signin' },
+  { name: 'apply', path: 'apply' },
+  { name: 'pending', path: 'pending' },
+  { name: 'privacy', path: 'legal/privacy' },
+  { name: 'terms', path: 'legal/terms' },
+  { name: 'support', path: 'legal/support' },
 ];
 
 async function gotoStable(page: Page, path: string, theme: Theme): Promise<void> {
