@@ -11,6 +11,7 @@ import payoutsRouter from "./payouts";
 import deviceTokensRouter from "./deviceTokens";
 import devPushTestRouter from "./devPushTest";
 import driverLocationRouter from "./driverLocation";
+import driverAccountRouter from "./driverAccount";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(payoutsRouter);
 router.use(deviceTokensRouter);
 router.use(devPushTestRouter);
 router.use(driverLocationRouter);
+router.use(driverAccountRouter);
 
 export default router;

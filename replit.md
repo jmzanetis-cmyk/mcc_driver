@@ -129,6 +129,55 @@ Key files:
 - `scripts/src/send-test-push.ts` — smoke test (`pnpm --filter @workspace/scripts run send-test-push -- --driver <id>`) that hits `POST /api/dev/push-test`; use to verify delivery in foreground / background / killed states on a real device.
 - `artifacts/driver/ios/README.md` — Mac-side build, signing, and Xcode workflow
 
+## Account deletion (App Store 5.1.1(v))
+
+Drivers can permanently delete their account from Settings → Delete Account
+(two-step confirmation; the second step requires typing `DELETE`).
+
+- Endpoint: `DELETE /api/drivers/me` — Supabase Bearer auth. Implemented in
+  `artifacts/api-server/src/routes/driverAccount.ts`.
+- **Preflight** (returns HTTP 409 with `reason: 'active_ride' | 'pending_payout'`):
+  - Active ride: any `driver_assignments` row with status in
+    `accepted | en_route | arrived | in_progress` blocks deletion.
+  - Pending payout: any `driver_payouts.status = 'pending'` row blocks
+    deletion. **Policy choice:** we BLOCK rather than auto-forfeit or
+    auto-pay so the Stripe webhook can still reconcile the in-flight
+    transfer to the driver row. Driver must wait for the payout to settle
+    (or cancel it) before retrying.
+- **Anonymize (don't hard-delete) strategy** — the `drivers` row is preserved
+  so FKs from `rides`, `driver_assignments`, `driver_payouts`, and
+  `driver_audit_log` keep resolving for historical / accounting integrity.
+  - Scrubbed to `[deleted]` (notNull text columns): `first_name`,
+    `last_name`, `email`, `phone`.
+  - `user_id` (notNull) is replaced with a sentinel `deleted:<driverId>`
+    so it cannot collide with any future Supabase auth uid.
+  - Set to NULL: `profile_photo_url`, `license_document_path`,
+    `insurance_document_path`, `document_rejection_reason`,
+    `stripe_account_id`, `current_lat/lng`, `location_updated_at`,
+    `preferred_partner_id`.
+  - Flipped: `status = 'deleted'`, `is_online = false`,
+    `can_drive_member_vehicle/can_do_rideshare/can_do_delivery = false`
+    (so dispatch + admin active lists exclude the row).
+- **Retained for accounting** — `id`, `created_at`, `total_rides_completed`,
+  `average_rating`, `completion_rate`, `background_check_passed`, plus all
+  child rows in `rides`, `driver_assignments`, `driver_payouts`,
+  `driver_audit_log`.
+- **Audit trail** — a `driver_audit_log` row is inserted in the same
+  transaction with `action = 'self_delete'`,
+  `admin_email = <driver's own pre-anon email lowercased>`,
+  `resulting_status = 'deleted'`.
+- **Supabase auth user** is hard-deleted via
+  `supabaseAdmin.auth.admin.deleteUser(userId)` after the local anonymize
+  transaction commits. This also revokes outstanding sessions, and frees
+  the phone number so the same number can re-register cleanly and create a
+  brand-new driver row.
+- **Client cleanup** on success: TanStack Query cache cleared, `mcc_*`
+  localStorage keys removed, `supabase.auth.signOut()` invoked, and
+  navigation forced to `/` (welcome).
+
+Out of scope (separate tasks if needed): admin-initiated soft-delete tooling
+and a GDPR / CCPA data-export endpoint.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details

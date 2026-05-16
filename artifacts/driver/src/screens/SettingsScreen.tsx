@@ -15,16 +15,28 @@ import {
   savePreferredPartner,
   clearPreferredPartner,
   updateDriverServices,
+  deleteMyAccount,
   type PartnerLookupResult,
+  type DeleteAccountBlocked,
 } from '@/services/api/edgeFunctions';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/services/supabase/client';
 
 const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 
 export function SettingsScreen() {
   const navigate = useNavigate();
   const { driver, signOut } = useAuth();
+  const queryClient = useQueryClient();
   const [preferredNav, setPreferredNav] = useState<NavApp>('google_maps');
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+
+  // Delete-account two-step state. Step 1 = "are you sure"; step 2 = type CONFIRM.
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
+  const [deleteTyped, setDeleteTyped] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteBlocked, setDeleteBlocked] = useState<DeleteAccountBlocked | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Known Partner state
   const [partnerEmail, setPartnerEmail] = useState('');
@@ -70,6 +82,63 @@ export function SettingsScreen() {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const openDeleteFlow = () => {
+    setDeleteBlocked(null);
+    setDeleteError(null);
+    setDeleteTyped('');
+    setDeleteStep(1);
+  };
+
+  const closeDeleteFlow = () => {
+    if (deleting) return;
+    setDeleteStep(0);
+    setDeleteBlocked(null);
+    setDeleteError(null);
+    setDeleteTyped('');
+  };
+
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await deleteMyAccount();
+    setDeleting(false);
+
+    if (result.success) {
+      // Clear all in-memory client state before bouncing to welcome:
+      //  - TanStack Query cache (driver + payout queries)
+      //  - Supabase session (revokes any locally cached tokens; the server
+      //    already deleted the auth user, but signOut() also tears down the
+      //    Zustand auth store via the AuthProvider listener)
+      //  - LocalStorage keys we own (preferred partner cache, nav prefs)
+      try { queryClient.clear(); } catch { /* ignore */ }
+      try {
+        // Strip any keys we wrote so the next phone-number sign-in starts fresh.
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('mcc_'))
+          .forEach((k) => localStorage.removeItem(k));
+      } catch { /* ignore */ }
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+      // signOut() above also fires onAuthStateChange → clear() in AuthProvider,
+      // but call signOut from useAuth as well for safety (it unregisters push).
+      try { await signOut(); } catch { /* ignore */ }
+      // Partial-success (HTTP 207): server anonymized the row but couldn't
+      // delete the Supabase auth user. Surface the warning before bouncing —
+      // the local sign-out above should still tear down the session, but the
+      // user deserves to know if anything server-side is still hanging on.
+      if (result.data.warning) {
+        try { window.alert(result.data.warning); } catch { /* ignore */ }
+      }
+      navigate('/', { replace: true });
+      return;
+    }
+
+    if ('blocked' in result) {
+      setDeleteBlocked(result.blocked);
+      return;
+    }
+    setDeleteError(result.error ?? 'Could not delete account. Please try again.');
   };
 
   const [servicesError, setServicesError] = useState<string | null>(null);
@@ -477,8 +546,141 @@ export function SettingsScreen() {
           Sign Out
         </Button>
 
+        {/* Delete account (App Store Guideline 5.1.1(v)) */}
+        <div style={{ marginTop: 12 }}>
+          <button
+            onClick={openDeleteFlow}
+            style={{
+              width: '100%', padding: '12px 0',
+              background: 'transparent',
+              border: `1px solid ${colors.error}`,
+              borderRadius: borderRadius.md,
+              cursor: 'pointer',
+              fontSize: 14, fontWeight: 600, color: colors.error,
+            }}
+          >
+            Delete Account
+          </button>
+          <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 6, textAlign: 'center' }}>
+            Permanently removes your profile. Ride history is kept for accounting.
+          </div>
+        </div>
+
         <div style={{ height: 40 }} /> {/* Bottom spacing */}
       </div>
+
+      {/* Delete account — two-step confirmation */}
+      {deleteStep > 0 && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 999,
+          background: colors.bgOverlay,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24,
+        }}>
+          <Card style={{ maxWidth: 360, width: '100%' }} padding={24}>
+            {deleteBlocked ? (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
+                  {deleteBlocked.reason === 'active_ride'
+                    ? 'Finish your current ride first'
+                    : 'Pending payout in progress'}
+                </div>
+                <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
+                  {deleteBlocked.message}
+                  {deleteBlocked.reason === 'pending_payout' &&
+                    deleteBlocked.pendingPayoutAmount !== undefined && (
+                      <div style={{ marginTop: 8, color: colors.warning, fontWeight: 600 }}>
+                        Pending amount: ${deleteBlocked.pendingPayoutAmount.toFixed(2)}
+                      </div>
+                    )}
+                </div>
+                <Button onClick={closeDeleteFlow} variant="secondary" fullWidth>
+                  OK
+                </Button>
+              </>
+            ) : deleteStep === 1 ? (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
+                  Delete your account?
+                </div>
+                <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 16 }}>
+                  This permanently removes your profile from My Car Concierge.
+                </div>
+                <ul style={{ fontSize: 13, color: colors.textPrimary, paddingLeft: 18, margin: '0 0 16px' }}>
+                  <li style={{ marginBottom: 6 }}>You will stop receiving ride requests immediately.</li>
+                  <li style={{ marginBottom: 6 }}>Any pending payouts will stop.</li>
+                  <li style={{ marginBottom: 6 }}>Your name, contact info, and documents are erased.</li>
+                  <li>To drive again you'll have to reapply from scratch.</li>
+                </ul>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <Button onClick={closeDeleteFlow} variant="secondary" style={{ flex: 1 }}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => setDeleteStep(2)} variant="danger" style={{ flex: 1 }}>
+                    Continue
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 600, color: colors.error, marginBottom: 8 }}>
+                  Type DELETE to confirm
+                </div>
+                <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 12 }}>
+                  This cannot be undone. Type <b>DELETE</b> below to permanently
+                  remove your account.
+                </div>
+                <input
+                  type="text"
+                  value={deleteTyped}
+                  onChange={(e) => setDeleteTyped(e.target.value)}
+                  placeholder="DELETE"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  disabled={deleting}
+                  style={{
+                    width: '100%', padding: '10px 12px',
+                    borderRadius: borderRadius.sm,
+                    border: `1px solid ${colors.border}`,
+                    fontSize: 14, background: colors.bgCard,
+                    color: colors.textPrimary, outline: 'none',
+                    marginBottom: 12,
+                  }}
+                />
+                {deleteError && (
+                  <div style={{
+                    padding: '8px 12px',
+                    background: colors.errorBg ?? 'rgba(220,53,69,0.08)',
+                    borderRadius: borderRadius.sm,
+                    fontSize: 12, color: colors.error,
+                    marginBottom: 12,
+                  }}>
+                    {deleteError}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <Button
+                    onClick={closeDeleteFlow}
+                    variant="secondary"
+                    style={{ flex: 1 }}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => void handleConfirmDelete()}
+                    variant="danger"
+                    style={{ flex: 1 }}
+                    disabled={deleting || deleteTyped.trim().toUpperCase() !== 'DELETE'}
+                  >
+                    {deleting ? 'Deleting…' : 'Delete Account'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* Sign out confirmation */}
       {showSignOutConfirm && (

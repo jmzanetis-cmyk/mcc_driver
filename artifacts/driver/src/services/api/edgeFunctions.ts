@@ -389,6 +389,81 @@ export async function requestTandemRematch(
   );
 }
 
+// ── Driver self-service account deletion ──────────────────────────────────────
+
+export interface DeleteAccountSuccess {
+  success: true;
+  anonymized: boolean;
+  authDeleted: boolean;
+  warning?: string;
+}
+
+export interface DeleteAccountBlocked {
+  reason: 'active_ride' | 'pending_payout';
+  message: string;
+  activeAssignmentCount?: number;
+  pendingPayoutCount?: number;
+  pendingPayoutAmount?: number;
+}
+
+/**
+ * Permanently delete the signed-in driver's account.
+ *
+ * Server-side this anonymizes the local `drivers` row (preserving FK integrity
+ * for rides + payouts), deletes the Supabase auth user (revoking sessions),
+ * and writes a `driver_audit_log` `self_delete` entry.
+ *
+ * Returns:
+ *   - { success: true, ... } on success
+ *   - { success: false, blocked: { reason: 'active_ride' | 'pending_payout', ... } }
+ *     when a preflight check fails (UI shows targeted copy)
+ *   - { success: false, error: string } for everything else
+ */
+export async function deleteMyAccount(): Promise<
+  | { success: true; data: DeleteAccountSuccess }
+  | { success: false; blocked: DeleteAccountBlocked }
+  | { success: false; error: string }
+> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  try {
+    const res = await fetch(`/api/drivers/me`, { method: 'DELETE', headers });
+    const json = (await res.json()) as Record<string, unknown>;
+
+    // 200 = full success, 207 = local row anonymized but auth-user delete
+    // failed (server has surfaced a `warning` field for the UI).
+    if (res.ok || res.status === 207) {
+      return { success: true, data: json as unknown as DeleteAccountSuccess };
+    }
+
+    const reason = json['reason'];
+    if (reason === 'active_ride' || reason === 'pending_payout') {
+      return {
+        success: false,
+        blocked: {
+          reason,
+          message: typeof json['message'] === 'string' ? (json['message'] as string) : 'Account deletion blocked.',
+          activeAssignmentCount: typeof json['activeAssignmentCount'] === 'number' ? (json['activeAssignmentCount'] as number) : undefined,
+          pendingPayoutCount: typeof json['pendingPayoutCount'] === 'number' ? (json['pendingPayoutCount'] as number) : undefined,
+          pendingPayoutAmount: typeof json['pendingPayoutAmount'] === 'number' ? (json['pendingPayoutAmount'] as number) : undefined,
+        },
+      };
+    }
+
+    const errMsg = typeof json['error'] === 'string' ? (json['error'] as string) : `HTTP ${res.status}`;
+    logger.error('account.delete.error', { status: res.status, error: errMsg });
+    return { success: false, error: errMsg };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Network error';
+    logger.error('account.delete.network_error', { error: message });
+    return { success: false, error: message };
+  }
+}
+
 // ── Driver service capabilities ───────────────────────────────────────────────
 
 /**
