@@ -9,7 +9,7 @@
  *   Number" (Authentication → Providers → Phone → Test OTP) with a
  *   fixed 6-digit code. This script then:
  *     1. Creates (or finds) the matching Supabase auth user.
- *     2. Inserts (or upserts) a fully-approved driver row in local
+ *     2. Inserts (or refreshes) a fully-approved driver row in local
  *        Postgres so the reviewer can go online immediately after
  *        signing in — no admin approval step required.
  *
@@ -24,7 +24,11 @@
  *   VITE_SUPABASE_URL           — Supabase project URL
  *   SUPABASE_SERVICE_ROLE_KEY   — Supabase service role key
  *
- * Idempotent — safe to re-run before every submission.
+ * Idempotent — safe to re-run before every submission. The auth-user
+ * lookup pages through the full user list (not just the first page)
+ * and the create path treats "phone already exists" as a non-fatal
+ * second-lookup case so a race / replication lag can't make the
+ * script flap.
  */
 
 import pg from "pg";
@@ -44,6 +48,9 @@ const REVIEWER_LAST_NAME = process.env.REVIEWER_LAST_NAME ?? "Reviewer";
 const REVIEWER_EMAIL =
   process.env.REVIEWER_EMAIL ?? "appreview@mycarconcierge.com";
 
+// Supabase stores phones in E.164 without the leading "+".
+const PHONE_KEY = REVIEWER_PHONE.replace(/^\+/, "");
+
 async function ensureSupabaseUser(): Promise<string> {
   const supabase = createClient(
     requireEnv("VITE_SUPABASE_URL"),
@@ -51,14 +58,23 @@ async function ensureSupabaseUser(): Promise<string> {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  // Page through users until we find a phone match. listUsers is paged
-  // (default perPage 50) — for a single reviewer account 100 is plenty.
-  const { data: list, error: listErr } = await supabase.auth.admin.listUsers({
-    page: 1,
-    perPage: 200,
-  });
-  if (listErr) throw listErr;
-  const existing = list.users.find((u) => u.phone === REVIEWER_PHONE.replace(/^\+/, ""));
+  // Page through every user — listUsers default is 50/page, we use 200
+  // and walk until the returned page is short of perPage. Required for
+  // idempotency: if the reviewer already exists on page 4, page 1
+  // alone would miss them and we'd try to create a duplicate.
+  const findByPhone = async (): Promise<{ id: string } | null> => {
+    const perPage = 200;
+    for (let page = 1; page < 1000; page++) {
+      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (error) throw error;
+      const hit = data.users.find((u) => u.phone === PHONE_KEY);
+      if (hit) return { id: hit.id };
+      if (data.users.length < perPage) return null;
+    }
+    return null;
+  };
+
+  const existing = await findByPhone();
   if (existing) {
     console.log(`[ok] supabase auth user already exists: ${existing.id}`);
     return existing.id;
@@ -69,7 +85,19 @@ async function ensureSupabaseUser(): Promise<string> {
     phone_confirm: true,
     user_metadata: { reviewer: true },
   });
-  if (createErr) throw createErr;
+  if (createErr) {
+    // Most commonly "User already registered" if a concurrent
+    // operation beat us. Re-resolve by phone and use that id rather
+    // than failing — keeps the "safe to re-run" contract.
+    const conflict = await findByPhone();
+    if (conflict) {
+      console.log(
+        `[ok] supabase auth user resolved after create conflict: ${conflict.id}`,
+      );
+      return conflict.id;
+    }
+    throw createErr;
+  }
   if (!created.user) throw new Error("createUser returned no user");
   console.log(`[ok] created supabase auth user: ${created.user.id}`);
   return created.user.id;
@@ -79,30 +107,9 @@ async function upsertDriverRow(userId: string): Promise<void> {
   const client = new Client({ connectionString: requireEnv("DATABASE_URL") });
   await client.connect();
   try {
-    // Pre-approved, online-capable, but is_online=false so they have to
-    // toggle it themselves during the review walkthrough (matches the
-    // real first-launch behavior).
-    const sql = `
-      INSERT INTO drivers (
-        user_id, first_name, last_name, email, phone,
-        status, background_check_passed,
-        can_drive_member_vehicle, can_do_rideshare, can_do_delivery,
-        is_online
-      ) VALUES ($1,$2,$3,$4,$5,'active',true,true,true,true,false)
-      ON CONFLICT (user_id) DO UPDATE SET
-        first_name = EXCLUDED.first_name,
-        last_name  = EXCLUDED.last_name,
-        email      = EXCLUDED.email,
-        phone      = EXCLUDED.phone,
-        status     = 'active',
-        background_check_passed = true,
-        can_drive_member_vehicle = true,
-        can_do_rideshare = true,
-        can_do_delivery  = true
-      RETURNING id;
-    `;
-    // `user_id` does NOT have a unique constraint in the schema, so do a
-    // manual UPSERT path: select-then-update or insert.
+    // `drivers.user_id` has no unique constraint in the schema, so we
+    // can't use a single ON CONFLICT statement — do an explicit
+    // lookup + UPDATE or INSERT.
     const existing = await client.query<{ id: string }>(
       "SELECT id FROM drivers WHERE user_id = $1 LIMIT 1",
       [userId],
@@ -144,9 +151,6 @@ async function upsertDriverRow(userId: string): Promise<void> {
       );
       console.log(`[ok] inserted reviewer driver row: ${inserted.rows[0]!.id}`);
     }
-    // Silence the unused-SQL warning — kept above for readers who want
-    // to see the conceptual single-statement UPSERT.
-    void sql;
   } finally {
     await client.end();
   }
