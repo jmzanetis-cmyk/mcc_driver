@@ -7,7 +7,7 @@
 // ============================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, inArray, and, desc } from "drizzle-orm";
+import { eq, inArray, and, desc, notInArray } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@workspace/db";
 import { driversTable, ridesTable, driverAssignmentsTable } from "@workspace/db/schema";
@@ -278,6 +278,7 @@ router.get("/admin/rides", async (req: Request, res: Response): Promise<void> =>
   if (!admin) return;
 
   const statusParam = req.query["status"] as string | undefined;
+  const TERMINAL = ["completed", "cancelled", "dispatch_failed"];
 
   try {
     const rows = await db
@@ -296,7 +297,11 @@ router.get("/admin/rides", async (req: Request, res: Response): Promise<void> =>
         startedAt: ridesTable.startedAt,
       })
       .from(ridesTable)
-      .where(statusParam ? eq(ridesTable.status, statusParam) : undefined)
+      .where(
+        statusParam
+          ? eq(ridesTable.status, statusParam)
+          : notInArray(ridesTable.status, TERMINAL),
+      )
       .orderBy(desc(ridesTable.createdAt))
       .limit(200);
 

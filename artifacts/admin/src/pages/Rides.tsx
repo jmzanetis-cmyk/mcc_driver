@@ -50,13 +50,16 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
+const ALL_STATUS_SENTINEL = 'all';
+const TERMINAL_STATUSES = new Set(['completed', 'cancelled', 'dispatch_failed']);
+
 const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
+  { value: ALL_STATUS_SENTINEL, label: 'All statuses' },
   { value: 'pending_dispatch', label: 'Pending Dispatch' },
   { value: 'dispatched', label: 'Dispatched' },
-  { value: 'accepted', label: 'Accepted' },
-  { value: 'en_route', label: 'En Route' },
-  { value: 'arrived', label: 'Arrived' },
+  { value: 'driver_accepted', label: 'Driver Accepted' },
+  { value: 'driver_en_route', label: 'Driver En Route' },
+  { value: 'driver_arrived', label: 'Driver Arrived' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
@@ -66,9 +69,9 @@ const STATUS_OPTIONS = [
 const CANCELLABLE_STATUSES = new Set([
   'pending_dispatch',
   'dispatched',
-  'accepted',
-  'en_route',
-  'arrived',
+  'driver_accepted',
+  'driver_en_route',
+  'driver_arrived',
   'in_progress',
 ]);
 
@@ -159,12 +162,14 @@ export default function Rides() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(ALL_STATUS_SENTINEL);
   const [search, setSearch] = useState('');
 
+  const activeStatusParam = statusFilter !== ALL_STATUS_SENTINEL ? statusFilter : undefined;
+
   const { data: rides, isLoading, isError, error, refetch, isFetching } = useListAdminRides(
-    statusFilter ? { status: statusFilter } : {},
-    { query: { queryKey: getListAdminRidesQueryKey(statusFilter ? { status: statusFilter } : {}) } },
+    activeStatusParam ? { status: activeStatusParam } : {},
+    { query: { queryKey: getListAdminRidesQueryKey(activeStatusParam ? { status: activeStatusParam } : {}) } },
   );
 
   const isAuthError = isError && error instanceof Error && (
