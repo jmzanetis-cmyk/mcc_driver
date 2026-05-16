@@ -444,6 +444,64 @@ router.get(
   },
 );
 
+// ── GET /ride-along/eligible-broadcasts ──────────────────────────────────────
+// Authenticated ride-along driver fetches the list of currently-broadcast
+// tandem jobs the caller is eligible for. Eligibility reuses the same
+// computeEligibleDrivers() filters that the broadcast worker applies, so
+// declined jobs, busy-overlap jobs, and out-of-range jobs are excluded
+// server-side and clients can't see jobs they couldn't actually accept.
+
+router.get(
+  "/ride-along/eligible-broadcasts",
+  async (req: Request, res: Response): Promise<void> => {
+    const user = await requireUserAuth(req, res);
+    if (!user) return;
+    const partner = await resolveCallerRideAlongDriver(user, res);
+    if (!partner) return;
+
+    try {
+      const openJobs = await db
+        .select()
+        .from(tandemJobsTable)
+        .where(eq(tandemJobsTable.matchStatus, "broadcast"));
+
+      const visible: Array<{
+        id: string;
+        rideId: string;
+        providerId: string;
+        tandemMode: string;
+        matchStatus: string;
+        matchDeadline: string | null;
+        rideAlongFee: number | string | null;
+        matchedRideAlongDriverId: string | null;
+      }> = [];
+
+      for (const job of openJobs) {
+        const eligible = await computeEligibleDrivers(job.id);
+        if (eligible.some((r) => r.driver.id === partner.id)) {
+          visible.push({
+            id: job.id,
+            rideId: job.rideId,
+            providerId: job.providerId,
+            tandemMode: job.tandemMode,
+            matchStatus: job.matchStatus,
+            matchDeadline: job.matchDeadline
+              ? job.matchDeadline.toISOString()
+              : null,
+            rideAlongFee: job.rideAlongFee,
+            matchedRideAlongDriverId: job.matchedRideAlongDriverId,
+          });
+        }
+      }
+
+      res.json({ broadcasts: visible });
+    } catch (err) {
+      logger.error({ err }, "tandem.eligible_broadcasts failed");
+      res.status(500).json({ error: "Internal error" });
+    }
+  },
+);
+
 // ── GET /tandem-jobs/:id/match-detail ────────────────────────────────────────
 // PUBLIC (no auth) — used by the Member Approval deep link. Returns the
 // tandem job with the two driver summaries (provider + matched ride-along).

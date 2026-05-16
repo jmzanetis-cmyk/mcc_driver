@@ -1,9 +1,13 @@
 // ============================================================
 // MCC Driver — Tandem Broadcast Subscription Hook
 // ============================================================
-// Subscribes to Supabase Realtime postgres_changes on tandem_jobs and
-// maintains a live list of open broadcast jobs the ride-along driver
-// can accept. Mirrors the pattern in useRideRequests.ts.
+// Maintains a live list of open tandem broadcasts the ride-along
+// driver is eligible for. The list is sourced from an authenticated
+// server endpoint that applies all eligibility filters (verified,
+// distance, busy-overlap, decline exclusion) so the client only ever
+// sees jobs it could actually accept. Supabase Realtime postgres_changes
+// on `tandem_jobs` are used purely to invalidate the list and trigger
+// a re-fetch.
 //
 // Prerequisite: tandem_jobs must be in the supabase_realtime publication
 // — see scripts/sql/enable-tandem-jobs-realtime.sql.
@@ -12,6 +16,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { realtimeManager } from '@/services/realtime/realtimeManager';
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 export interface TandemBroadcastRow {
   id: string;
@@ -24,20 +30,6 @@ export interface TandemBroadcastRow {
   matchedRideAlongDriverId: string | null;
 }
 
-function mapRow(raw: Record<string, unknown>): TandemBroadcastRow {
-  return {
-    id: String(raw.id),
-    rideId: String(raw.ride_id ?? ''),
-    providerId: String(raw.provider_id ?? ''),
-    tandemMode: String(raw.tandem_mode ?? ''),
-    matchStatus: String(raw.match_status ?? ''),
-    matchDeadline: (raw.match_deadline as string | null) ?? null,
-    rideAlongFee: (raw.ride_along_fee as string | number | null) ?? null,
-    matchedRideAlongDriverId:
-      (raw.matched_ride_along_driver_id as string | null) ?? null,
-  };
-}
-
 interface UseTandemBroadcastsResult {
   broadcasts: TandemBroadcastRow[];
   isConnected: boolean;
@@ -45,30 +37,32 @@ interface UseTandemBroadcastsResult {
 }
 
 /**
- * Live list of open tandem broadcast jobs visible to this ride-along driver.
- * The hook seeds from a one-time fetch and then keeps the list in sync via
- * postgres_changes events. Enabled-flag gates the subscription so the
- * dashboard can opt out (e.g. when the driver is offline).
+ * Live, server-filtered list of tandem broadcasts the caller is eligible for.
  */
 export function useTandemBroadcasts(enabled: boolean): UseTandemBroadcastsResult {
   const [broadcasts, setBroadcasts] = useState<TandemBroadcastRow[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
   const refresh = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('tandem_jobs')
-      .select(
-        'id, ride_id, provider_id, tandem_mode, match_status, match_deadline, ride_along_fee, matched_ride_along_driver_id',
-      )
-      .eq('match_status', 'broadcast')
-      .order('match_deadline', { ascending: true });
-
-    if (error) {
-      console.error('[useTandemBroadcasts] initial fetch failed', error);
-      return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setBroadcasts([]);
+        return;
+      }
+      const res = await fetch(`${BASE}/api/ride-along/eligible-broadcasts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        console.error('[useTandemBroadcasts] fetch failed', res.status);
+        return;
+      }
+      const data = await res.json() as { broadcasts: TandemBroadcastRow[] };
+      setBroadcasts(data.broadcasts ?? []);
+    } catch (e) {
+      console.error('[useTandemBroadcasts] fetch error', e);
     }
-
-    setBroadcasts((data ?? []).map((r) => mapRow(r as Record<string, unknown>)));
   }, []);
 
   useEffect(() => {
@@ -81,29 +75,15 @@ export function useTandemBroadcasts(enabled: boolean): UseTandemBroadcastsResult
 
     void refresh();
 
+    // Use Realtime purely as a cheap change signal — re-fetch the
+    // server-filtered list on any tandem_jobs INSERT/UPDATE so the
+    // client never bypasses the eligibility checks.
     const channel = supabase
       .channel('tandem-broadcasts')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'tandem_jobs' },
-        (payload) => {
-          const row = mapRow(payload.new as Record<string, unknown>);
-          if (row.matchStatus !== 'broadcast') return;
-          setBroadcasts((prev) =>
-            prev.some((b) => b.id === row.id) ? prev : [...prev, row],
-          );
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'tandem_jobs' },
-        (payload) => {
-          const row = mapRow(payload.new as Record<string, unknown>);
-          setBroadcasts((prev) => {
-            const without = prev.filter((b) => b.id !== row.id);
-            return row.matchStatus === 'broadcast' ? [...without, row] : without;
-          });
-        },
+        { event: '*', schema: 'public', table: 'tandem_jobs' },
+        () => { void refresh(); },
       )
       .subscribe((status) => {
         setIsConnected(status === 'SUBSCRIBED');
