@@ -13,6 +13,7 @@ import devPushTestRouter from "./devPushTest";
 import driverLocationRouter from "./driverLocation";
 import driverAccountRouter from "./driverAccount";
 import debugThrowRouter from "./debugThrow";
+import appStatusRouter from "./appStatus";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(devPushTestRouter);
 router.use(driverLocationRouter);
 router.use(driverAccountRouter);
 router.use(debugThrowRouter);
+router.use(appStatusRouter);
 
 export default router;

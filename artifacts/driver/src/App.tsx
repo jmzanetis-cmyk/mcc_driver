@@ -31,6 +31,7 @@ import { SupportScreen as LegalSupportScreen } from '@/screens/legal/SupportScre
 import { EnvBadge } from '@/components/EnvBadge';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NetworkResyncBridge } from '@/components/NetworkResyncBridge';
+import { AppStatusBridge } from '@/components/AppStatusBridge';
 
 function AuthRedirect() {
   const { isLoading, isAuthenticated, driver } = useAuth();
@@ -101,6 +102,7 @@ export default function App() {
           <NetworkResyncBridge />
           <OfflineBanner />
           <EnvBadge />
+          <AppStatusBridge>
           <Routes>
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/apply" element={<ApplicationScreen />} />
@@ -127,6 +129,7 @@ export default function App() {
             <Route path="/legal/support" element={<LegalSupportScreen />} />
             <Route path="*" element={<AuthRedirect />} />
           </Routes>
+          </AppStatusBridge>
         </AuthProvider>
       </QueryProvider>
     </BrowserRouter>

@@ -49,6 +49,15 @@ function resolveRelease(): string {
 }
 
 const release = resolveRelease();
+
+// Read package.json once at config-evaluation time so the version is
+// available for the `__APP_VERSION__` define (used by the kill-switch /
+// forced-update flow on web/dev builds — native iOS reads from the
+// bundle via Capacitor App.getInfo()).
+const pkgManifest = JSON.parse(
+  readFileSync(path.resolve(import.meta.dirname, "package.json"), "utf8"),
+) as { version?: string };
+
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 const sentryOrg = process.env.SENTRY_ORG;
 const sentryProject = process.env.SENTRY_PROJECT;
@@ -57,6 +66,11 @@ export default defineConfig({
   base: basePath,
   define: {
     __SENTRY_RELEASE__: JSON.stringify(release),
+    // Exposed to runtime so the app-status / forced-update flow can
+    // compare the running version against the server's minimum. On
+    // native iOS we prefer Capacitor App.getInfo(); this is the
+    // web/dev fallback.
+    __APP_VERSION__: JSON.stringify(pkgManifest.version ?? "0.0.0"),
     // Expose VITE_API_BASE_URL + VITE_APP_ENV through import.meta.env so
     // `services/api/baseUrl.ts` can pick the right API origin per build
     // (web preview vs native iOS prod/staging). Both are deliberately

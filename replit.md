@@ -277,6 +277,44 @@ Links are wired from `SignInScreen` (footer), `ApplicationScreen`
 - **Realtime auto-reconnect** — `supabase-js` keeps its own heartbeat / back-off, and `NetworkResyncBridge` nudges it on the offline → online edge. Existing `useRideRequests` / `useRideCancellation` subscriptions bind to the live socket via `realtimeManager`, so they pick up where they left off without remount.
 - **Out of scope** (deferred): full offline-first queued mutations, map tile caching.
 
+## Remote kill switch & forced update
+
+Single-row `app_config` table (id = `'global'`) drives a server-side kill switch
+that can block outdated builds and surface an outage banner without a redeploy.
+
+- **Schema** — `app_config` in `lib/db/src/schema/index.ts`
+  (`minSupportedVersion`, `latestVersion`, `outageMessage`, `appStoreUrl`,
+  `updatedAt`, `updatedBy`). Push with `pnpm --filter @workspace/db run push`.
+- **Public endpoint** — `GET /api/app/status` (no auth) returns the four
+  fields with `Cache-Control: public, max-age=60`. Fail-soft: if the row is
+  missing or the DB errors, the server returns permissive defaults
+  (`minSupportedVersion: "0.0.0"`, no outage) so a DB blip can never lock
+  every driver out of the app.
+- **Admin endpoints** — `GET/PUT /api/admin/app-config` (admin Supabase
+  Bearer). PUT body validated with Zod (semver regex on the version fields,
+  optional outage text + App Store URL).
+- **Admin UI** — `artifacts/admin/src/pages/AppConfig.tsx`, mounted at
+  `/app-config` and linked from the existing top-tab nav.
+- **Driver client** — `services/appStatus/` (fetch + zustand store + semver
+  compare + version resolver via Capacitor `App.getInfo()` on native,
+  `__APP_VERSION__` Vite define on web), `components/AppStatusBridge.tsx`
+  wraps `<Routes>` in `App.tsx`. On launch and on app resume
+  (`appStateChange` on native, `visibilitychange` on web) it re-fetches
+  `/api/app/status`. When `currentVersion < minSupportedVersion` AND both
+  are known (never on the cold first frame), it renders the full-screen
+  `ForcedUpdateScreen` over the entire router; the single CTA opens the
+  App Store via `window.open(_blank)` (works for `apps.apple.com` URLs
+  on both web and Capacitor iOS).
+- **Outage banner** — `components/OutageBanner.tsx` is mounted alongside
+  `OfflineBanner`; self-hides when `outageMessage` is null, uses
+  `colors.warning` (amber) so it's visually distinct from the red offline
+  banner.
+- **Propagation latency** — up to ~60 s (server cache) + client refetch
+  interval. "Resume to re-fetch" makes the worst case for an already-open
+  app the next foreground.
+- **Out of scope** — full feature-flag system, per-driver targeting, soft
+  "update available" nudge UI.
+
 ## Production deployment
 
 End-to-end runbook lives in `docs/deployment.md` (managed Postgres provisioning + schema push, API server deploy + required secrets, iOS prod/staging build env vars, smoke-test loop, rollback, secret rotation). Quick pointers:

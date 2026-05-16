@@ -350,6 +350,34 @@ export const deviceTokensTable = pgTable(
 );
 
 export type DeviceToken = typeof deviceTokensTable.$inferSelect;
+
+// ── App Config (kill switch + forced update) ─────────────────────────────────
+// Single-row config table powering GET /api/app/status. Admins can flip the
+// kill switch (outageMessage) or bump minSupportedVersion without a redeploy.
+// We keep one canonical row keyed by id='global'. id is text (not uuid) so the
+// constant is human-readable and stable across environments.
+
+export const appConfigTable = pgTable("app_config", {
+  id: text("id").primaryKey().default("global"),
+  // Minimum app version a client is allowed to run. Clients on a lower
+  // semver MUST be force-updated. Defaults to "0.0.0" so we never accidentally
+  // brick all installs before an admin sets a real value.
+  minSupportedVersion: text("min_supported_version").notNull().default("0.0.0"),
+  // Most recent shipped version. Informational — surfaces in the admin UI
+  // and the client can use it for "update available" nudges later.
+  latestVersion: text("latest_version").notNull().default("0.0.0"),
+  // When non-null + non-empty, a non-dismissable banner is shown app-wide.
+  // Use sparingly — this is the incident kill switch surface.
+  outageMessage: text("outage_message"),
+  // App Store listing URL — opened by the forced-update button. Stored in
+  // DB so it can be swapped after launch without a client redeploy.
+  appStoreUrl: text("app_store_url"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  // Email of the admin who last edited (audit breadcrumb).
+  updatedBy: text("updated_by"),
+});
+
+export type AppConfig = typeof appConfigTable.$inferSelect;
 export const insertDeviceTokenSchema = createInsertSchema(deviceTokensTable).omit({
   id: true,
   createdAt: true,
