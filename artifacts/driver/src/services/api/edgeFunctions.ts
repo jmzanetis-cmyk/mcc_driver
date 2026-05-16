@@ -417,7 +417,7 @@ export interface DeleteAccountBlocked {
  *
  * Returns:
  *   - { success: true, ... } on success
- *   - { success: false, blocked: { reason: 'active_ride' | 'pending_payout', ... } }
+ *   - { success: false, blocked: { reason: 'active_ride' | 'pending_payout' | 'unpaid_balance', ... } }
  *     when a preflight check fails (UI shows targeted copy)
  *   - { success: false, error: string } for everything else
  */
