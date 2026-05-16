@@ -572,6 +572,14 @@ paths:
             type: string
             default: pending_approval
           description: Filter by driver status
+        - name: reviewerEmail
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            If provided, only return drivers whose most recent audit log entry
+            was written by this admin email (case-insensitive).
       responses:
         "200":
           description: Driver list
@@ -581,6 +589,75 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AdminDriverRecord"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/drivers/{driverId}/audit-log:
+    get:
+      operationId: getDriverAuditLog
+      tags: [admin]
+      summary: Get the full activity history for a driver
+      description: |
+        Returns all admin actions taken against this driver, newest first.
+        Each entry includes the admin's email, the action, the resulting
+        status (if any), and an optional reason.
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DriverAuditLogEntry"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/reviewers:
+    get:
+      operationId: listAdminReviewers
+      tags: [admin]
+      summary: List admin emails that have reviewed at least one driver
+      description: |
+        Returns the distinct set of admin emails that appear in the driver
+        audit log. Used to populate the "Filter by reviewer" dropdown on
+        the driver list page.
+      responses:
+        "200":
+          description: Reviewer list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
         "401":
           description: Unauthorized
           content:
@@ -1799,6 +1876,33 @@ components:
         - chargesEnabled
         - payoutsEnabled
         - hasDebitCard
+
+    DriverAuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        action:
+          type: string
+          description: One of 'approve' | 'reject' | 'reject_documents' | 'clear_document_rejection'
+        adminEmail:
+          type: string
+        resultingStatus:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - driverId
+        - action
+        - adminEmail
+        - createdAt
 
     AdminActionResult:
       type: object

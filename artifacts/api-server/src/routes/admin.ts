@@ -7,10 +7,10 @@
 // ============================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, inArray, and, desc, notInArray, isNotNull, asc } from "drizzle-orm";
+import { eq, inArray, and, desc, notInArray, isNotNull, asc, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@workspace/db";
-import { driversTable, ridesTable, driverAssignmentsTable } from "@workspace/db/schema";
+import { driversTable, ridesTable, driverAssignmentsTable, driverAuditLogTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { requireAdminAuth } from "../lib/adminAuth";
 import { sendDriverApprovedEmail, sendDriverRejectedEmail } from "../lib/email";
@@ -28,6 +28,11 @@ const RejectDriverBody = z.object({
 
 const router: IRouter = Router();
 
+// All admin mutation endpoints below wrap the driver status change and the
+// matching driver_audit_log insert in a single db.transaction so a failed
+// audit write rolls back the status change. Audit persistence is a hard
+// requirement of the task and must never silently fail.
+
 // ── GET /api/admin/drivers ────────────────────────────────────────────────────
 
 router.get("/admin/drivers", async (req: Request, res: Response): Promise<void> => {
@@ -35,8 +40,32 @@ router.get("/admin/drivers", async (req: Request, res: Response): Promise<void> 
   if (!admin) return;
 
   const status = typeof req.query["status"] === "string" ? req.query["status"] : "pending_approval";
+  const reviewerEmailParam = typeof req.query["reviewerEmail"] === "string"
+    ? req.query["reviewerEmail"].trim().toLowerCase()
+    : "";
 
   try {
+    let driverIdFilter: string[] | null = null;
+    if (reviewerEmailParam) {
+      // Match the contract: only drivers whose MOST RECENT audit entry was
+      // written by this reviewer. Uses DISTINCT ON to pick the latest row
+      // per driver_id, then keeps only those where that latest admin email
+      // equals the requested reviewer.
+      const reviewerRows = await db.execute<{ driver_id: string }>(sql`
+        SELECT driver_id FROM (
+          SELECT DISTINCT ON (driver_id) driver_id, admin_email
+          FROM ${driverAuditLogTable}
+          ORDER BY driver_id, created_at DESC
+        ) latest
+        WHERE latest.admin_email = ${reviewerEmailParam}
+      `);
+      driverIdFilter = reviewerRows.rows.map((r) => r.driver_id);
+      if (driverIdFilter.length === 0) {
+        res.json([]);
+        return;
+      }
+    }
+
     const drivers = await db
       .select({
         id: driversTable.id,
@@ -58,10 +87,17 @@ router.get("/admin/drivers", async (req: Request, res: Response): Promise<void> 
         createdAt: driversTable.createdAt,
       })
       .from(driversTable)
-      .where(eq(driversTable.status, status))
+      .where(
+        driverIdFilter
+          ? and(eq(driversTable.status, status), inArray(driversTable.id, driverIdFilter))
+          : eq(driversTable.status, status),
+      )
       .orderBy(driversTable.createdAt);
 
-    req.log.info({ status, count: drivers.length }, "admin.drivers.list");
+    req.log.info(
+      { status, count: drivers.length, reviewerEmail: reviewerEmailParam || undefined },
+      "admin.drivers.list",
+    );
 
     res.json(
       drivers.map((d) => ({
@@ -99,16 +135,29 @@ router.post("/admin/drivers/:driverId/approve", async (req: Request, res: Respon
   const driverId = String(req.params["driverId"]);
 
   try {
-    const [updated] = await db
-      .update(driversTable)
-      .set({ status: "active" })
-      .where(eq(driversTable.id, driverId))
-      .returning({
-        id: driversTable.id,
-        status: driversTable.status,
-        email: driversTable.email,
-        firstName: driversTable.firstName,
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(driversTable)
+        .set({ status: "active" })
+        .where(eq(driversTable.id, driverId))
+        .returning({
+          id: driversTable.id,
+          status: driversTable.status,
+          email: driversTable.email,
+          firstName: driversTable.firstName,
+        });
+
+      if (!row) return null;
+
+      await tx.insert(driverAuditLogTable).values({
+        driverId,
+        action: "approve",
+        adminEmail: admin.email!.trim().toLowerCase(),
+        resultingStatus: row.status,
       });
+
+      return row;
+    });
 
     if (!updated) {
       res.status(404).json({ error: "Driver not found" });
@@ -157,16 +206,30 @@ router.post("/admin/drivers/:driverId/reject", async (req: Request, res: Respons
   const { reason } = parsed.data;
 
   try {
-    const [updated] = await db
-      .update(driversTable)
-      .set({ status: "inactive" })
-      .where(eq(driversTable.id, driverId))
-      .returning({
-        id: driversTable.id,
-        status: driversTable.status,
-        email: driversTable.email,
-        firstName: driversTable.firstName,
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(driversTable)
+        .set({ status: "inactive" })
+        .where(eq(driversTable.id, driverId))
+        .returning({
+          id: driversTable.id,
+          status: driversTable.status,
+          email: driversTable.email,
+          firstName: driversTable.firstName,
+        });
+
+      if (!row) return null;
+
+      await tx.insert(driverAuditLogTable).values({
+        driverId,
+        action: "reject",
+        adminEmail: admin.email!.trim().toLowerCase(),
+        resultingStatus: row.status,
+        reason,
       });
+
+      return row;
+    });
 
     if (!updated) {
       res.status(404).json({ error: "Driver not found" });
@@ -219,11 +282,25 @@ router.post("/admin/drivers/:driverId/reject-documents", async (req: Request, re
   const { reason } = parsed.data;
 
   try {
-    const [updated] = await db
-      .update(driversTable)
-      .set({ documentRejectionReason: reason })
-      .where(eq(driversTable.id, driverId))
-      .returning({ id: driversTable.id, status: driversTable.status });
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(driversTable)
+        .set({ documentRejectionReason: reason })
+        .where(eq(driversTable.id, driverId))
+        .returning({ id: driversTable.id, status: driversTable.status });
+
+      if (!row) return null;
+
+      await tx.insert(driverAuditLogTable).values({
+        driverId,
+        action: "reject_documents",
+        adminEmail: admin.email!.trim().toLowerCase(),
+        resultingStatus: row.status,
+        reason,
+      });
+
+      return row;
+    });
 
     if (!updated) {
       res.status(404).json({ error: "Driver not found" });
@@ -254,11 +331,24 @@ router.post("/admin/drivers/:driverId/clear-document-rejection", async (req: Req
   const driverId = String(req.params["driverId"]);
 
   try {
-    const [updated] = await db
-      .update(driversTable)
-      .set({ documentRejectionReason: null })
-      .where(eq(driversTable.id, driverId))
-      .returning({ id: driversTable.id, status: driversTable.status });
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(driversTable)
+        .set({ documentRejectionReason: null })
+        .where(eq(driversTable.id, driverId))
+        .returning({ id: driversTable.id, status: driversTable.status });
+
+      if (!row) return null;
+
+      await tx.insert(driverAuditLogTable).values({
+        driverId,
+        action: "clear_document_rejection",
+        adminEmail: admin.email!.trim().toLowerCase(),
+        resultingStatus: row.status,
+      });
+
+      return row;
+    });
 
     if (!updated) {
       res.status(404).json({ error: "Driver not found" });
@@ -567,6 +657,57 @@ router.post("/admin/rides/dispatch", async (req: Request, res: Response): Promis
     });
   } catch (err) {
     logger.error({ err }, "admin.rides.dispatch failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── GET /api/admin/drivers/:driverId/audit-log ───────────────────────────────
+
+router.get("/admin/drivers/:driverId/audit-log", async (req: Request, res: Response): Promise<void> => {
+  const admin = await requireAdminAuth(req, res);
+  if (!admin) return;
+
+  const driverId = String(req.params["driverId"]);
+
+  try {
+    const rows = await db
+      .select()
+      .from(driverAuditLogTable)
+      .where(eq(driverAuditLogTable.driverId, driverId))
+      .orderBy(desc(driverAuditLogTable.createdAt));
+
+    res.json(
+      rows.map((r) => ({
+        id: r.id,
+        driverId: r.driverId,
+        action: r.action,
+        adminEmail: r.adminEmail,
+        resultingStatus: r.resultingStatus ?? null,
+        reason: r.reason ?? null,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    );
+  } catch (err) {
+    logger.error({ err }, "admin.driver.audit-log failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── GET /api/admin/reviewers ──────────────────────────────────────────────────
+
+router.get("/admin/reviewers", async (req: Request, res: Response): Promise<void> => {
+  const admin = await requireAdminAuth(req, res);
+  if (!admin) return;
+
+  try {
+    const rows = await db
+      .selectDistinct({ email: driverAuditLogTable.adminEmail })
+      .from(driverAuditLogTable)
+      .orderBy(asc(driverAuditLogTable.adminEmail));
+
+    res.json(rows.map((r) => r.email));
+  } catch (err) {
+    logger.error({ err }, "admin.reviewers.list failed");
     res.status(500).json({ error: "Internal error" });
   }
 });

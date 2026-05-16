@@ -166,6 +166,19 @@ export interface StripeAccountStatus {
   hasDebitCard: boolean;
 }
 
+export interface DriverAuditLogEntry {
+  id: string;
+  driverId: string;
+  /** One of 'approve' | 'reject' | 'reject_documents' | 'clear_document_rejection' */
+  action: string;
+  adminEmail: string;
+  /** @nullable */
+  resultingStatus?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  createdAt: string;
+}
+
 export interface AdminActionResult {
   success: boolean;
   driverId: string;
@@ -436,6 +449,12 @@ export type ListAdminDriversParams = {
    * Filter by driver status
    */
   status?: string;
+  /**
+ * If provided, only return drivers whose most recent audit log entry
+was written by this admin email (case-insensitive).
+
+ */
+  reviewerEmail?: string;
 };
 
 export type ListAdminRidesParams = {

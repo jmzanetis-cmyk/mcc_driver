@@ -388,6 +388,12 @@ export const ListAdminDriversQueryParams = zod.object({
     .string()
     .default(listAdminDriversQueryStatusDefault)
     .describe("Filter by driver status"),
+  reviewerEmail: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "If provided, only return drivers whose most recent audit log entry\nwas written by this admin email (case-insensitive).\n",
+    ),
 });
 
 export const ListAdminDriversResponseItem = zod.object({
@@ -413,6 +419,46 @@ export const ListAdminDriversResponseItem = zod.object({
   createdAt: zod.string().nullish(),
 });
 export const ListAdminDriversResponse = zod.array(ListAdminDriversResponseItem);
+
+/**
+ * Returns all admin actions taken against this driver, newest first.
+Each entry includes the admin's email, the action, the resulting
+status (if any), and an optional reason.
+
+ * @summary Get the full activity history for a driver
+ */
+export const GetDriverAuditLogParams = zod.object({
+  driverId: zod.coerce.string().uuid(),
+});
+
+export const GetDriverAuditLogResponseItem = zod.object({
+  id: zod.string().uuid(),
+  driverId: zod.string().uuid(),
+  action: zod
+    .string()
+    .describe(
+      "One of 'approve' | 'reject' | 'reject_documents' | 'clear_document_rejection'",
+    ),
+  adminEmail: zod.string(),
+  resultingStatus: zod.string().nullish(),
+  reason: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const GetDriverAuditLogResponse = zod.array(
+  GetDriverAuditLogResponseItem,
+);
+
+/**
+ * Returns the distinct set of admin emails that appear in the driver
+audit log. Used to populate the "Filter by reviewer" dropdown on
+the driver list page.
+
+ * @summary List admin emails that have reviewed at least one driver
+ */
+export const ListAdminReviewersResponseItem = zod.string();
+export const ListAdminReviewersResponse = zod.array(
+  ListAdminReviewersResponseItem,
+);
 
 /**
  * Sets the driver's status to active.

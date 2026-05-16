@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import {
   useListAdminDrivers,
@@ -7,8 +7,10 @@ import {
   useRejectDriver,
   useRejectDriverDocuments,
   useClearDriverDocumentRejection,
+  useGetDriverAuditLog,
+  getGetDriverAuditLogQueryKey,
 } from '@workspace/api-client-react';
-import type { AdminDriverRecord } from '@workspace/api-client-react';
+import type { AdminDriverRecord, DriverAuditLogEntry } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabase';
@@ -49,9 +51,33 @@ import {
   Star,
   AlertTriangle,
   RotateCcw,
+  History,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+
+function actionLabel(action: string): string {
+  switch (action) {
+    case 'approve':
+      return 'Approved application';
+    case 'reject':
+      return 'Rejected application';
+    case 'reject_documents':
+      return 'Requested document resubmission';
+    case 'clear_document_rejection':
+      return 'Cleared document rejection';
+    default:
+      return action.replace(/_/g, ' ');
+  }
+}
+
+function formatTimestamp(iso: string): string {
+  try {
+    return format(new Date(iso), "MMM d, yyyy 'at' h:mm a");
+  } catch {
+    return iso;
+  }
+}
 
 function statusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   if (status === 'active') return 'default';
@@ -142,6 +168,10 @@ export default function DriverDetail() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
+  const { data: auditLog, isLoading: auditLoading } = useGetDriverAuditLog(id, {
+    query: { queryKey: getGetDriverAuditLogQueryKey(id), enabled: !!id },
+  });
+
   const { data: pendingDrivers, isLoading: pendingLoading } = useListAdminDrivers(
     { status: 'pending_approval' },
     { query: { queryKey: getListAdminDriversQueryKey({ status: 'pending_approval' }) } },
@@ -168,6 +198,7 @@ export default function DriverDetail() {
       onSuccess: () => {
         toast({ title: 'Driver approved', description: 'Driver status set to active.' });
         queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey() });
+        if (id) queryClient.invalidateQueries({ queryKey: getGetDriverAuditLogQueryKey(id) });
         setLocation('/drivers');
       },
       onError: (err) => {
@@ -184,6 +215,7 @@ export default function DriverDetail() {
           description: 'Driver status set to inactive and notification email sent.',
         });
         queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey() });
+        if (id) queryClient.invalidateQueries({ queryKey: getGetDriverAuditLogQueryKey(id) });
         setShowRejectDialog(false);
         setRejectReason('');
         setLocation('/drivers');
@@ -202,6 +234,7 @@ export default function DriverDetail() {
           description: 'The driver will see a rejection notice and be prompted to re-upload.',
         });
         queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey() });
+        if (id) queryClient.invalidateQueries({ queryKey: getGetDriverAuditLogQueryKey(id) });
         setShowRejectDocsDialog(false);
         setRejectDocsReason('');
       },
@@ -216,6 +249,7 @@ export default function DriverDetail() {
       onSuccess: () => {
         toast({ title: 'Rejection cleared', description: 'The document rejection notice has been removed.' });
         queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey() });
+        if (id) queryClient.invalidateQueries({ queryKey: getGetDriverAuditLogQueryKey(id) });
       },
       onError: (err) => {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -448,6 +482,66 @@ export default function DriverDetail() {
                   <DocumentLink path={driver.insuranceDocumentPath} label="Insurance Certificate" />
                   {driver.profilePhotoUrl && (
                     <DocumentLink path={driver.profilePhotoUrl} label="Profile Photo" />
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Activity / audit log */}
+              <Card className="md:col-span-2" data-testid="card-activity">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <History className="w-4 h-4 text-muted-foreground" />
+                    Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {auditLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  ) : !auditLog || auditLog.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">
+                      No admin actions have been recorded for this driver yet.
+                    </p>
+                  ) : (
+                    <ol className="relative border-l border-border ml-2 space-y-4">
+                      {auditLog.map((entry: DriverAuditLogEntry) => (
+                        <li
+                          key={entry.id}
+                          className="ml-4"
+                          data-testid={`audit-entry-${entry.id}`}
+                        >
+                          <span className="absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full bg-primary border-2 border-background" />
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium">
+                                {actionLabel(entry.action)}
+                                {entry.resultingStatus ? (
+                                  <span className="text-muted-foreground font-normal">
+                                    {' '}— status set to{' '}
+                                    <span className="font-medium">
+                                      {entry.resultingStatus.replace(/_/g, ' ')}
+                                    </span>
+                                  </span>
+                                ) : null}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                by <span className="font-medium">{entry.adminEmail}</span>
+                              </p>
+                              {entry.reason ? (
+                                <p className="text-sm mt-1.5 p-2 rounded bg-muted/50 border text-muted-foreground break-words">
+                                  {entry.reason}
+                                </p>
+                              ) : null}
+                            </div>
+                            <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                              {formatTimestamp(entry.createdAt)}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
                   )}
                 </CardContent>
               </Card>

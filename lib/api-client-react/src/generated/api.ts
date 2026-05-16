@@ -30,6 +30,7 @@ import type {
   DeclineTandemMatchRequest,
   DispatchRideRequest,
   DispatchRideResponse,
+  DriverAuditLogEntry,
   ErrorResponse,
   HealthStatus,
   ListAdminDriversParams,
@@ -1467,6 +1468,178 @@ export function useListAdminDrivers<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListAdminDriversQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns all admin actions taken against this driver, newest first.
+Each entry includes the admin's email, the action, the resulting
+status (if any), and an optional reason.
+
+ * @summary Get the full activity history for a driver
+ */
+export const getGetDriverAuditLogUrl = (driverId: string) => {
+  return `/api/admin/drivers/${driverId}/audit-log`;
+};
+
+export const getDriverAuditLog = async (
+  driverId: string,
+  options?: RequestInit,
+): Promise<DriverAuditLogEntry[]> => {
+  return customFetch<DriverAuditLogEntry[]>(getGetDriverAuditLogUrl(driverId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDriverAuditLogQueryKey = (driverId: string) => {
+  return [`/api/admin/drivers/${driverId}/audit-log`] as const;
+};
+
+export const getGetDriverAuditLogQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDriverAuditLog>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  driverId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDriverAuditLog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDriverAuditLogQueryKey(driverId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDriverAuditLog>>
+  > = ({ signal }) =>
+    getDriverAuditLog(driverId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!driverId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDriverAuditLog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDriverAuditLogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDriverAuditLog>>
+>;
+export type GetDriverAuditLogQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the full activity history for a driver
+ */
+
+export function useGetDriverAuditLog<
+  TData = Awaited<ReturnType<typeof getDriverAuditLog>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  driverId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDriverAuditLog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDriverAuditLogQueryOptions(driverId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the distinct set of admin emails that appear in the driver
+audit log. Used to populate the "Filter by reviewer" dropdown on
+the driver list page.
+
+ * @summary List admin emails that have reviewed at least one driver
+ */
+export const getListAdminReviewersUrl = () => {
+  return `/api/admin/reviewers`;
+};
+
+export const listAdminReviewers = async (
+  options?: RequestInit,
+): Promise<string[]> => {
+  return customFetch<string[]>(getListAdminReviewersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminReviewersQueryKey = () => {
+  return [`/api/admin/reviewers`] as const;
+};
+
+export const getListAdminReviewersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminReviewers>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminReviewers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAdminReviewersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminReviewers>>
+  > = ({ signal }) => listAdminReviewers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminReviewers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminReviewersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminReviewers>>
+>;
+export type ListAdminReviewersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List admin emails that have reviewed at least one driver
+ */
+
+export function useListAdminReviewers<
+  TData = Awaited<ReturnType<typeof listAdminReviewers>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminReviewers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminReviewersQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

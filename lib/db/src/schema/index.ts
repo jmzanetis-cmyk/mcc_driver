@@ -20,6 +20,27 @@ export const adminUsersTable = pgTable(
 
 export type AdminUser = typeof adminUsersTable.$inferSelect;
 
+// ── Driver Audit Log ─────────────────────────────────────────────────────────
+// Append-only record of admin actions against driver applications/profiles.
+// Captures who did what and when, so the admin portal can show a full activity
+// history on each driver and filter the driver list by reviewer.
+
+export const driverAuditLogTable = pgTable("driver_audit_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  driverId: uuid("driver_id").notNull(),
+  // e.g. 'approve' | 'reject' | 'reject_documents' | 'clear_document_rejection'
+  action: text("action").notNull(),
+  // Email of the admin who performed the action (lowercased).
+  adminEmail: text("admin_email").notNull(),
+  // Resulting driver status after the action, if applicable.
+  resultingStatus: text("resulting_status"),
+  // Optional human-readable reason or note attached to the action.
+  reason: text("reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type DriverAuditLogEntry = typeof driverAuditLogTable.$inferSelect;
+
 // ── Drivers ──────────────────────────────────────────────────────────────────
 
 export const driversTable = pgTable("drivers", {

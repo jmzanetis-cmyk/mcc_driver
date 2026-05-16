@@ -4,6 +4,8 @@ import {
   useListAdminDrivers,
   getListAdminDriversQueryKey,
   useApproveDriver,
+  useListAdminReviewers,
+  getListAdminReviewersQueryKey,
 } from '@workspace/api-client-react';
 import type { AdminDriverRecord } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -53,12 +55,22 @@ export default function Drivers() {
   const queryClient = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState('pending_approval');
+  const [reviewerFilter, setReviewerFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
 
+  const listParams = {
+    status: statusFilter,
+    ...(reviewerFilter !== 'all' ? { reviewerEmail: reviewerFilter } : {}),
+  };
+
   const { data: drivers, isLoading, isError, error } = useListAdminDrivers(
-    { status: statusFilter },
-    { query: { queryKey: getListAdminDriversQueryKey({ status: statusFilter }) } },
+    listParams,
+    { query: { queryKey: getListAdminDriversQueryKey(listParams) } },
   );
+
+  const { data: reviewers } = useListAdminReviewers({
+    query: { queryKey: getListAdminReviewersQueryKey() },
+  });
 
   const isAuthError = isError && error instanceof Error && (
     error.message === 'Unauthorized' ||
@@ -208,6 +220,21 @@ export default function Drivers() {
               {STATUS_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value} data-testid={`option-status-${opt.value}`}>
                   {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={reviewerFilter} onValueChange={setReviewerFilter}>
+            <SelectTrigger className="w-[220px]" data-testid="select-reviewer-filter">
+              <SelectValue placeholder="All reviewers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" data-testid="option-reviewer-all">
+                All reviewers
+              </SelectItem>
+              {(reviewers ?? []).map((email) => (
+                <SelectItem key={email} value={email} data-testid={`option-reviewer-${email}`}>
+                  {email}
                 </SelectItem>
               ))}
             </SelectContent>

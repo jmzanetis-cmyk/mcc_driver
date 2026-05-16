@@ -21,6 +21,7 @@ export * from "./declineTandemMatchRequest";
 export * from "./dispatchRideRequest";
 export * from "./dispatchRideRequestServiceType";
 export * from "./dispatchRideResponse";
+export * from "./driverAuditLogEntry";
 export * from "./eligibleRideAlongDriver";
 export * from "./errorResponse";
 export * from "./healthStatus";

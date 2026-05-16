@@ -11,4 +11,10 @@ export type ListAdminDriversParams = {
    * Filter by driver status
    */
   status?: string;
+  /**
+ * If provided, only return drivers whose most recent audit log entry
+was written by this admin email (case-insensitive).
+
+ */
+  reviewerEmail?: string;
 };
