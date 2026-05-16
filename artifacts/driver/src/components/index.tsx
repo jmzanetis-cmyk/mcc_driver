@@ -27,11 +27,21 @@ interface ButtonProps {
   fullWidth?: boolean;
   style?: React.CSSProperties;
   type?: 'button' | 'submit' | 'reset';
+  // Optional accessible name override — required when `children`
+  // is only an icon/emoji (e.g. "×", "←") so VoiceOver announces
+  // a verb instead of "button". For regular text buttons leave
+  // unset; the visible label is the accessible name.
+  ariaLabel?: string;
+  // Optional ref forwarded to the underlying <button>. Used by
+  // dialogs / modals that need to programmatically move focus
+  // to a primary action on mount.
+  buttonRef?: React.Ref<HTMLButtonElement>;
 }
 
 export function Button({
   children, onClick, variant = 'primary', size = 'md',
   disabled = false, loading = false, fullWidth = false, style, type = 'button',
+  ariaLabel, buttonRef,
 }: ButtonProps) {
   const variantClass = `btn-${variant}`;
   const sizeClass = size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '';
@@ -39,13 +49,21 @@ export function Button({
 
   return (
     <button
+      ref={buttonRef}
       type={type}
       onClick={disabled || loading ? undefined : onClick}
       disabled={disabled || loading}
+      aria-label={ariaLabel}
+      aria-busy={loading || undefined}
       className={className}
       style={{
         justifyContent: 'center',
         width: fullWidth ? '100%' : undefined,
+        // Minimum 44pt touch target (Apple HIG / WCAG 2.5.5) for
+        // primary CTAs. `btn-sm` opts out — used for inline
+        // ghost actions next to text where 44pt would dominate
+        // the layout.
+        minHeight: size === 'sm' ? undefined : 44,
         ...style,
       }}
     >
@@ -67,17 +85,34 @@ interface CardProps {
 }
 
 export function Card({ children, style, onClick, padding = 16 }: CardProps) {
+  // When the card is interactive (`onClick` present) we render a
+  // real `<button>` so it is keyboard-focusable, Enter/Space
+  // activatable, and announced as a button by VoiceOver. Without
+  // this, a clickable `<div>` is invisible to screen readers and
+  // keyboard users.
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="card"
+        style={{
+          padding,
+          marginBottom: 0,
+          cursor: 'pointer',
+          width: '100%',
+          textAlign: 'left',
+          font: 'inherit',
+          color: 'inherit',
+          ...style,
+        }}
+      >
+        {children}
+      </button>
+    );
+  }
   return (
-    <div
-      onClick={onClick}
-      className="card"
-      style={{
-        padding,
-        marginBottom: 0,
-        cursor: onClick ? 'pointer' : 'default',
-        ...style,
-      }}
-    >
+    <div className="card" style={{ padding, marginBottom: 0, ...style }}>
       {children}
     </div>
   );
@@ -98,6 +133,10 @@ export function OnlineToggle({ isOnline, isToggling, onToggle }: OnlineTogglePro
     <button
       onClick={onToggle}
       disabled={isToggling}
+      role="switch"
+      aria-checked={isOnline}
+      aria-busy={isToggling || undefined}
+      aria-label={isOnline ? 'Go offline — stop accepting rides' : 'Go online — start accepting rides'}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '14px 24px', borderRadius: borderRadius.xl,
@@ -105,6 +144,7 @@ export function OnlineToggle({ isOnline, isToggling, onToggle }: OnlineTogglePro
         background: isOnline ? colors.success : 'var(--bg-elevated)',
         color: isOnline ? '#fff' : colors.textMuted,
         fontSize: 16, fontWeight: 600, width: '100%',
+        minHeight: 48,
         transition: 'all 0.3s ease',
         boxShadow: isOnline ? '0 4px 16px rgba(52, 211, 153, 0.3)' : shadows.sm,
         fontFamily: 'inherit',
@@ -135,11 +175,21 @@ export function CountdownTimer({ deadline, onExpired, size = 80 }: CountdownTime
   const [seconds, setSeconds] = useState(() => {
     return Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000));
   });
+  // A separate "announce" value so the aria-live region only
+  // updates at a polite cadence (every 5s, plus the urgent
+  // last-10s countdown). Announcing every 100ms would spam
+  // VoiceOver and drown out everything else on the modal.
+  const [announce, setAnnounce] = useState<string>('');
 
   useEffect(() => {
     const interval = setInterval(() => {
       const remaining = Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000));
       setSeconds(remaining);
+      if (remaining <= 10) {
+        setAnnounce(`${remaining} second${remaining === 1 ? '' : 's'} left`);
+      } else if (remaining > 0 && remaining % 5 === 0) {
+        setAnnounce(`${remaining} seconds left to respond`);
+      }
       if (remaining <= 0) {
         clearInterval(interval);
         onExpired();
@@ -155,8 +205,12 @@ export function CountdownTimer({ deadline, onExpired, size = 80 }: CountdownTime
   const urgentColor = seconds <= 10 ? colors.error : seconds <= 20 ? colors.warning : colors.gold;
 
   return (
-    <div style={{ position: 'relative', width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <div
+      style={{ position: 'relative', width: size, height: size }}
+      role="timer"
+      aria-label={`Time to respond: ${seconds} seconds remaining`}
+    >
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         {/* Background circle */}
         <circle
           cx={size / 2} cy={size / 2} r={size / 2 - 4}
@@ -173,14 +227,28 @@ export function CountdownTimer({ deadline, onExpired, size = 80 }: CountdownTime
           style={{ transition: 'stroke-dashoffset 0.1s linear, stroke 0.3s' }}
         />
       </svg>
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: size * 0.35, fontWeight: 700, color: urgentColor,
-        fontFamily: 'monospace',
-      }}>
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: size * 0.35, fontWeight: 700, color: urgentColor,
+          fontFamily: 'monospace',
+        }}
+      >
         {seconds}
       </div>
+      {/* Polite live region — SR-only. */}
+      <span
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+          overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
+        }}
+      >
+        {announce}
+      </span>
     </div>
   );
 }
@@ -232,7 +300,9 @@ interface InfoRowProps {
 export function InfoRow({ icon, label, value, valueColor }: InfoRowProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
-      <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{icon}</span>
+      {/* Decorative emoji — VoiceOver should skip and announce
+          the label + value as a single phrase. */}
+      <span aria-hidden="true" style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{icon}</span>
       <span style={{ fontSize: 13, color: colors.textMuted, flex: 1 }}>{label}</span>
       <span style={{ fontSize: 14, fontWeight: 600, color: valueColor || colors.textPrimary }}>{value}</span>
     </div>
@@ -271,30 +341,42 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderProps) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
-      padding: '12px 16px', background: colors.surfaceDark,
-    }}>
+    <header
+      role="banner"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 16px', background: colors.surfaceDark,
+      }}
+    >
       {onBack ? (
-        <button onClick={onBack} style={{
-          background: 'none', border: 'none', color: colors.textWhite,
-          fontSize: 22, cursor: 'pointer', padding: 4,
-        }}>
-          ←
+        <button
+          onClick={onBack}
+          aria-label="Go back"
+          style={{
+            background: 'none', border: 'none', color: colors.textWhite,
+            fontSize: 22, cursor: 'pointer',
+            // 44×44 touch target (Apple HIG / WCAG 2.5.5).
+            minWidth: 44, minHeight: 44,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            padding: 4, borderRadius: 8,
+          }}
+        >
+          <span aria-hidden="true">←</span>
         </button>
       ) : (
         <img
           src="/driver/mcc-driver-logo.png"
-          alt="My Car Concierge Driver"
+          alt=""
+          aria-hidden="true"
           style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }}
         />
       )}
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 18, fontWeight: 600, color: colors.textWhite }}>{title}</div>
+        <h1 style={{ fontSize: 18, fontWeight: 600, color: colors.textWhite, margin: 0 }}>{title}</h1>
         {subtitle && <div style={{ fontSize: 12, color: colors.gold, marginTop: 2 }}>{subtitle}</div>}
       </div>
       {rightAction}
-    </div>
+    </header>
   );
 }
 
@@ -312,21 +394,59 @@ interface InputProps {
   error?: string;
 }
 
+// React 18+ provides a stable cross-render id generator; we use
+// it to wire the <label htmlFor> ↔ <input id> association and
+// the error message's aria-describedby. Without this, VoiceOver
+// reads the field as "edit text" with no label.
+let __inputIdCounter = 0;
+function useStableInputId(): string {
+  // useId isn't strictly necessary for SSR-less Vite, but it's
+  // the React-blessed way; fallback to a module counter for
+  // environments without it.
+  const reactUseId = (React as unknown as { useId?: () => string }).useId;
+  if (reactUseId) return reactUseId();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [id] = useState(() => `mcc-input-${++__inputIdCounter}`);
+  return id;
+}
+
 export function Input({ label, value, onChange, type = 'text', placeholder, required, error }: InputProps) {
+  const id = useStableInputId();
+  const errorId = `${id}-error`;
   return (
     <div style={{ marginBottom: 16 }}>
-      <label className="form-label">
-        {label}{required && <span style={{ color: colors.error }}> *</span>}
+      <label htmlFor={id} className="form-label">
+        {label}
+        {required && (
+          <>
+            <span aria-hidden="true" style={{ color: colors.error }}> *</span>
+            <span style={{
+              position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+              overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
+            }}>
+              (required)
+            </span>
+          </>
+        )}
       </label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
+        required={required}
+        aria-required={required || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
         className="form-input"
-        style={error ? { borderColor: colors.error } : undefined}
+        style={error ? { borderColor: colors.error, minHeight: 44 } : { minHeight: 44 }}
       />
-      {error && <div style={{ fontSize: 12, color: colors.error, marginTop: 4 }}>{error}</div>}
+      {error && (
+        <div id={errorId} role="alert" style={{ fontSize: 12, color: colors.error, marginTop: 4 }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }

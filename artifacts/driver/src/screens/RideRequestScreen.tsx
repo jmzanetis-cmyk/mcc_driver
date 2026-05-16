@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { type IncomingRideRequest } from '@/hooks/useRideRequests';
 import { Button, CountdownTimer, InfoRow, Card } from '@/components';
 import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
@@ -22,6 +22,51 @@ interface RideRequestModalProps {
 export function RideRequestModal({ request, onAccept, onDecline, onExpired }: RideRequestModalProps) {
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const acceptButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Focus management for the modal:
+  // 1. On mount, move focus to the Accept button so a keyboard /
+  //    VoiceOver user reaches the primary action immediately
+  //    after the title is announced.
+  // 2. Trap Tab/Shift+Tab inside the dialog while it is open so
+  //    focus can't escape into the home screen behind it.
+  // 3. Restore focus to whatever was focused before the modal
+  //    opened when it unmounts.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    // Defer one frame so the SR can announce the title first,
+    // then move focus to Accept (the primary action).
+    const frame = requestAnimationFrame(() => {
+      acceptButtonRef.current?.focus();
+    });
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusables = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, []);
 
   const handleAccept = async () => {
     setAcceptError(null);
@@ -61,13 +106,20 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
   const tierPricing = getTierPricing(tier as Parameters<typeof getTierPricing>[0]);
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: colors.bgOverlay,
-      display: 'flex', flexDirection: 'column',
-      justifyContent: 'flex-end',
-      animation: 'slideUp 0.3s ease',
-    }}>
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ride-request-title"
+      aria-describedby="ride-request-summary"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: colors.bgOverlay,
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'flex-end',
+        animation: 'slideUp 0.3s ease',
+      }}
+    >
       <style>{`
         @keyframes slideUp {
           from { transform: translateY(100%); }
@@ -76,6 +128,9 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.6; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [role="dialog"] { animation: none !important; }
         }
       `}</style>
 
@@ -100,9 +155,9 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
                 : serviceType === 'delivery' ? '📦 DELIVERY REQUEST'
                 : '🚘 CONCIERGE REQUEST'}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginTop: 4 }}>
+            <h2 id="ride-request-title" style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginTop: 4, margin: 0 }}>
               {getScenarioLabel(scenario)}
-            </div>
+            </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
               <div style={{
                 display: 'inline-block',
@@ -130,10 +185,14 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
         </div>
 
         {/* Estimated fare */}
-        <div style={{
-          background: colors.surfaceDark, borderRadius: borderRadius.md,
-          padding: 16, marginBottom: 16, textAlign: 'center',
-        }}>
+        <div
+          id="ride-request-summary"
+          aria-label={`Estimated earnings ${formatCurrency(estimatedFare * 0.85)} for a ${formatDistance(estimatedDistance)} trip from ${shortenAddress(pickupAddress)} to ${shortenAddress(dropoffAddress)}.`}
+          style={{
+            background: colors.surfaceDark, borderRadius: borderRadius.md,
+            padding: 16, marginBottom: 16, textAlign: 'center',
+          }}
+        >
           <div style={{ fontSize: 11, color: colors.gold, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
             Estimated Earnings
           </div>
@@ -262,6 +321,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
             loading={accepting}
             size="lg"
             style={{ flex: 2 }}
+            buttonRef={acceptButtonRef}
           >
             Accept Ride
           </Button>

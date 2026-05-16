@@ -42,7 +42,12 @@
   /* Typography */
   --text-primary: #f5f5f7;
   --text-secondary: #a0a8b8;
-  --text-muted: #6b7280;
+  /* Bumped from #6b7280 → #9ca3af for WCAG AA contrast (≥4.5:1)
+     against `--bg-card` (rgba(26,32,42,0.9)) — the old value
+     measured ~4.0:1 against card surfaces and failed AA for
+     small body text. New value measures ~6.3:1 on bg-deep and
+     ~5.7:1 on bg-card.  Light theme value below is unchanged. */
+  --text-muted: #9ca3af;
 
   /* Bronze / copper — engine-metal accent */
   --accent-gold: #c9a227;
@@ -135,6 +140,30 @@ html.theme-transition *::after {
 }
 
 html { scroll-behavior: smooth; }
+
+/* ---------- Accessibility: keyboard focus ---------- */
+/* A clear, high-contrast focus ring for all interactive controls
+   (buttons, links, inputs). Uses :focus-visible so mouse clicks
+   don't trigger a ring but Tab / VoiceOver navigation does. */
+:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- Accessibility: reduced motion ---------- */
+/* Honor the user's OS-level "reduce motion" setting. Disables
+   the smooth-scroll, theme transitions, and most micro-animations
+   while keeping the UI fully functional. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 body {
   min-height: 100vh;

@@ -71,15 +71,21 @@ export function HomeScreen() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <ThemeToggle />
-            <div style={{
-              width: 44, height: 44, borderRadius: '50%',
-              background: 'rgba(201,152,46,0.15)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, fontWeight: 700, color: colors.gold,
-              cursor: 'pointer',
-            }} onClick={() => navigate('/settings')}>
-              {driver.firstName[0]}{driver.lastName[0]}
-            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/settings')}
+              aria-label={`Open settings for ${driver.firstName} ${driver.lastName}`}
+              style={{
+                width: 44, height: 44, borderRadius: '50%',
+                background: 'rgba(201,152,46,0.15)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, fontWeight: 700, color: colors.gold,
+                cursor: 'pointer', border: 'none', padding: 0,
+                fontFamily: 'inherit',
+              }}
+            >
+              <span aria-hidden="true">{driver.firstName[0]}{driver.lastName[0]}</span>
+            </button>
           </div>
         </div>
 

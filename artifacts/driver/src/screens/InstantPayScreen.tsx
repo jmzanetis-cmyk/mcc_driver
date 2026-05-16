@@ -122,7 +122,19 @@ export function InstantPayScreen() {
                   </div>
                 )}
               </div>
-              <button onClick={clearResult} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: colors.textMuted }}>×</button>
+              <button
+                onClick={clearResult}
+                aria-label="Dismiss payout result"
+                style={{
+                  background: 'none', border: 'none', fontSize: 18, cursor: 'pointer',
+                  color: colors.textMuted,
+                  minWidth: 44, minHeight: 44,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 8, padding: 0,
+                }}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
             </div>
           </div>
         )}
