@@ -10,6 +10,8 @@ export interface AdminRideRecord {
   id: string;
   scenario: string;
   tier: string;
+  serviceType?: string | null;
+  packageDescription?: string | null;
   status: string;
   memberId?: string | null;
   pickupAddress: string;

@@ -84,11 +84,36 @@ function rideStatusVariant(status: string): 'default' | 'secondary' | 'destructi
 
 function scenarioLabel(scenario: string): string {
   const map: Record<string, string> = {
+    rideshare_ondemand: 'On-Demand Ride',
+    rideshare_scheduled: 'Scheduled Ride',
+    delivery_parcel: 'Parcel Delivery',
+    delivery_food: 'Food Delivery',
     standard: 'Standard',
     member_drive: 'Member Drive',
     tandem: 'Tandem',
+    member_dropoff: 'Passenger Drop-Off',
+    member_pickup: 'Passenger Pick-Up',
+    passenger_round_trip: 'Passenger Round Trip',
+    vehicle_delivery_solo: 'Vehicle Delivery',
+    vehicle_pickup_solo: 'Vehicle Pickup',
+    paired_vehicle_delivery: 'Paired Vehicle Delivery',
+    paired_vehicle_pickup: 'Paired Vehicle Pickup',
+    paired_round_trip_shuttle: 'Paired Round Trip',
+    concierge_dropoff: 'Concierge Drop-Off',
+    concierge_pickup: 'Concierge Pick-Up',
+    full_concierge_round_trip: 'Full Concierge Round Trip',
   };
   return map[scenario] ?? scenario;
+}
+
+function serviceTypeBadge(serviceType: string | null | undefined) {
+  if (serviceType === 'rideshare') {
+    return <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">🚗 Rideshare</Badge>;
+  }
+  if (serviceType === 'delivery') {
+    return <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200">📦 Delivery</Badge>;
+  }
+  return <Badge variant="outline" className="text-xs text-muted-foreground">Concierge</Badge>;
 }
 
 function RideRow({ ride, onCancel }: { ride: AdminRideRecord; onCancel: (id: string) => void }) {
@@ -98,7 +123,12 @@ function RideRow({ ride, onCancel }: { ride: AdminRideRecord; onCancel: (id: str
       <TableCell className="font-mono text-xs text-muted-foreground">
         {ride.id.slice(0, 8)}…
       </TableCell>
-      <TableCell className="text-sm">{scenarioLabel(ride.scenario)}</TableCell>
+      <TableCell className="text-sm">
+        <div className="flex flex-col gap-1">
+          <span>{scenarioLabel(ride.scenario)}</span>
+          {serviceTypeBadge(ride.serviceType)}
+        </div>
+      </TableCell>
       <TableCell>
         <Badge variant={rideStatusVariant(ride.status)} className="capitalize text-xs">
           {ride.status.replace(/_/g, ' ')}

@@ -25,6 +25,8 @@ interface DispatchState {
   role: 'primary' | 'chase' | null;
   scenario: string | null;
   tier: string | null;
+  serviceType: 'rideshare' | 'delivery' | 'concierge';
+  packageDescription: string | null;
   pickupAddress: string | null;
   pickupLat: number | null;
   pickupLng: number | null;
@@ -66,6 +68,8 @@ const INITIAL = {
   role: null as 'primary' | 'chase' | null,
   scenario: null as string | null,
   tier: null as string | null,
+  serviceType: 'concierge' as 'rideshare' | 'delivery' | 'concierge',
+  packageDescription: null as string | null,
   pickupAddress: null as string | null,
   pickupLat: null as number | null,
   pickupLng: null as number | null,

@@ -779,6 +779,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /drivers/me/services:
+    patch:
+      operationId: updateDriverServices
+      tags: [rides]
+      summary: Update the driver's service type capabilities
+      description: Allows a driver to opt in or out of rideshare and delivery service types.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDriverServicesRequest"
+      responses:
+        "200":
+          description: Services updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateDriverServicesResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/rides:
     get:
       operationId: listAdminRides
@@ -1104,10 +1136,19 @@ components:
       properties:
         scenario:
           type: string
-          description: Ride scenario key (e.g. member_dropoff, paired_vehicle_delivery)
+          description: Ride scenario key (e.g. member_dropoff, rideshare_ondemand, delivery_food)
         tier:
           type: string
-          description: Service tier (e.g. tier_1_passenger)
+          description: Service tier (e.g. tier_0_rideshare, tier_0_delivery, tier_1_passenger)
+        serviceType:
+          type: string
+          enum: [concierge, rideshare, delivery]
+          default: concierge
+          description: Service category. Derived from tier if omitted.
+        packageDescription:
+          type: string
+          nullable: true
+          description: Free-text description of the package (delivery rides only)
         pickupAddress:
           type: string
         pickupLat:
@@ -1272,6 +1313,10 @@ components:
           type: boolean
         canDriveMemberVehicle:
           type: boolean
+        canDoRideshare:
+          type: boolean
+        canDoDelivery:
+          type: boolean
         totalRidesCompleted:
           type: integer
         averageRating:
@@ -1291,6 +1336,8 @@ components:
         - status
         - backgroundCheckPassed
         - canDriveMemberVehicle
+        - canDoRideshare
+        - canDoDelivery
         - totalRidesCompleted
         - averageRating
 
@@ -1377,6 +1424,12 @@ components:
           type: string
         tier:
           type: string
+        serviceType:
+          type: string
+          nullable: true
+        packageDescription:
+          type: string
+          nullable: true
         status:
           type: string
         memberId:
@@ -1432,6 +1485,34 @@ components:
         - success
         - rideId
         - driversNotified
+
+    UpdateDriverServicesRequest:
+      type: object
+      properties:
+        canDoRideshare:
+          type: boolean
+          nullable: true
+        canDoDelivery:
+          type: boolean
+          nullable: true
+
+    UpdateDriverServicesResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        canDoRideshare:
+          type: boolean
+        canDoDelivery:
+          type: boolean
+      required:
+        - success
+        - id
+        - canDoRideshare
+        - canDoDelivery
 
     CreateRideAlongDriverRequest:
       type: object

@@ -20,6 +20,8 @@ export interface DriverRow {
   current_lat: number | null;
   current_lng: number | null;
   document_rejection_reason: string | null;
+  can_do_rideshare: boolean;
+  can_do_delivery: boolean;
 }
 
 export interface PartnerRow {
@@ -65,6 +67,8 @@ export interface RideRow {
   member_vehicle_color: string | null;
   tandem_required: boolean | null;
   tandem_mode: string | null;
+  service_type: string | null;
+  package_description: string | null;
 }
 
 export interface AssignmentRow {

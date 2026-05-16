@@ -5,12 +5,17 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DispatchRideRequestServiceType } from "./dispatchRideRequestServiceType";
 
 export interface DispatchRideRequest {
-  /** Ride scenario key (e.g. member_dropoff, paired_vehicle_delivery) */
+  /** Ride scenario key (e.g. member_dropoff, rideshare_ondemand, delivery_food) */
   scenario: string;
-  /** Service tier (e.g. tier_1_passenger) */
+  /** Service tier (e.g. tier_0_rideshare, tier_0_delivery, tier_1_passenger) */
   tier: string;
+  /** Service category. Derived from tier if omitted. */
+  serviceType?: DispatchRideRequestServiceType;
+  /** Free-text description of the package (delivery rides only) */
+  packageDescription?: string | null;
   pickupAddress: string;
   pickupLat: number;
   pickupLng: number;

@@ -56,6 +56,8 @@ export function useAuth() {
         partnerName,
         isOnline: row.is_online,
         canDriveMemberVehicle: row.can_drive_member_vehicle,
+        canDoRideshare: row.can_do_rideshare ?? false,
+        canDoDelivery: row.can_do_delivery ?? false,
         totalRidesCompleted: row.total_rides_completed,
         averageRating: row.average_rating,
         completionRate: row.completion_rate,

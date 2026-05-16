@@ -23,15 +23,28 @@ drivers in real time.
 
  * @summary Dispatch a new ride to eligible drivers
  */
+export const dispatchRideBodyServiceTypeDefault = `concierge`;
 export const dispatchRideBodyResponseDeadlineSecondsDefault = 30;
 
 export const DispatchRideBody = zod.object({
   scenario: zod
     .string()
     .describe(
-      "Ride scenario key (e.g. member_dropoff, paired_vehicle_delivery)",
+      "Ride scenario key (e.g. member_dropoff, rideshare_ondemand, delivery_food)",
     ),
-  tier: zod.string().describe("Service tier (e.g. tier_1_passenger)"),
+  tier: zod
+    .string()
+    .describe(
+      "Service tier (e.g. tier_0_rideshare, tier_0_delivery, tier_1_passenger)",
+    ),
+  serviceType: zod
+    .enum(["concierge", "rideshare", "delivery"])
+    .default(dispatchRideBodyServiceTypeDefault)
+    .describe("Service category. Derived from tier if omitted."),
+  packageDescription: zod
+    .string()
+    .nullish()
+    .describe("Free-text description of the package (delivery rides only)"),
   pickupAddress: zod.string(),
   pickupLat: zod.number(),
   pickupLng: zod.number(),
@@ -379,6 +392,8 @@ export const ListAdminDriversResponseItem = zod.object({
   profilePhotoUrl: zod.string().nullish(),
   backgroundCheckPassed: zod.boolean(),
   canDriveMemberVehicle: zod.boolean(),
+  canDoRideshare: zod.boolean(),
+  canDoDelivery: zod.boolean(),
   totalRidesCompleted: zod.number(),
   averageRating: zod.number(),
   documentRejectionReason: zod
@@ -475,6 +490,22 @@ export const ClearDriverDocumentRejectionResponse = zod.object({
 });
 
 /**
+ * Allows a driver to opt in or out of rideshare and delivery service types.
+ * @summary Update the driver's service type capabilities
+ */
+export const UpdateDriverServicesBody = zod.object({
+  canDoRideshare: zod.boolean().nullish(),
+  canDoDelivery: zod.boolean().nullish(),
+});
+
+export const UpdateDriverServicesResponse = zod.object({
+  success: zod.boolean(),
+  id: zod.string().uuid(),
+  canDoRideshare: zod.boolean(),
+  canDoDelivery: zod.boolean(),
+});
+
+/**
  * Returns ride records for admin review. Requires admin authentication.
  * @summary List rides filtered by status
  */
@@ -491,6 +522,8 @@ export const ListAdminRidesResponseItem = zod.object({
   id: zod.string().uuid(),
   scenario: zod.string(),
   tier: zod.string(),
+  serviceType: zod.string().nullish(),
+  packageDescription: zod.string().nullish(),
   status: zod.string(),
   memberId: zod.string().nullish(),
   pickupAddress: zod.string(),

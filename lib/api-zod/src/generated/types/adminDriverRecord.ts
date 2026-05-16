@@ -21,6 +21,8 @@ export interface AdminDriverRecord {
   profilePhotoUrl?: string | null;
   backgroundCheckPassed: boolean;
   canDriveMemberVehicle: boolean;
+  canDoRideshare: boolean;
+  canDoDelivery: boolean;
   totalRidesCompleted: number;
   averageRating: number;
   /**

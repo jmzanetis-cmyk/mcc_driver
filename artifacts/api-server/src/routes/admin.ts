@@ -286,6 +286,8 @@ router.get("/admin/rides", async (req: Request, res: Response): Promise<void> =>
         id: ridesTable.id,
         scenario: ridesTable.scenario,
         tier: ridesTable.tier,
+        serviceType: ridesTable.serviceType,
+        packageDescription: ridesTable.packageDescription,
         status: ridesTable.status,
         memberId: ridesTable.memberId,
         pickupAddress: ridesTable.pickupAddress,

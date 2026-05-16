@@ -99,6 +99,8 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       partnerName,
       isOnline: driver.is_online,
       canDriveMemberVehicle: driver.can_drive_member_vehicle,
+      canDoRideshare: driver.can_do_rideshare ?? false,
+      canDoDelivery: driver.can_do_delivery ?? false,
       totalRidesCompleted: driver.total_rides_completed,
       averageRating: driver.average_rating,
       completionRate: driver.completion_rate,

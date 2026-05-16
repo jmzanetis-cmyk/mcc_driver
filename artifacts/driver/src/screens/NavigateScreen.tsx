@@ -210,12 +210,16 @@ export function NavigateScreen() {
       variant: 'primary',
     },
     navigating: {
-      label: "I've Arrived at Pickup",
+      label: activeRide.serviceType === 'rideshare' ? 'Passenger On Board'
+        : activeRide.serviceType === 'delivery' ? 'Parcel Collected'
+        : "I've Arrived at Pickup",
       action: () => markArrived(),
       variant: 'primary',
     },
     arrived: {
-      label: 'Start Ride',
+      label: activeRide.serviceType === 'rideshare' ? 'Start Rideshare'
+        : activeRide.serviceType === 'delivery' ? 'Start Delivery'
+        : 'Start Ride',
       action: () => startRide(),
       variant: 'success',
     },
@@ -235,11 +239,24 @@ export function NavigateScreen() {
 
   const currentAction = stageActions[activeRide.stage as Exclude<ActiveRideStage, 'cancelled'>];
 
-  const stageSteps = [
-    { key: 'navigating', label: 'En Route', icon: '🚗' },
-    { key: 'arrived', label: 'Arrived', icon: '📍' },
-    { key: 'in_progress', label: 'In Progress', icon: '🛣️' },
-  ];
+  const serviceType = activeRide.serviceType ?? 'concierge';
+  const stageSteps = serviceType === 'rideshare'
+    ? [
+        { key: 'navigating', label: 'En Route to Passenger', icon: '🚗' },
+        { key: 'arrived', label: 'Passenger On Board', icon: '🧑' },
+        { key: 'in_progress', label: 'Drop Off', icon: '🏁' },
+      ]
+    : serviceType === 'delivery'
+    ? [
+        { key: 'navigating', label: 'En Route to Pickup', icon: '🚗' },
+        { key: 'arrived', label: 'Parcel Collected', icon: '📦' },
+        { key: 'in_progress', label: 'Delivering', icon: '🏁' },
+      ]
+    : [
+        { key: 'navigating', label: 'En Route', icon: '🚗' },
+        { key: 'arrived', label: 'Arrived', icon: '📍' },
+        { key: 'in_progress', label: 'In Progress', icon: '🛣️' },
+      ];
 
   const stageIndex = ['accepted', 'navigating'].includes(activeRide.stage) ? 0
     : activeRide.stage === 'arrived' ? 1

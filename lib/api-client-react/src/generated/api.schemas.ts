@@ -13,11 +13,27 @@ export interface ErrorResponse {
   error: string;
 }
 
+/**
+ * Service category. Derived from tier if omitted.
+ */
+export type DispatchRideRequestServiceType =
+  (typeof DispatchRideRequestServiceType)[keyof typeof DispatchRideRequestServiceType];
+
+export const DispatchRideRequestServiceType = {
+  concierge: "concierge",
+  rideshare: "rideshare",
+  delivery: "delivery",
+} as const;
+
 export interface DispatchRideRequest {
-  /** Ride scenario key (e.g. member_dropoff, paired_vehicle_delivery) */
+  /** Ride scenario key (e.g. member_dropoff, rideshare_ondemand, delivery_food) */
   scenario: string;
-  /** Service tier (e.g. tier_1_passenger) */
+  /** Service tier (e.g. tier_0_rideshare, tier_0_delivery, tier_1_passenger) */
   tier: string;
+  /** Service category. Derived from tier if omitted. */
+  serviceType?: DispatchRideRequestServiceType;
+  /** Free-text description of the package (delivery rides only) */
+  packageDescription?: string | null;
   pickupAddress: string;
   pickupLat: number;
   pickupLng: number;
@@ -91,6 +107,8 @@ export interface AdminDriverRecord {
   profilePhotoUrl?: string | null;
   backgroundCheckPassed: boolean;
   canDriveMemberVehicle: boolean;
+  canDoRideshare: boolean;
+  canDoDelivery: boolean;
   totalRidesCompleted: number;
   averageRating: number;
   /**
@@ -151,6 +169,8 @@ export interface AdminRideRecord {
   id: string;
   scenario: string;
   tier: string;
+  serviceType?: string | null;
+  packageDescription?: string | null;
   status: string;
   memberId?: string | null;
   pickupAddress: string;
@@ -171,6 +191,18 @@ export interface AdminCancelRideResult {
   success: boolean;
   rideId: string;
   driversNotified: number;
+}
+
+export interface UpdateDriverServicesRequest {
+  canDoRideshare?: boolean | null;
+  canDoDelivery?: boolean | null;
+}
+
+export interface UpdateDriverServicesResult {
+  success: boolean;
+  id: string;
+  canDoRideshare: boolean;
+  canDoDelivery: boolean;
 }
 
 export interface CreateRideAlongDriverRequest {

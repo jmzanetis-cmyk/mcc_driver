@@ -48,6 +48,9 @@ export const driversTable = pgTable("drivers", {
   // Admin-set field: non-null when an admin has rejected the driver's documents
   // and wants them to resubmit. Cleared when the driver re-uploads documents.
   documentRejectionReason: text("document_rejection_reason"),
+  // Service type capabilities — drivers opt in to rideshare and delivery in Settings
+  canDoRideshare: boolean("can_do_rideshare").notNull().default(false),
+  canDoDelivery: boolean("can_do_delivery").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -81,6 +84,10 @@ export const ridesTable = pgTable("rides", {
   memberVehicleColor: text("member_vehicle_color"),
   tandemRequired: boolean("tandem_required").notNull().default(false),
   tandemMode: text("tandem_mode"),
+  // Service type: 'concierge' | 'rideshare' | 'delivery'
+  serviceType: text("service_type").notNull().default("concierge"),
+  // Free-text package description for delivery rides (e.g. "Small box, fragile")
+  packageDescription: text("package_description"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

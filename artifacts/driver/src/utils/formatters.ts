@@ -78,6 +78,10 @@ export function formatDateTime(isoString: string): string {
  */
 export function getScenarioLabel(scenario: string): string {
   const labels: Record<string, string> = {
+    rideshare_ondemand: 'On-Demand Ride',
+    rideshare_scheduled: 'Scheduled Ride',
+    delivery_parcel: 'Parcel Delivery',
+    delivery_food: 'Food Delivery',
     member_dropoff: 'Passenger Drop-Off',
     member_pickup: 'Passenger Pick-Up',
     passenger_round_trip: 'Passenger Round Trip',
@@ -98,12 +102,23 @@ export function getScenarioLabel(scenario: string): string {
  */
 export function getTierLabel(tier: string): string {
   const labels: Record<string, string> = {
+    tier_0_rideshare: 'Rideshare',
+    tier_0_delivery: 'Delivery',
     tier_1_passenger: 'Passenger Ride',
     tier_2_vehicle_solo: 'Vehicle Shuttle',
     tier_3_vehicle_paired: 'Paired Shuttle',
     tier_4_full_concierge: 'Full Concierge',
   };
   return labels[tier] || tier;
+}
+
+/**
+ * Get the service type from a tier string
+ */
+export function getServiceTypeFromTier(tier: string): 'rideshare' | 'delivery' | 'concierge' {
+  if (tier === 'tier_0_rideshare') return 'rideshare';
+  if (tier === 'tier_0_delivery') return 'delivery';
+  return 'concierge';
 }
 
 /**

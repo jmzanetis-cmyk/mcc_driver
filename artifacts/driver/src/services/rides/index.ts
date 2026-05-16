@@ -6,6 +6,10 @@
 // ============================================================
 
 export type RideScenario =
+  | 'rideshare_ondemand'
+  | 'rideshare_scheduled'
+  | 'delivery_parcel'
+  | 'delivery_food'
   | 'member_dropoff'
   | 'member_pickup'
   | 'passenger_round_trip'
@@ -19,10 +23,20 @@ export type RideScenario =
   | 'full_concierge_round_trip';
 
 export type RideTier =
+  | 'tier_0_rideshare'
+  | 'tier_0_delivery'
   | 'tier_1_passenger'
   | 'tier_2_vehicle_solo'
   | 'tier_3_vehicle_paired'
   | 'tier_4_full_concierge';
+
+export type ServiceType = 'rideshare' | 'delivery' | 'concierge';
+
+export function getServiceTypeFromTier(tier: string): ServiceType {
+  if (tier === 'tier_0_rideshare') return 'rideshare';
+  if (tier === 'tier_0_delivery') return 'delivery';
+  return 'concierge';
+}
 
 interface DriverAssignment {
   role: 'primary' | 'chase';
@@ -40,6 +54,46 @@ interface ScenarioConfig {
 }
 
 export const SCENARIO_CONFIG: Record<RideScenario, ScenarioConfig> = {
+  // ── Tier 0: Rideshare ──
+  rideshare_ondemand: {
+    tier: 'tier_0_rideshare',
+    driversRequired: 1,
+    assignments: [
+      { role: 'primary', drivesMemberVehicle: false, carriesPassenger: true, description: 'Pick up and drive the passenger to their destination in your vehicle' },
+    ],
+    description: 'On-demand rideshare — pick up and drop off a passenger.',
+    shortDescription: 'On-demand ride',
+  },
+  rideshare_scheduled: {
+    tier: 'tier_0_rideshare',
+    driversRequired: 1,
+    assignments: [
+      { role: 'primary', drivesMemberVehicle: false, carriesPassenger: true, description: 'Drive the passenger to their scheduled destination in your vehicle' },
+    ],
+    description: 'Scheduled rideshare — pre-booked passenger transport.',
+    shortDescription: 'Scheduled ride',
+  },
+
+  // ── Tier 0: Delivery ──
+  delivery_parcel: {
+    tier: 'tier_0_delivery',
+    driversRequired: 1,
+    assignments: [
+      { role: 'primary', drivesMemberVehicle: false, carriesPassenger: false, description: 'Pick up and deliver a parcel to the specified address' },
+    ],
+    description: 'Parcel delivery — pick up and deliver a package.',
+    shortDescription: 'Parcel delivery',
+  },
+  delivery_food: {
+    tier: 'tier_0_delivery',
+    driversRequired: 1,
+    assignments: [
+      { role: 'primary', drivesMemberVehicle: false, carriesPassenger: false, description: 'Pick up a food order and deliver it to the customer' },
+    ],
+    description: 'Food delivery — pick up and deliver a food order.',
+    shortDescription: 'Food delivery',
+  },
+
   // ── Tier 1: Passenger ──
   member_dropoff: {
     tier: 'tier_1_passenger',
@@ -159,6 +213,8 @@ export const SCENARIO_CONFIG: Record<RideScenario, ScenarioConfig> = {
  */
 export function getTierPricing(tier: RideTier): { base: number; perMile: number; minimum: number } {
   const pricing: Record<RideTier, { base: number; perMile: number; minimum: number }> = {
+    tier_0_rideshare: { base: 5, perMile: 1.50, minimum: 8 },
+    tier_0_delivery: { base: 6, perMile: 2.00, minimum: 10 },
     tier_1_passenger: { base: 10, perMile: 1.50, minimum: 12 },
     tier_2_vehicle_solo: { base: 20, perMile: 2.00, minimum: 25 },
     tier_3_vehicle_paired: { base: 35, perMile: 2.50, minimum: 40 },

@@ -20,6 +20,62 @@ interface ScenarioConfig {
 }
 
 export const SCENARIO_CONFIG: Record<string, ScenarioConfig> = {
+  // ── Tier 0: Rideshare ──
+  rideshare_ondemand: {
+    tier: "tier_0_rideshare",
+    driversRequired: 1,
+    assignments: [
+      {
+        role: "primary",
+        drivesMemberVehicle: false,
+        carriesPassenger: true,
+        description: "Pick up and drive the passenger to their destination in your vehicle",
+      },
+    ],
+    description: "On-demand rideshare — pick up and drop off a passenger.",
+  },
+  rideshare_scheduled: {
+    tier: "tier_0_rideshare",
+    driversRequired: 1,
+    assignments: [
+      {
+        role: "primary",
+        drivesMemberVehicle: false,
+        carriesPassenger: true,
+        description: "Drive the passenger to their scheduled destination in your vehicle",
+      },
+    ],
+    description: "Scheduled rideshare — pre-booked passenger transport.",
+  },
+
+  // ── Tier 0: Delivery ──
+  delivery_parcel: {
+    tier: "tier_0_delivery",
+    driversRequired: 1,
+    assignments: [
+      {
+        role: "primary",
+        drivesMemberVehicle: false,
+        carriesPassenger: false,
+        description: "Pick up and deliver a parcel to the specified address",
+      },
+    ],
+    description: "Parcel delivery — pick up and deliver a package.",
+  },
+  delivery_food: {
+    tier: "tier_0_delivery",
+    driversRequired: 1,
+    assignments: [
+      {
+        role: "primary",
+        drivesMemberVehicle: false,
+        carriesPassenger: false,
+        description: "Pick up a food order and deliver it to the customer",
+      },
+    ],
+    description: "Food delivery — pick up and deliver a food order.",
+  },
+
   // ── Tier 1: Passenger ──
   member_dropoff: {
     tier: "tier_1_passenger",

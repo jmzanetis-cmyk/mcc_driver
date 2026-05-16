@@ -44,6 +44,8 @@ import type {
   StripeAccountLink,
   StripeAccountStatus,
   TandemJobRecord,
+  UpdateDriverServicesRequest,
+  UpdateDriverServicesResult,
   UpdateRideAlongDriverRequest,
   UpdateStageRequest,
   UpdateTandemModeRequest,
@@ -1823,6 +1825,94 @@ export const useClearDriverDocumentRejection = <
   TContext
 > => {
   return useMutation(getClearDriverDocumentRejectionMutationOptions(options));
+};
+
+/**
+ * Allows a driver to opt in or out of rideshare and delivery service types.
+ * @summary Update the driver's service type capabilities
+ */
+export const getUpdateDriverServicesUrl = () => {
+  return `/api/drivers/me/services`;
+};
+
+export const updateDriverServices = async (
+  updateDriverServicesRequest: UpdateDriverServicesRequest,
+  options?: RequestInit,
+): Promise<UpdateDriverServicesResult> => {
+  return customFetch<UpdateDriverServicesResult>(getUpdateDriverServicesUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateDriverServicesRequest),
+  });
+};
+
+export const getUpdateDriverServicesMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDriverServices>>,
+    TError,
+    { data: BodyType<UpdateDriverServicesRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDriverServices>>,
+  TError,
+  { data: BodyType<UpdateDriverServicesRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateDriverServices"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDriverServices>>,
+    { data: BodyType<UpdateDriverServicesRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateDriverServices(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDriverServicesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDriverServices>>
+>;
+export type UpdateDriverServicesMutationBody =
+  BodyType<UpdateDriverServicesRequest>;
+export type UpdateDriverServicesMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update the driver's service type capabilities
+ */
+export const useUpdateDriverServices = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDriverServices>>,
+    TError,
+    { data: BodyType<UpdateDriverServicesRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDriverServices>>,
+  TError,
+  { data: BodyType<UpdateDriverServicesRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateDriverServicesMutationOptions(options));
 };
 
 /**

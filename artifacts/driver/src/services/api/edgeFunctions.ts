@@ -289,3 +289,18 @@ export async function savePreferredPartner(partnerEmailOrId: string): Promise<Ap
 export async function clearPreferredPartner(): Promise<ApiResult<{ ok: boolean }>> {
   return callApi<{ ok: boolean }>('/drivers/me/preferred-partner', 'DELETE');
 }
+
+// ── Driver service capabilities ───────────────────────────────────────────────
+
+/**
+ * Update the driver's rideshare and delivery service capabilities.
+ */
+export async function updateDriverServices(
+  services: { canDoRideshare?: boolean; canDoDelivery?: boolean }
+): Promise<ApiResult<{ id: string; canDoRideshare: boolean; canDoDelivery: boolean }>> {
+  return callApi<{ id: string; canDoRideshare: boolean; canDoDelivery: boolean }>(
+    '/drivers/me/services',
+    'PATCH',
+    services as Record<string, unknown>
+  );
+}

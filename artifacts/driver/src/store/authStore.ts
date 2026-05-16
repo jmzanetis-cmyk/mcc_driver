@@ -18,6 +18,8 @@ export interface DriverProfile {
   partnerName?: string;
   isOnline: boolean;
   canDriveMemberVehicle: boolean;
+  canDoRideshare: boolean;
+  canDoDelivery: boolean;
   totalRidesCompleted: number;
   averageRating: number;
   completionRate: number;

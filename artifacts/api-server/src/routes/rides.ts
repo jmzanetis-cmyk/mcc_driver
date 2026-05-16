@@ -321,6 +321,8 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
   const body = req.body as {
     scenario: string;
     tier: string;
+    serviceType?: string;
+    packageDescription?: string;
     pickupAddress: string;
     pickupLat: number;
     pickupLng: number;
@@ -363,6 +365,12 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
   const deadlineSeconds = body.responseDeadlineSeconds ?? 30;
   const responseDeadline = new Date(Date.now() + deadlineSeconds * 1000);
 
+  // Derive service type from tier (or explicit body field)
+  const serviceType = body.serviceType
+    ?? (body.tier === "tier_0_rideshare" ? "rideshare"
+      : body.tier === "tier_0_delivery" ? "delivery"
+      : "concierge");
+
   try {
     let targetDriverIds: string[] = body.targetDriverIds ?? [];
 
@@ -376,17 +384,20 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
 
       const busyIds = busyDriverRows.map((r) => r.driverId);
 
+      // Build eligibility conditions: base + service-type capability filter
+      const baseEligibility = and(
+        eq(driversTable.isOnline, true),
+        eq(driversTable.status, "active"),
+        isNotNull(driversTable.currentLat),
+        isNotNull(driversTable.currentLng),
+        serviceType === "rideshare" ? eq(driversTable.canDoRideshare, true) : undefined,
+        serviceType === "delivery" ? eq(driversTable.canDoDelivery, true) : undefined,
+      );
+
       const eligibleDrivers = await db
         .select({ id: driversTable.id })
         .from(driversTable)
-        .where(
-          and(
-            eq(driversTable.isOnline, true),
-            eq(driversTable.status, "active"),
-            isNotNull(driversTable.currentLat),
-            isNotNull(driversTable.currentLng),
-          ),
-        );
+        .where(baseEligibility);
 
       targetDriverIds = eligibleDrivers
         .map((d) => d.id)
@@ -426,6 +437,8 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
       .values({
         scenario: body.scenario,
         tier: body.tier,
+        serviceType,
+        packageDescription: body.packageDescription ?? null,
         status: "pending_dispatch",
         memberId: body.memberId ?? null,
         pickupAddress: body.pickupAddress,
@@ -898,6 +911,8 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
 const DRIVER_SHARE = 0.85;
 
 const TIER_RATES: Record<string, { base: number; perMile: number; minimum: number }> = {
+  tier_0_rideshare: { base: 5, perMile: 1.5, minimum: 8 },
+  tier_0_delivery: { base: 6, perMile: 2.0, minimum: 10 },
   tier_1_passenger: { base: 10, perMile: 1.5, minimum: 12 },
   tier_2_vehicle_solo: { base: 20, perMile: 2.0, minimum: 25 },
   tier_3_vehicle_paired: { base: 35, perMile: 2.5, minimum: 40 },
@@ -1031,6 +1046,46 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
     });
   } catch (err) {
     logger.error({ err }, "rides.complete failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── PATCH /api/drivers/me/services ───────────────────────────────────────────
+// Allows drivers to toggle rideshare and delivery service availability.
+
+router.patch("/drivers/me/services", async (req: Request, res: Response) => {
+  const user = await requireUserAuth(req, res);
+  if (!user) return;
+
+  const driver = await resolveCallerDriver(user, res);
+  if (!driver) return;
+
+  const { canDoRideshare, canDoDelivery } = req.body as {
+    canDoRideshare?: boolean;
+    canDoDelivery?: boolean;
+  };
+
+  if (canDoRideshare === undefined && canDoDelivery === undefined) {
+    res.status(400).json({ error: "At least one of canDoRideshare or canDoDelivery must be provided" });
+    return;
+  }
+
+  const updateFields: { canDoRideshare?: boolean; canDoDelivery?: boolean } = {};
+  if (canDoRideshare !== undefined) updateFields.canDoRideshare = canDoRideshare;
+  if (canDoDelivery !== undefined) updateFields.canDoDelivery = canDoDelivery;
+
+  try {
+    const [updated] = await db
+      .update(driversTable)
+      .set(updateFields)
+      .where(eq(driversTable.id, driver.id))
+      .returning({ id: driversTable.id, canDoRideshare: driversTable.canDoRideshare, canDoDelivery: driversTable.canDoDelivery });
+
+    req.log.info({ driverId: driver.id, ...updateFields }, "drivers.services.updated");
+
+    res.json({ success: true, ...updated });
+  } catch (err) {
+    logger.error({ err }, "drivers.services.update failed");
     res.status(500).json({ error: "Internal error" });
   }
 });

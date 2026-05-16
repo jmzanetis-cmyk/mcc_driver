@@ -94,6 +94,8 @@ export function useActiveRide() {
       role: dispatch.role!,
       scenario: dispatch.scenario!,
       tier: dispatch.tier!,
+      serviceType: dispatch.serviceType,
+      packageDescription: dispatch.packageDescription,
       pickupAddress: dispatch.pickupAddress!,
       pickupLat: dispatch.pickupLat!,
       pickupLng: dispatch.pickupLng!,

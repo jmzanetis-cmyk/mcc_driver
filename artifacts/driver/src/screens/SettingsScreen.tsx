@@ -14,6 +14,7 @@ import {
   getPreferredPartner,
   savePreferredPartner,
   clearPreferredPartner,
+  updateDriverServices,
   type PartnerLookupResult,
 } from '@/services/api/edgeFunctions';
 
@@ -30,6 +31,18 @@ export function SettingsScreen() {
   const [savedPartner, setSavedPartner] = useState<PartnerLookupResult | null>(null);
   const [partnerLookupError, setPartnerLookupError] = useState<string | null>(null);
   const [partnerLookupLoading, setPartnerLookupLoading] = useState(false);
+
+  // Service capability toggles
+  const [canDoRideshare, setCanDoRideshare] = useState(driver?.canDoRideshare ?? false);
+  const [canDoDelivery, setCanDoDelivery] = useState(driver?.canDoDelivery ?? false);
+  const [servicesSaving, setServicesSaving] = useState(false);
+
+  useEffect(() => {
+    if (driver) {
+      setCanDoRideshare(driver.canDoRideshare ?? false);
+      setCanDoDelivery(driver.canDoDelivery ?? false);
+    }
+  }, [driver?.id]);
 
   useEffect(() => {
     const saved = localStorage.getItem('mcc_preferred_nav') as NavApp | null;
@@ -57,6 +70,14 @@ export function SettingsScreen() {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleServiceToggle = async (service: 'rideshare' | 'delivery', value: boolean) => {
+    if (service === 'rideshare') setCanDoRideshare(value);
+    else setCanDoDelivery(value);
+    setServicesSaving(true);
+    await updateDriverServices(service === 'rideshare' ? { canDoRideshare: value } : { canDoDelivery: value });
+    setServicesSaving(false);
   };
 
   const handlePartnerLookup = async () => {
@@ -171,6 +192,75 @@ export function SettingsScreen() {
             label="Member Vehicle Certified"
             value={driver.canDriveMemberVehicle ? '✅ Yes' : '❌ Not yet'}
           />
+        </Card>
+
+        {/* Services */}
+        <SectionLabel>Services</SectionLabel>
+        <Card style={{ marginBottom: 16 }} padding={14}>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>
+            Enable additional service types to receive rideshare and delivery requests.
+            {servicesSaving && <span style={{ color: colors.gold, marginLeft: 8 }}>Saving…</span>}
+          </div>
+
+          {/* Rideshare toggle */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 0', borderBottom: `1px solid ${colors.borderLight}`,
+          }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>🚗 Rideshare</div>
+              <div style={{ fontSize: 12, color: colors.textMuted }}>
+                Pick up and transport passengers in your vehicle — $1.50/mi
+              </div>
+            </div>
+            <button
+              onClick={() => void handleServiceToggle('rideshare', !canDoRideshare)}
+              disabled={servicesSaving}
+              style={{
+                width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+                background: canDoRideshare ? '#1A6FC4' : colors.borderLight,
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                opacity: servicesSaving ? 0.6 : 1,
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: 3, transition: 'left 0.2s',
+                left: canDoRideshare ? 24 : 4,
+                width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }} />
+            </button>
+          </div>
+
+          {/* Delivery toggle */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 0',
+          }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>📦 Delivery</div>
+              <div style={{ fontSize: 12, color: colors.textMuted }}>
+                Pick up and deliver parcels and food orders — $2.00/mi
+              </div>
+            </div>
+            <button
+              onClick={() => void handleServiceToggle('delivery', !canDoDelivery)}
+              disabled={servicesSaving}
+              style={{
+                width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+                background: canDoDelivery ? '#D4680A' : colors.borderLight,
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                opacity: servicesSaving ? 0.6 : 1,
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: 3, transition: 'left 0.2s',
+                left: canDoDelivery ? 24 : 4,
+                width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }} />
+            </button>
+          </div>
         </Card>
 
         {/* Navigation preference */}

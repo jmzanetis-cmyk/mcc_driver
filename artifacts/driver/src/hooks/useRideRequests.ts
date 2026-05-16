@@ -3,7 +3,7 @@ import { supabase } from '@/services/supabase/client';
 import { realtimeManager } from '@/services/realtime/realtimeManager';
 import { useDispatchStore } from '@/store/dispatchStore';
 import { acceptRide as acceptRideEdge, declineRide as declineRideEdge } from '@/services/api/edgeFunctions';
-import { SCENARIO_CONFIG, type RideScenario } from '@/services/rides';
+import { SCENARIO_CONFIG, getServiceTypeFromTier, type RideScenario } from '@/services/rides';
 import { logger } from '@/services/telemetry/logger';
 import type { RideRow, AssignmentRow } from '@/services/supabase/types';
 
@@ -63,6 +63,7 @@ export function useRideRequests(driverId: string | null, isOnline: boolean) {
 
           const tandemRequired = ride.tandem_required ?? false;
           const tandemFee = tandemRequired ? computeTandemFee(ride.estimated_distance_miles) : null;
+          const serviceType = getServiceTypeFromTier(ride.tier);
 
           dispatch.setOffer({
             rideId: ride.id,
@@ -70,6 +71,8 @@ export function useRideRequests(driverId: string | null, isOnline: boolean) {
             role: (assignment.role === 'primary' || assignment.role === 'chase') ? assignment.role : null,
             scenario: ride.scenario,
             tier: ride.tier,
+            serviceType,
+            packageDescription: ride.package_description ?? null,
             pickupAddress: ride.pickup_address,
             pickupLat: ride.pickup_lat,
             pickupLng: ride.pickup_lng,

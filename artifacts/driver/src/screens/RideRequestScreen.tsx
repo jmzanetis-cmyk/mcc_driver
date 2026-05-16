@@ -4,8 +4,9 @@ import { Button, CountdownTimer, InfoRow, Card } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
-  getRoleDescription, shortenAddress,
+  getRoleDescription, shortenAddress, getServiceTypeFromTier,
 } from '@/utils/formatters';
+import { getTierPricing } from '@/services/rides';
 import { useDispatchStore } from '@/store/dispatchStore';
 
 type DispatchOffer = ReturnType<typeof useDispatchStore.getState>;
@@ -27,6 +28,8 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
   };
 
   const tierColors: Record<string, string> = {
+    tier_0_rideshare: '#1A6FC4',
+    tier_0_delivery: '#D4680A',
     tier_1_passenger: '#2D6B8A',
     tier_2_vehicle_solo: colors.gold,
     tier_3_vehicle_paired: '#8A5C2D',
@@ -35,6 +38,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
 
   const tier = request.tier ?? '';
   const tierColor = tierColors[tier] ?? colors.navy;
+  const serviceType = getServiceTypeFromTier(tier);
   const scenario = request.scenario ?? '';
   const pickupAddress = request.pickupAddress ?? '';
   const dropoffAddress = request.dropoffAddress ?? '';
@@ -42,6 +46,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
   const estimatedDistance = request.estimatedDistance ?? 0;
   const responseDeadline = request.responseDeadline ?? new Date(Date.now() + 30000).toISOString();
   const role = request.role ?? 'primary';
+  const tierPricing = getTierPricing(tier as Parameters<typeof getTierPricing>[0]);
 
   return (
     <div style={{
@@ -76,18 +81,30 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
               letterSpacing: 0.8, color: tierColor,
               animation: 'pulse 1.5s infinite',
             }}>
-              NEW RIDE REQUEST
+              {serviceType === 'rideshare' ? '🚗 RIDESHARE REQUEST'
+                : serviceType === 'delivery' ? '📦 DELIVERY REQUEST'
+                : 'NEW RIDE REQUEST'}
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginTop: 4 }}>
               {getScenarioLabel(scenario)}
             </div>
-            <div style={{
-              display: 'inline-block', marginTop: 6,
-              fontSize: 11, fontWeight: 600, color: '#fff',
-              background: tierColor, padding: '3px 10px',
-              borderRadius: borderRadius.full,
-            }}>
-              {getTierLabel(tier)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+              <div style={{
+                display: 'inline-block',
+                fontSize: 11, fontWeight: 600, color: '#fff',
+                background: tierColor, padding: '3px 10px',
+                borderRadius: borderRadius.full,
+              }}>
+                {getTierLabel(tier)}
+              </div>
+              <div style={{
+                display: 'inline-block',
+                fontSize: 11, fontWeight: 600, color: tierColor,
+                border: `1px solid ${tierColor}`, padding: '2px 8px',
+                borderRadius: borderRadius.full,
+              }}>
+                ${tierPricing.perMile.toFixed(2)}/mi
+              </div>
             </div>
           </div>
           <CountdownTimer
@@ -139,6 +156,18 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
           <div style={{ borderTop: `1px dashed ${colors.borderLight}` }} />
           <InfoRow icon="📏" label="Distance" value={formatDistance(estimatedDistance)} />
         </Card>
+
+        {/* Package description (for delivery rides) */}
+        {serviceType === 'delivery' && request.packageDescription && (
+          <Card style={{ marginBottom: 12, border: `1.5px solid #D4680A`, background: 'rgba(212,104,10,0.06)' }} padding={14}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+              📦 Package
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: colors.navy }}>
+              {request.packageDescription}
+            </div>
+          </Card>
+        )}
 
         {/* Member vehicle info (for vehicle shuttle scenarios) */}
         {request.drivesMemberVehicle && request.memberVehicleDescription && (
