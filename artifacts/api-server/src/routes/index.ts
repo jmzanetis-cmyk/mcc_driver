@@ -10,6 +10,7 @@ import tandemMatchingRouter from "./tandemMatching";
 import payoutsRouter from "./payouts";
 import deviceTokensRouter from "./deviceTokens";
 import devPushTestRouter from "./devPushTest";
+import driverLocationRouter from "./driverLocation";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(tandemMatchingRouter);
 router.use(payoutsRouter);
 router.use(deviceTokensRouter);
 router.use(devPushTestRouter);
+router.use(driverLocationRouter);
 
 export default router;
