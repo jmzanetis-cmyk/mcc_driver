@@ -24,6 +24,11 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const acceptButtonRef = useRef<HTMLButtonElement>(null);
+  // Instance-unique IDs so multiple dialogs can't collide on the
+  // labelledby/describedby targets.
+  const dialogReactId = React.useId();
+  const titleId = `ride-request-title-${dialogReactId}`;
+  const summaryId = `ride-request-summary-${dialogReactId}`;
 
   // Focus management for the modal:
   // 1. On mount, move focus to the Accept button so a keyboard /
@@ -110,8 +115,8 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
       ref={dialogRef}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="ride-request-title"
-      aria-describedby="ride-request-summary"
+      aria-labelledby={titleId}
+      aria-describedby={summaryId}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: colors.bgOverlay,
@@ -155,7 +160,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
                 : serviceType === 'delivery' ? '📦 DELIVERY REQUEST'
                 : '🚘 CONCIERGE REQUEST'}
             </div>
-            <h2 id="ride-request-title" style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginTop: 4, margin: 0 }}>
+            <h2 id={titleId} style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginTop: 4, margin: 0 }}>
               {getScenarioLabel(scenario)}
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
@@ -186,7 +191,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
 
         {/* Estimated fare */}
         <div
-          id="ride-request-summary"
+          id={summaryId}
           aria-label={`Estimated earnings ${formatCurrency(estimatedFare * 0.85)} for a ${formatDistance(estimatedDistance)} trip from ${shortenAddress(pickupAddress)} to ${shortenAddress(dropoffAddress)}.`}
           style={{
             background: colors.surfaceDark, borderRadius: borderRadius.md,
