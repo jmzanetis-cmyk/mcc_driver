@@ -8,6 +8,7 @@
     "smoke-dispatch": "tsx ./src/smoke-dispatch.ts",
     "smoke-notifications": "tsx ./src/smoke-notifications.ts",
     "send-test-push": "tsx ./src/send-test-push.ts",
+    "seed-reviewer-driver": "tsx ./src/seed-reviewer-driver.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

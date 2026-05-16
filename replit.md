@@ -206,6 +206,32 @@ Drafted material for App Store Connect submission (Task #77) lives in `docs/app-
 - `listing-copy.md` — name, subtitle, promotional text, description, keywords, support/marketing/privacy/EULA URLs, age-rating answers, App Review notes
 - `support.md` — driver support content (in-app + marketing site)
 - `screenshots/README.md` — required device sizes and capture procedure (must run on a Mac simulator for the App Store upload); web-preview reference captures live alongside
+- `submission-runbook.md` — end-to-end checklist for TestFlight upload + App Review submission (Task #83). Covers Apple Developer prep, backend pre-flight, reviewer account seeding, the Mac-only build/archive/upload steps, export compliance, App Store Connect record, internal TestFlight pass, submit-for-review, post-approval rollout, and rollback.
+- `reviewer-notes.md` — the exact text + sign-in credentials to paste into App Store Connect's "App Review Information" section. Pairs with the Supabase Auth "Test Phone Number" feature (no production backdoor — App Store compliant) and the `seed-reviewer-driver` script.
+
+### Reviewer demo account
+
+Apple's reviewers can't receive real Supabase phone OTPs on their internal
+review devices. The supported workaround:
+
+1. In the Supabase production project: **Authentication → Providers → Phone
+   → Test OTP**, add the reviewer phone (e.g. `+15555550199`) with a fixed
+   6-digit code (e.g. `424242`). No real SMS is ever sent for that number.
+2. Seed the matching driver row + Supabase auth user:
+   ```bash
+   REVIEWER_PHONE='+15555550199' \
+     pnpm --filter @workspace/scripts run seed-reviewer-driver
+   ```
+   The script (`scripts/src/seed-reviewer-driver.ts`) is idempotent: it
+   creates the Supabase auth user if missing and inserts/refreshes a fully
+   approved driver row (`status='active'`, `background_check_passed=true`,
+   all service-type capabilities on) so the reviewer skips the application
+   flow.
+3. Paste the phone + OTP into App Store Connect's Sign-in Information
+   fields and the body of `reviewer-notes.md` into the Notes field.
+
+This is the only safe path — a hard-coded "review mode" backdoor in the
+client would itself be grounds for rejection.
 
 In-app legal routes (publicly reachable over HTTPS via the deployed driver
 app domain, so they satisfy App Store Connect's Privacy / EULA / Support
