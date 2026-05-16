@@ -85,3 +85,28 @@ export async function updateRideViaSupabase(
     throw new Error(`Supabase ride update failed: ${error.message}`);
   }
 }
+
+/**
+ * Upsert a tandem_jobs row to Supabase Postgres via HTTPS so Realtime
+ * INSERT/UPDATE events fire to the ride-along driver dashboard. The local
+ * Drizzle row remains the source of truth; Supabase is used purely as a
+ * Realtime notification bus (mirrors the driver_assignments pattern).
+ *
+ * Prerequisite: the tandem_jobs table must be added to the
+ * supabase_realtime publication — see
+ * scripts/sql/enable-tandem-jobs-realtime.sql.
+ */
+export async function upsertTandemJobViaSupabase(
+  tandemJobId: string,
+  values: Record<string, unknown>,
+): Promise<void> {
+  const row = { id: tandemJobId, ...values };
+  const { error } = await supabaseAdmin
+    .from("tandem_jobs")
+    .upsert(row, { onConflict: "id" });
+
+  if (error) {
+    logger.error({ error, tandemJobId }, "supabaseAdmin: failed to upsert tandem_job");
+    throw new Error(`Supabase tandem_job upsert failed: ${error.message}`);
+  }
+}

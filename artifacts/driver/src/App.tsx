@@ -14,6 +14,8 @@ import { ApplicationScreen } from '@/screens/ApplicationScreen';
 import { PendingScreen } from '@/screens/PendingScreen';
 import { RideAlongApplyScreen } from '@/screens/RideAlongApplyScreen';
 import { RideAlongPendingScreen } from '@/screens/RideAlongPendingScreen';
+import { RideAlongDashboardScreen } from '@/screens/RideAlongDashboardScreen';
+import { MemberApprovalScreen } from '@/screens/MemberApprovalScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { NavigateScreen } from '@/screens/NavigateScreen';
 import { RideCompleteScreen } from '@/screens/RideCompleteScreen';
@@ -96,6 +98,8 @@ export default function App() {
             <Route path="/pending" element={<PendingScreen />} />
             <Route path="/ride-along-apply" element={<RideAlongApplyScreen />} />
             <Route path="/ride-along-pending" element={<RideAlongPendingScreen />} />
+            <Route path="/ride-along" element={<RideAlongDashboardScreen />} />
+            <Route path="/tandem-match/:tandemJobId/approve" element={<MemberApprovalScreen />} />
             <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/navigate" element={<ProtectedRoute><NavigateScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/complete" element={<ProtectedRoute><RideCompleteScreen /></ProtectedRoute>} />

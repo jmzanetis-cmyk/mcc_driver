@@ -752,6 +752,119 @@ export const DeclineTandemMatchResponse = zod.object({
 });
 
 /**
+ * Marks the tandem job as `confirmed` and stamps `memberApproved=true`.
+Idempotent: returns the existing record if the job is already confirmed.
+
+ * @summary Member approves the matched ride-along driver
+ */
+export const MemberApproveTandemMatchParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const MemberApproveTandemMatchResponse = zod.object({
+  id: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+  providerId: zod.string().uuid(),
+  tandemMode: zod.enum(["A", "B", "C"]),
+  rideAlongDriverId: zod.string().uuid().nullish(),
+  matchStatus: zod.string(),
+  matchDeadline: zod.coerce.date().nullish(),
+  matchedRideAlongDriverId: zod.string().uuid().nullish(),
+  memberApproved: zod.boolean().nullish(),
+  rideAlongFee: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * Records the previously matched driver as a decline (so they are
+excluded from re-matching) and re-broadcasts the job to the remaining
+eligible drivers.
+
+ * @summary Member declines the matched ride-along driver
+ */
+export const MemberDeclineTandemMatchParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const MemberDeclineTandemMatchBody = zod.object({
+  reason: zod.string().optional(),
+});
+
+export const MemberDeclineTandemMatchResponse = zod.object({
+  tandemJob: zod.object({
+    id: zod.string().uuid(),
+    rideId: zod.string().uuid(),
+    providerId: zod.string().uuid(),
+    tandemMode: zod.enum(["A", "B", "C"]),
+    rideAlongDriverId: zod.string().uuid().nullish(),
+    matchStatus: zod.string(),
+    matchDeadline: zod.coerce.date().nullish(),
+    matchedRideAlongDriverId: zod.string().uuid().nullish(),
+    memberApproved: zod.boolean().nullish(),
+    rideAlongFee: zod.number().nullish(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  }),
+  eligibleCount: zod.number(),
+  eligibleDrivers: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      firstName: zod.string(),
+      lastName: zod.string(),
+      rating: zod.number(),
+      totalJobs: zod.number(),
+      distanceMiles: zod.number().nullish(),
+      priorJobsWithProvider: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * Records the currently matched driver as a decline and re-broadcasts the
+job so the provider can receive a different match. Only the owning
+provider may call this.
+
+ * @summary Provider requests a different ride-along driver match
+ */
+export const RequestTandemRematchParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const RequestTandemRematchBody = zod.object({
+  reason: zod.string().optional(),
+});
+
+export const RequestTandemRematchResponse = zod.object({
+  tandemJob: zod.object({
+    id: zod.string().uuid(),
+    rideId: zod.string().uuid(),
+    providerId: zod.string().uuid(),
+    tandemMode: zod.enum(["A", "B", "C"]),
+    rideAlongDriverId: zod.string().uuid().nullish(),
+    matchStatus: zod.string(),
+    matchDeadline: zod.coerce.date().nullish(),
+    matchedRideAlongDriverId: zod.string().uuid().nullish(),
+    memberApproved: zod.boolean().nullish(),
+    rideAlongFee: zod.number().nullish(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  }),
+  eligibleCount: zod.number(),
+  eligibleDrivers: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      firstName: zod.string(),
+      lastName: zod.string(),
+      rating: zod.number(),
+      totalJobs: zod.number(),
+      distanceMiles: zod.number().nullish(),
+      priorJobsWithProvider: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Set a known partner for a tandem job (Mode A)
  */
 export const SetKnownPartnerParams = zod.object({

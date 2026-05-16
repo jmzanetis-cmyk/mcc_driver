@@ -1232,6 +1232,149 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /tandem-jobs/{tandemJobId}/member-approve:
+    patch:
+      operationId: memberApproveTandemMatch
+      tags: [tandem]
+      summary: Member approves the matched ride-along driver
+      description: |
+        Marks the tandem job as `confirmed` and stamps `memberApproved=true`.
+        Idempotent: returns the existing record if the job is already confirmed.
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Member approval recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemJobRecord"
+        "404":
+          description: Tandem job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Tandem job is not awaiting member approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/{tandemJobId}/member-decline:
+    patch:
+      operationId: memberDeclineTandemMatch
+      tags: [tandem]
+      summary: Member declines the matched ride-along driver
+      description: |
+        Records the previously matched driver as a decline (so they are
+        excluded from re-matching) and re-broadcasts the job to the remaining
+        eligible drivers.
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeclineTandemMatchRequest"
+      responses:
+        "200":
+          description: Job re-broadcast to remaining eligible drivers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemBroadcastResult"
+        "404":
+          description: Tandem job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Tandem job is not awaiting member approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Re-broadcast only valid for Mode B tandem jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/{tandemJobId}/request-rematch:
+    patch:
+      operationId: requestTandemRematch
+      tags: [tandem]
+      summary: Provider requests a different ride-along driver match
+      description: |
+        Records the currently matched driver as a decline and re-broadcasts the
+        job so the provider can receive a different match. Only the owning
+        provider may call this.
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeclineTandemMatchRequest"
+      responses:
+        "200":
+          description: Job re-broadcast to remaining eligible drivers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemBroadcastResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not your tandem job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Tandem job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Tandem job is not in a rematchable state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Rematch only valid for Mode B tandem jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /tandem-jobs/{tandemJobId}/known-partner:
     post:
       operationId: setKnownPartner

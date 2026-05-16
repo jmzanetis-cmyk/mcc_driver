@@ -291,6 +291,91 @@ export async function clearPreferredPartner(): Promise<ApiResult<{ ok: boolean }
   return callApi<{ ok: boolean }>('/drivers/me/preferred-partner', 'DELETE');
 }
 
+// ── Tandem matching (Mode B platform-match) ───────────────────────────────────
+
+export interface TandemBroadcastDriverSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  rating: number;
+  totalJobs: number;
+  distanceMiles: number | null;
+  priorJobsWithProvider: number;
+}
+
+export interface TandemBroadcastResult {
+  tandemJob: TandemJobRecord;
+  eligibleCount: number;
+  eligibleDrivers: TandemBroadcastDriverSummary[];
+}
+
+/**
+ * Ride-along driver accepts a broadcast tandem job. First responder wins;
+ * subsequent callers receive 409.
+ */
+export async function acceptTandemMatch(
+  tandemJobId: string,
+): Promise<ApiResult<TandemJobRecord>> {
+  return callApi<TandemJobRecord>(`/tandem-jobs/${tandemJobId}/ridealong-accept`);
+}
+
+/**
+ * Ride-along driver declines a broadcast tandem job. Records the decline so
+ * the driver is excluded from re-broadcasts of the same job.
+ */
+export async function declineTandemMatch(
+  tandemJobId: string,
+  reason?: string,
+): Promise<ApiResult<{ ok: boolean }>> {
+  return callApi<{ ok: boolean }>(
+    `/tandem-jobs/${tandemJobId}/ridealong-decline`,
+    'POST',
+    reason ? { reason } : undefined,
+  );
+}
+
+/**
+ * Member approves the matched ride-along driver. Marks the job as confirmed.
+ */
+export async function memberApproveTandemMatch(
+  tandemJobId: string,
+): Promise<ApiResult<TandemJobRecord>> {
+  return callApi<TandemJobRecord>(
+    `/tandem-jobs/${tandemJobId}/member-approve`,
+    'PATCH',
+  );
+}
+
+/**
+ * Member declines the matched ride-along driver. Re-broadcasts to remaining
+ * eligible drivers.
+ */
+export async function memberDeclineTandemMatch(
+  tandemJobId: string,
+  reason?: string,
+): Promise<ApiResult<TandemBroadcastResult>> {
+  return callApi<TandemBroadcastResult>(
+    `/tandem-jobs/${tandemJobId}/member-decline`,
+    'PATCH',
+    reason ? { reason } : undefined,
+  );
+}
+
+/**
+ * Provider asks for a different ride-along driver match. Re-broadcasts to
+ * remaining eligible drivers.
+ */
+export async function requestTandemRematch(
+  tandemJobId: string,
+  reason?: string,
+): Promise<ApiResult<TandemBroadcastResult>> {
+  return callApi<TandemBroadcastResult>(
+    `/tandem-jobs/${tandemJobId}/request-rematch`,
+    'PATCH',
+    reason ? { reason } : undefined,
+  );
+}
+
 // ── Driver service capabilities ───────────────────────────────────────────────
 
 /**

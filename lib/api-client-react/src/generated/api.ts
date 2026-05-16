@@ -2835,6 +2835,286 @@ export const useDeclineTandemMatch = <
 };
 
 /**
+ * Marks the tandem job as `confirmed` and stamps `memberApproved=true`.
+Idempotent: returns the existing record if the job is already confirmed.
+
+ * @summary Member approves the matched ride-along driver
+ */
+export const getMemberApproveTandemMatchUrl = (tandemJobId: string) => {
+  return `/api/tandem-jobs/${tandemJobId}/member-approve`;
+};
+
+export const memberApproveTandemMatch = async (
+  tandemJobId: string,
+  options?: RequestInit,
+): Promise<TandemJobRecord> => {
+  return customFetch<TandemJobRecord>(
+    getMemberApproveTandemMatchUrl(tandemJobId),
+    {
+      ...options,
+      method: "PATCH",
+    },
+  );
+};
+
+export const getMemberApproveTandemMatchMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof memberApproveTandemMatch>>,
+    TError,
+    { tandemJobId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof memberApproveTandemMatch>>,
+  TError,
+  { tandemJobId: string },
+  TContext
+> => {
+  const mutationKey = ["memberApproveTandemMatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof memberApproveTandemMatch>>,
+    { tandemJobId: string }
+  > = (props) => {
+    const { tandemJobId } = props ?? {};
+
+    return memberApproveTandemMatch(tandemJobId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MemberApproveTandemMatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof memberApproveTandemMatch>>
+>;
+
+export type MemberApproveTandemMatchMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Member approves the matched ride-along driver
+ */
+export const useMemberApproveTandemMatch = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof memberApproveTandemMatch>>,
+    TError,
+    { tandemJobId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof memberApproveTandemMatch>>,
+  TError,
+  { tandemJobId: string },
+  TContext
+> => {
+  return useMutation(getMemberApproveTandemMatchMutationOptions(options));
+};
+
+/**
+ * Records the previously matched driver as a decline (so they are
+excluded from re-matching) and re-broadcasts the job to the remaining
+eligible drivers.
+
+ * @summary Member declines the matched ride-along driver
+ */
+export const getMemberDeclineTandemMatchUrl = (tandemJobId: string) => {
+  return `/api/tandem-jobs/${tandemJobId}/member-decline`;
+};
+
+export const memberDeclineTandemMatch = async (
+  tandemJobId: string,
+  declineTandemMatchRequest?: DeclineTandemMatchRequest,
+  options?: RequestInit,
+): Promise<TandemBroadcastResult> => {
+  return customFetch<TandemBroadcastResult>(
+    getMemberDeclineTandemMatchUrl(tandemJobId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(declineTandemMatchRequest),
+    },
+  );
+};
+
+export const getMemberDeclineTandemMatchMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof memberDeclineTandemMatch>>,
+    TError,
+    { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof memberDeclineTandemMatch>>,
+  TError,
+  { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> },
+  TContext
+> => {
+  const mutationKey = ["memberDeclineTandemMatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof memberDeclineTandemMatch>>,
+    { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> }
+  > = (props) => {
+    const { tandemJobId, data } = props ?? {};
+
+    return memberDeclineTandemMatch(tandemJobId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MemberDeclineTandemMatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof memberDeclineTandemMatch>>
+>;
+export type MemberDeclineTandemMatchMutationBody =
+  BodyType<DeclineTandemMatchRequest>;
+export type MemberDeclineTandemMatchMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Member declines the matched ride-along driver
+ */
+export const useMemberDeclineTandemMatch = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof memberDeclineTandemMatch>>,
+    TError,
+    { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof memberDeclineTandemMatch>>,
+  TError,
+  { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> },
+  TContext
+> => {
+  return useMutation(getMemberDeclineTandemMatchMutationOptions(options));
+};
+
+/**
+ * Records the currently matched driver as a decline and re-broadcasts the
+job so the provider can receive a different match. Only the owning
+provider may call this.
+
+ * @summary Provider requests a different ride-along driver match
+ */
+export const getRequestTandemRematchUrl = (tandemJobId: string) => {
+  return `/api/tandem-jobs/${tandemJobId}/request-rematch`;
+};
+
+export const requestTandemRematch = async (
+  tandemJobId: string,
+  declineTandemMatchRequest?: DeclineTandemMatchRequest,
+  options?: RequestInit,
+): Promise<TandemBroadcastResult> => {
+  return customFetch<TandemBroadcastResult>(
+    getRequestTandemRematchUrl(tandemJobId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(declineTandemMatchRequest),
+    },
+  );
+};
+
+export const getRequestTandemRematchMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestTandemRematch>>,
+    TError,
+    { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestTandemRematch>>,
+  TError,
+  { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> },
+  TContext
+> => {
+  const mutationKey = ["requestTandemRematch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestTandemRematch>>,
+    { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> }
+  > = (props) => {
+    const { tandemJobId, data } = props ?? {};
+
+    return requestTandemRematch(tandemJobId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestTandemRematchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestTandemRematch>>
+>;
+export type RequestTandemRematchMutationBody =
+  BodyType<DeclineTandemMatchRequest>;
+export type RequestTandemRematchMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Provider requests a different ride-along driver match
+ */
+export const useRequestTandemRematch = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestTandemRematch>>,
+    TError,
+    { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestTandemRematch>>,
+  TError,
+  { tandemJobId: string; data: BodyType<DeclineTandemMatchRequest> },
+  TContext
+> => {
+  return useMutation(getRequestTandemRematchMutationOptions(options));
+};
+
+/**
  * @summary Set a known partner for a tandem job (Mode A)
  */
 export const getSetKnownPartnerUrl = (tandemJobId: string) => {
