@@ -1,8 +1,14 @@
-import express, { type Express } from "express";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { isSentryEnabled, Sentry } from "./lib/sentry";
 
 const app: Express = express();
 
@@ -29,6 +35,42 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+if (isSentryEnabled()) {
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    // Tag the per-request isolation scope established by Sentry's Express
+    // integration. Unlike withScope(next), this propagates through async
+    // continuations within the request lifecycle.
+    const scope = Sentry.getIsolationScope();
+    const reqId = (req as { id?: string | number }).id;
+    if (reqId !== undefined) scope.setTag("request_id", String(reqId));
+    scope.setTag("route", req.path);
+    scope.setTag("method", req.method);
+    next();
+  });
+}
+
 app.use("/api", router);
+
+if (isSentryEnabled()) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
+app.use(
+  (err: unknown, req: Request, res: Response, _next: NextFunction): void => {
+    const r = req as Request & { log?: { error: (...args: unknown[]) => void } };
+    r.log?.error({ err }, "unhandled_error");
+    if (res.headersSent) return;
+    res.status(500).json({ error: "internal_server_error" });
+  },
+);
+
+if (isSentryEnabled()) {
+  process.on("unhandledRejection", (reason) => {
+    Sentry.captureException(reason);
+  });
+  process.on("uncaughtException", (err) => {
+    Sentry.captureException(err);
+  });
+}
 
 export default app;

@@ -91,5 +91,9 @@
     "wouter": "^3.3.5",
     "zod": "catalog:",
     "zustand": "^4.5.7"
+  },
+  "dependencies": {
+    "@sentry/capacitor": "^4.0.0",
+    "@sentry/react": "^10.43.0"
   }
 }

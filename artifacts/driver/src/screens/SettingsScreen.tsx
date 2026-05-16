@@ -626,6 +626,21 @@ export function SettingsScreen() {
           </div>
         </Card>
 
+        {import.meta.env.DEV && (
+          <Card style={{ marginBottom: 24 }}>
+            <SectionLabel>Debug</SectionLabel>
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => {
+                throw new Error('debug_trigger_client_error');
+              }}
+            >
+              Trigger client error (Sentry smoke)
+            </Button>
+          </Card>
+        )}
+
         {/* Sign out */}
         <Button
           onClick={() => setShowSignOutConfirm(true)}

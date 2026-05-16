@@ -17,6 +17,8 @@ A real-time driver portal for My Car Concierge — a premium vehicle concierge s
 - Optional env: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` — Phase 3c tandem SMS notifications. If unset, `notifications.ts` logs `sms_skipped` and skips delivery; push (Realtime) still fires. A Replit Twilio integration is available and preferred.
 - Optional env: `APP_BASE_URL` — base URL used in SMS deep links; falls back to first entry of `REPLIT_DOMAINS`.
 - Optional env: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — Web Push (native browser push) credentials. When unset, `webPush.ts` logs `skipped` and the API server falls back to Supabase Realtime broadcasts only. Generate a pair with `npx web-push generate-vapid-keys`. `VAPID_SUBJECT` defaults to `mailto:support@mycarconcierge.com`.
+- Optional env: `SENTRY_DSN`, `SENTRY_ENV`, `SENTRY_RELEASE` — API-server Sentry credentials. When `SENTRY_DSN` is unset, `lib/sentry.ts` no-ops cleanly and the server runs without telemetry (dev default). `SENTRY_ENV` defaults to `NODE_ENV`.
+- Optional env: `VITE_SENTRY_DSN`, `VITE_SENTRY_ENV`, `VITE_SENTRY_RELEASE` — Driver-app Sentry credentials, embedded at build time. When `VITE_SENTRY_DSN` is unset, `services/telemetry/sentry.ts` no-ops cleanly. The native iOS layer uses `@sentry/capacitor`; native crash symbolication still requires uploading dSYMs from the Mac build (see `artifacts/driver/ios/README.md`).
 - Optional env: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_AUTH_KEY`, `APNS_BUNDLE_ID`, `APNS_PRODUCTION` — Apple Push Notification service credentials for the Capacitor iOS build. `APNS_AUTH_KEY` is the full PEM contents of the .p8 file from the Apple Developer console; `APNS_BUNDLE_ID` defaults to `com.mycarconcierge.driver` and **must match** the signed build's bundle id + `App.entitlements` `aps-environment` (a mismatch returns APNs `DeviceTokenNotForTopic`, which `apnsPush.ts` treats as a revoke signal — misconfigured creds will silently purge valid tokens). Set `APNS_PRODUCTION=true` for the App Store / TestFlight build (sandbox otherwise). When unset, `apnsPush.ts` logs a skip and Web Push / Realtime continue to work. **Ops:** set `DISPATCH_API_KEY` in any non-local environment so `/api/dev/push-test` is locked down (open only when no key is configured outside production).
 
 ## Stack
@@ -214,6 +216,34 @@ URL fields even before mycarconcierge.com hosts them):
 
 Links are wired from `SignInScreen` (footer), `ApplicationScreen`
 (submission consent text), and `SettingsScreen` (Legal & About card).
+
+## Error monitoring (Sentry)
+
+- **Driver app** uses `@sentry/capacitor` (which wraps `@sentry/react`) via
+  `artifacts/driver/src/services/telemetry/sentry.ts`. `initSentry()` is
+  invoked from `main.tsx` before `App` mounts. User context is set to the
+  driver id only (never PII) from `AuthProvider`, cleared on sign-out.
+- **API server** uses `@sentry/node` via
+  `artifacts/api-server/src/lib/sentry.ts`. `initSentry()` runs as the first
+  side-effect in `src/index.ts`. The Express error handler is wired through
+  `Sentry.setupExpressErrorHandler(app)` after the route layer, with a
+  fallback JSON 500 handler so callers still get a clean response.
+  `unhandledRejection` and `uncaughtException` are also captured.
+- **PII scrubbing** — both SDKs share a `beforeSend` / `beforeBreadcrumb`
+  hook that strips `phone`, `email`, `name`, `Authorization`, `Cookie`,
+  `access_token`, `refresh_token`, `password` and similar keys from event
+  request/data/extra/contexts before delivery.
+- **Smoke tests** — driver: `Settings → Debug → Trigger client error`
+  (visible only in `import.meta.env.DEV` builds). API: `GET /api/_debug/throw`
+  (open in non-production; in production requires `x-api-key` matching
+  `DISPATCH_API_KEY`, same lock-down pattern as `/api/dev/push-test`).
+  Both paths produce a real exception when a DSN is configured.
+- **Build externals** — the API server bundle no longer externalizes
+  `@opentelemetry/*` (esbuild bundles them now), so `@sentry/node`'s
+  Otel-based auto-instrumentation works without extra runtime installs.
+  `lib/db` now declares `@opentelemetry/api` so drizzle-orm's optional
+  Otel peer resolves to a single copy across the workspace (avoids the
+  duplicate-drizzle TS2345 we hit when Sentry was first added).
 
 ## Pointers
 

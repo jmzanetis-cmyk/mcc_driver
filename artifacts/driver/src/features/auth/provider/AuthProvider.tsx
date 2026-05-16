@@ -11,6 +11,7 @@ import { logger } from '@/services/telemetry/logger';
 import { recoverRideState, replayOfflineActions } from '@/services/offline/recovery';
 import { registerPushSubscription, unregisterPushSubscription } from '@/services/push/registerPush';
 import { registerNativePush, unregisterNativePush } from '@/services/push/registerNativePush';
+import { setSentryUser } from '@/services/telemetry/sentry';
 import type { DriverRow, PartnerRow } from '@/services/supabase/types';
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
         if (!session?.user) {
           await unregisterPushSubscription().catch(() => {});
           await unregisterNativePush().catch(() => {});
+          setSentryUser(null);
           clear();
           return;
         }
@@ -86,6 +88,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
     if (error || !data) {
       setDriver(null);
+      setSentryUser(null);
       return null;
     }
 
@@ -129,6 +132,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     };
 
     setDriver(profile);
+    setSentryUser(profile.id);
     logger.info('auth.driver_hydrated', { driverId: profile.id, status: profile.status });
     return profile;
   }
