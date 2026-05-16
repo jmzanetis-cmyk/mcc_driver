@@ -16,6 +16,10 @@ export interface TandemJobRecord {
   rideAlongDriverId?: string | null;
   matchStatus: string;
   /** @nullable */
+  matchDeadline?: Date | null;
+  /** @nullable */
+  matchedRideAlongDriverId?: string | null;
+  /** @nullable */
   memberApproved?: boolean | null;
   /** @nullable */
   rideAlongFee?: number | null;

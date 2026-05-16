@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startExpiryWorker } from "./routes/rides";
+import { startTandemExpiryWorker } from "./routes/tandemMatching";
 import { seedAdminsFromEnv } from "./lib/adminAuth";
 import { startWeeklyPayoutScheduler } from "./lib/weeklyPayoutScheduler";
 
@@ -26,6 +27,7 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startExpiryWorker();
+  startTandemExpiryWorker();
   void seedAdminsFromEnv();
   startWeeklyPayoutScheduler();
 });

@@ -176,6 +176,12 @@ export const rideAlongDriversTable = pgTable("ride_along_drivers", {
   insuranceDocumentPath: text("insurance_document_path"),
   insuranceExpiry: text("insurance_expiry"),
 
+  // Resolved coordinates for ZIP — used by Phase 3 matching (Haversine distance).
+  // Populated by a ZIP→lat/lng lookup (Phase 3b dashboard task). When null,
+  // the matching engine skips distance filtering for that driver.
+  zipLat: real("zip_lat"),
+  zipLng: real("zip_lng"),
+
   // Verification
   backgroundCheckStatus: text("background_check_status").notNull().default("pending"),
   verified: boolean("verified").notNull().default(false),
@@ -225,8 +231,20 @@ export const tandemJobsTable = pgTable(
     // Linked ride-along driver (Mode A only; null for B/C)
     rideAlongDriverId: uuid("ride_along_driver_id").references(() => rideAlongDriversTable.id),
 
-    // Workflow state: pending | pending_match | confirmed | member_pending | cancelled
+    // Workflow state: pending | pending_match | broadcast | matched | member_pending |
+    //                 confirmed | expired | cancelled
     matchStatus: text("match_status").notNull().default("pending"),
+
+    // Phase 3a: deadline for a broadcast match — after this, the worker flips the
+    // job to `match_status = expired`. Null when not in `broadcast` state.
+    matchDeadline: timestamp("match_deadline", { withTimezone: true }),
+
+    // Phase 3a: the ride-along driver who won the atomic accept in Mode B.
+    // Distinct from `rideAlongDriverId` (which is set immediately for Mode A known
+    // partner), but both are populated in Mode B once a match is confirmed.
+    matchedRideAlongDriverId: uuid("matched_ride_along_driver_id").references(
+      () => rideAlongDriversTable.id,
+    ),
 
     // Whether the member approved this arrangement (Phase 3)
     memberApproved: boolean("member_approved"),
@@ -252,3 +270,23 @@ export const tandemJobsTable = pgTable(
 );
 
 export type TandemJob = typeof tandemJobsTable.$inferSelect;
+
+// ── Tandem Job Declines ───────────────────────────────────────────────────────
+// Phase 3a: tracks which ride-along drivers have declined a particular tandem
+// job so they are excluded from re-broadcasts of the same job.
+
+export const tandemJobDeclinesTable = pgTable(
+  "tandem_job_declines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tandemJobId: uuid("tandem_job_id").notNull().references(() => tandemJobsTable.id),
+    rideAlongDriverId: uuid("ride_along_driver_id").notNull().references(() => rideAlongDriversTable.id),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("tandem_job_declines_job_driver_unique").on(table.tandemJobId, table.rideAlongDriverId),
+  ],
+);
+
+export type TandemJobDecline = typeof tandemJobDeclinesTable.$inferSelect;

@@ -360,6 +360,10 @@ export interface TandemJobRecord {
   rideAlongDriverId?: string | null;
   matchStatus: string;
   /** @nullable */
+  matchDeadline?: string | null;
+  /** @nullable */
+  matchedRideAlongDriverId?: string | null;
+  /** @nullable */
   memberApproved?: boolean | null;
   /** @nullable */
   rideAlongFee?: number | null;
@@ -367,6 +371,36 @@ export interface TandemJobRecord {
   createdAt?: string | null;
   /** @nullable */
   updatedAt?: string | null;
+}
+
+export interface EligibleRideAlongDriver {
+  id: string;
+  firstName: string;
+  lastName: string;
+  rating: number;
+  totalJobs: number;
+  /** @nullable */
+  distanceMiles?: number | null;
+  priorJobsWithProvider: number;
+}
+
+export interface TandemBroadcastResult {
+  tandemJob: TandemJobRecord;
+  eligibleCount: number;
+  eligibleDrivers: EligibleRideAlongDriver[];
+}
+
+export interface TandemEligibleDriversResult {
+  eligibleCount: number;
+  eligibleDrivers: EligibleRideAlongDriver[];
+}
+
+export interface DeclineTandemMatchRequest {
+  reason?: string;
+}
+
+export interface SimpleOkResponse {
+  ok: boolean;
 }
 
 export interface PartnerLookupResult {

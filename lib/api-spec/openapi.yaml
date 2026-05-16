@@ -1039,6 +1039,199 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /tandem-jobs/{tandemJobId}/broadcast:
+    post:
+      operationId: broadcastTandemJob
+      tags: [tandem]
+      summary: Open the Mode B match broadcast window for a tandem job
+      description: |
+        Marks the tandem job as `broadcast`, sets a `match_deadline` 2 hours in
+        the future, and returns the current list of eligible ride-along drivers.
+        Only valid for Mode B tandem jobs. The background expiry worker will
+        flip overdue broadcasts to `expired`.
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Broadcast opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemBroadcastResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Tandem job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Tandem job already matched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Tandem job is not in Mode B
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/{tandemJobId}/eligible-drivers:
+    get:
+      operationId: getTandemJobEligibleDrivers
+      tags: [tandem]
+      summary: List eligible ride-along drivers for a Mode B tandem job
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Eligible drivers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemEligibleDriversResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Tandem job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/{tandemJobId}/ridealong-accept:
+    post:
+      operationId: acceptTandemMatch
+      tags: [tandem]
+      summary: Accept a Mode B tandem job as a ride-along driver
+      description: |
+        Atomically claims the broadcast match. Only the first caller wins —
+        subsequent callers receive 409 with "Job already taken".
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Match accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TandemJobRecord"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — partner not verified or active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Tandem job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Job already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Tandem job is not in Mode B
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tandem-jobs/{tandemJobId}/ridealong-decline:
+    post:
+      operationId: declineTandemMatch
+      tags: [tandem]
+      summary: Decline a Mode B tandem job as a ride-along driver
+      description: |
+        Records the decline so the driver is excluded from re-broadcasts of the
+        same tandem job. Idempotent.
+      parameters:
+        - in: path
+          name: tandemJobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeclineTandemMatchRequest"
+      responses:
+        "200":
+          description: Decline recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleOkResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Tandem job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /tandem-jobs/{tandemJobId}/known-partner:
     post:
       operationId: setKnownPartner
@@ -1771,6 +1964,12 @@ components:
           format: uuid
         matchStatus:
           type: string
+        matchDeadline:
+          type: ["string", "null"]
+          format: date-time
+        matchedRideAlongDriverId:
+          type: ["string", "null"]
+          format: uuid
         memberApproved:
           type: ["boolean", "null"]
         rideAlongFee:
@@ -1786,6 +1985,66 @@ components:
         - providerId
         - tandemMode
         - matchStatus
+
+    EligibleRideAlongDriver:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        rating:
+          type: number
+          format: float
+        totalJobs:
+          type: integer
+        distanceMiles:
+          type: ["number", "null"]
+          format: float
+        priorJobsWithProvider:
+          type: integer
+      required: [id, firstName, lastName, rating, totalJobs, priorJobsWithProvider]
+
+    TandemBroadcastResult:
+      type: object
+      properties:
+        tandemJob:
+          $ref: "#/components/schemas/TandemJobRecord"
+        eligibleCount:
+          type: integer
+        eligibleDrivers:
+          type: array
+          items:
+            $ref: "#/components/schemas/EligibleRideAlongDriver"
+      required: [tandemJob, eligibleCount, eligibleDrivers]
+
+    TandemEligibleDriversResult:
+      type: object
+      properties:
+        eligibleCount:
+          type: integer
+        eligibleDrivers:
+          type: array
+          items:
+            $ref: "#/components/schemas/EligibleRideAlongDriver"
+      required: [eligibleCount, eligibleDrivers]
+
+    DeclineTandemMatchRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      required: []
+
+    SimpleOkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required: [ok]
 
     PartnerLookupResult:
       type: object

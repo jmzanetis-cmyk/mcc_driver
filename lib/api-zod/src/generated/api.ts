@@ -611,6 +611,8 @@ export const GetTandemJobResponse = zod.object({
   tandemMode: zod.enum(["A", "B", "C"]),
   rideAlongDriverId: zod.string().uuid().nullish(),
   matchStatus: zod.string(),
+  matchDeadline: zod.coerce.date().nullish(),
+  matchedRideAlongDriverId: zod.string().uuid().nullish(),
   memberApproved: zod.boolean().nullish(),
   rideAlongFee: zod.number().nullish(),
   createdAt: zod.string().nullish(),
@@ -635,10 +637,118 @@ export const UpdateTandemJobModeResponse = zod.object({
   tandemMode: zod.enum(["A", "B", "C"]),
   rideAlongDriverId: zod.string().uuid().nullish(),
   matchStatus: zod.string(),
+  matchDeadline: zod.coerce.date().nullish(),
+  matchedRideAlongDriverId: zod.string().uuid().nullish(),
   memberApproved: zod.boolean().nullish(),
   rideAlongFee: zod.number().nullish(),
   createdAt: zod.string().nullish(),
   updatedAt: zod.string().nullish(),
+});
+
+/**
+ * Marks the tandem job as `broadcast`, sets a `match_deadline` 2 hours in
+the future, and returns the current list of eligible ride-along drivers.
+Only valid for Mode B tandem jobs. The background expiry worker will
+flip overdue broadcasts to `expired`.
+
+ * @summary Open the Mode B match broadcast window for a tandem job
+ */
+export const BroadcastTandemJobParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const BroadcastTandemJobResponse = zod.object({
+  tandemJob: zod.object({
+    id: zod.string().uuid(),
+    rideId: zod.string().uuid(),
+    providerId: zod.string().uuid(),
+    tandemMode: zod.enum(["A", "B", "C"]),
+    rideAlongDriverId: zod.string().uuid().nullish(),
+    matchStatus: zod.string(),
+    matchDeadline: zod.coerce.date().nullish(),
+    matchedRideAlongDriverId: zod.string().uuid().nullish(),
+    memberApproved: zod.boolean().nullish(),
+    rideAlongFee: zod.number().nullish(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  }),
+  eligibleCount: zod.number(),
+  eligibleDrivers: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      firstName: zod.string(),
+      lastName: zod.string(),
+      rating: zod.number(),
+      totalJobs: zod.number(),
+      distanceMiles: zod.number().nullish(),
+      priorJobsWithProvider: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary List eligible ride-along drivers for a Mode B tandem job
+ */
+export const GetTandemJobEligibleDriversParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const GetTandemJobEligibleDriversResponse = zod.object({
+  eligibleCount: zod.number(),
+  eligibleDrivers: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      firstName: zod.string(),
+      lastName: zod.string(),
+      rating: zod.number(),
+      totalJobs: zod.number(),
+      distanceMiles: zod.number().nullish(),
+      priorJobsWithProvider: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * Atomically claims the broadcast match. Only the first caller wins —
+subsequent callers receive 409 with "Job already taken".
+
+ * @summary Accept a Mode B tandem job as a ride-along driver
+ */
+export const AcceptTandemMatchParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const AcceptTandemMatchResponse = zod.object({
+  id: zod.string().uuid(),
+  rideId: zod.string().uuid(),
+  providerId: zod.string().uuid(),
+  tandemMode: zod.enum(["A", "B", "C"]),
+  rideAlongDriverId: zod.string().uuid().nullish(),
+  matchStatus: zod.string(),
+  matchDeadline: zod.coerce.date().nullish(),
+  matchedRideAlongDriverId: zod.string().uuid().nullish(),
+  memberApproved: zod.boolean().nullish(),
+  rideAlongFee: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * Records the decline so the driver is excluded from re-broadcasts of the
+same tandem job. Idempotent.
+
+ * @summary Decline a Mode B tandem job as a ride-along driver
+ */
+export const DeclineTandemMatchParams = zod.object({
+  tandemJobId: zod.coerce.string().uuid(),
+});
+
+export const DeclineTandemMatchBody = zod.object({
+  reason: zod.string().optional(),
+});
+
+export const DeclineTandemMatchResponse = zod.object({
+  ok: zod.boolean(),
 });
 
 /**
@@ -663,6 +773,8 @@ export const SetKnownPartnerResponse = zod.object({
   tandemMode: zod.enum(["A", "B", "C"]),
   rideAlongDriverId: zod.string().uuid().nullish(),
   matchStatus: zod.string(),
+  matchDeadline: zod.coerce.date().nullish(),
+  matchedRideAlongDriverId: zod.string().uuid().nullish(),
   memberApproved: zod.boolean().nullish(),
   rideAlongFee: zod.number().nullish(),
   createdAt: zod.string().nullish(),
@@ -683,6 +795,8 @@ export const RemoveKnownPartnerResponse = zod.object({
   tandemMode: zod.enum(["A", "B", "C"]),
   rideAlongDriverId: zod.string().uuid().nullish(),
   matchStatus: zod.string(),
+  matchDeadline: zod.coerce.date().nullish(),
+  matchedRideAlongDriverId: zod.string().uuid().nullish(),
   memberApproved: zod.boolean().nullish(),
   rideAlongFee: zod.number().nullish(),
   createdAt: zod.string().nullish(),
