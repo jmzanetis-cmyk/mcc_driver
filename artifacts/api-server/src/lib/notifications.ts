@@ -57,14 +57,22 @@ function appBaseUrl(): string {
   return "https://app.mycarconcierge.com";
 }
 
+// Driver app is served behind the `/driver/` path prefix (see
+// `artifacts/driver/.replit-artifact/artifact.toml`); its router uses
+// `BASE_URL` as basename, so SMS deep links must include `/driver` first.
+const DRIVER_BASE = "/driver";
+
 function rideAlongDashboardLink(): string {
-  return `${appBaseUrl()}/driver/ride-along`;
+  return `${appBaseUrl()}${DRIVER_BASE}/ride-along`;
 }
-function providerMatchLink(tandemJobId: string): string {
-  return `${appBaseUrl()}/driver/tandem/${tandemJobId}/match`;
+// No dedicated provider-match screen exists yet — the provider sees the
+// match notification on their home dashboard. Linking to /home keeps the
+// SMS link clickable today and is easy to upgrade once a screen lands.
+function providerMatchLink(_tandemJobId: string): string {
+  return `${appBaseUrl()}${DRIVER_BASE}/home`;
 }
 function memberApprovalLink(tandemJobId: string): string {
-  return `${appBaseUrl()}/driver/tandem/${tandemJobId}/approve`;
+  return `${appBaseUrl()}${DRIVER_BASE}/tandem-match/${tandemJobId}/approve`;
 }
 
 // ── SMS sender ──────────────────────────────────────────────────────────────
@@ -100,18 +108,39 @@ async function sendPush(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const channelName = `notifications:${audience.kind}:${audience.id}`;
+  const channel = supabaseAdmin.channel(channelName, {
+    config: { broadcast: { ack: true, self: false } },
+  });
   try {
-    const channel = supabaseAdmin.channel(channelName, {
-      config: { broadcast: { ack: true, self: false } },
+    // Supabase Realtime broadcast requires the channel to be joined before
+    // `send()` is called — otherwise the message is dropped without ack.
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`subscribe timeout for ${channelName}`)),
+        5_000,
+      );
+      channel.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          clearTimeout(timer);
+          resolve();
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          clearTimeout(timer);
+          reject(new Error(`subscribe failed (${status}) for ${channelName}`));
+        }
+      });
     });
+
     const status = await channel.send({
       type: "broadcast",
       event,
       payload: { event, audience, ...payload, sentAt: new Date().toISOString() },
     });
-    await supabaseAdmin.removeChannel(channel);
+    if (status !== "ok") {
+      // `ack: true` returns "ok" on success and "timed out"/"error" on failure.
+      throw new Error(`broadcast send returned status="${status}"`);
+    }
     logger.info(
-      { event, audience, channelName, status },
+      { event, audience, channelName },
       "tandem.notifications.push_sent",
     );
   } catch (err) {
@@ -119,6 +148,8 @@ async function sendPush(
       { err, event, audience, channelName },
       "tandem.notifications.push_failed",
     );
+  } finally {
+    await supabaseAdmin.removeChannel(channel).catch(() => {});
   }
 }
 
