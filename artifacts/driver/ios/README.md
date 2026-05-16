@@ -1,0 +1,105 @@
+# MCC Driver — iOS Build
+
+This is the Capacitor-wrapped iOS shell for the React + Vite driver app.
+The web bundle is the source of truth: `pnpm --filter @workspace/driver run build:ios`
+re-builds the bundle and copies it into `ios/App/App/public` via `cap sync`.
+
+## What runs where
+
+- The React app, Supabase JS, TanStack Query, Zustand, and every API hook
+  load inside a `WKWebView` and behave the same as the web build.
+- Native plugins (status bar, splash screen, keyboard, app lifecycle) are
+  wired via Swift Package Manager — **no CocoaPods**.
+- Push, geolocation, and other native features land in their own tasks.
+
+## Prerequisites (Mac only)
+
+- macOS with Xcode 16+ and Command Line Tools
+- An Apple Developer account (for signing & TestFlight)
+- Node 24 + pnpm (same as the rest of the monorepo)
+
+## First-time setup on a Mac
+
+```bash
+# 1. From the repo root, install workspace deps
+pnpm install
+
+# 2. Build the web bundle + sync into the iOS app
+pnpm --filter @workspace/driver run build:ios
+
+# 3. Open the Xcode workspace
+pnpm --filter @workspace/driver run ios:open
+# (equivalent to: cd artifacts/driver/ios/App && open App.xcworkspace)
+```
+
+In Xcode:
+
+1. Select the **App** target → **Signing & Capabilities**.
+2. Set **Team** to your Apple Developer team and confirm the bundle id is
+   `com.mycarconcierge.driver` (matches `capacitor.config.ts`).
+3. Add the **Push Notifications** capability (the `App.entitlements` file
+   already declares `aps-environment = development`).
+4. Add the **Background Modes** capability and tick "Location updates" —
+   needed by the geolocation task; harmless to leave on.
+5. Pick a simulator (iPhone 15 Pro is a good default) and **Run**.
+
+## Branded icon & splash
+
+The repo ships with the default Capacitor placeholder icons. Source assets
+for the real ones live at:
+
+- `artifacts/driver/assets/icon-only.png` — 1254×1254 brand logo
+- `artifacts/driver/assets/icon-foreground.png`
+- `artifacts/driver/assets/splash.png`
+- `artifacts/driver/assets/splash-dark.png`
+
+Regenerate the full iOS icon + splash set **on the Mac** (the `sharp`
+binary used by `@capacitor/assets` does not build on the Replit Linux
+container):
+
+```bash
+pnpm --filter @workspace/driver run ios:assets
+pnpm --filter @workspace/driver run ios:sync
+```
+
+## Day-to-day workflow
+
+```bash
+# 1. Pull latest, install
+pnpm install
+
+# 2. Re-build web bundle and copy into the iOS app
+pnpm --filter @workspace/driver run build:ios
+
+# 3. Re-run in Xcode (cmd+R)
+```
+
+For pure-web iteration, keep using the regular `pnpm --filter
+@workspace/driver run dev` — Xcode is only needed when you touch native
+config or want to test in a simulator / on device.
+
+## Pointing the iOS build at staging vs prod
+
+The Capacitor build is a static bundle, so the API URL is baked in at
+`build:ios` time. Production deploys should run `build:ios` with the
+production API base URL set as a Vite env (handled in the production
+deployment task).
+
+## Files of interest
+
+- `artifacts/driver/capacitor.config.ts` — app id, name, webDir, plugin opts
+- `ios/App/App/Info.plist` — bundle metadata and permission usage strings
+- `ios/App/App/App.entitlements` — push notification entitlement
+- `ios/App/App/Assets.xcassets/AppIcon.appiconset/` — app icon set
+- `ios/App/App/Assets.xcassets/Splash.imageset/` — splash images
+- `ios/App/Podfile` — not used (Capacitor 8 uses SwiftPM); ignore
+
+## Troubleshooting
+
+- **White screen on launch** — the web bundle wasn't copied. Re-run
+  `pnpm --filter @workspace/driver run build:ios` and rebuild in Xcode.
+- **"No such module 'Capacitor'"** — Xcode hasn't resolved Swift Packages
+  yet. File → Packages → Reset Package Caches, then build.
+- **Signing errors** — the bundle id `com.mycarconcierge.driver` may
+  already be claimed in your team. Change it in Xcode and mirror the
+  change in `capacitor.config.ts`.

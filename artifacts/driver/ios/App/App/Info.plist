@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CAPACITOR_DEBUG</key>
+	<string>$(CAPACITOR_DEBUG)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>My Car Concierge Driver</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>My Car Concierge uses your location while you are online so we can match you with the nearest ride request and share your progress with the member during a ride.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>My Car Concierge needs to keep tracking your location while you are on an active ride so dispatch and the member can see your progress even when your screen is locked.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>My Car Concierge needs to keep tracking your location while you are on an active ride so dispatch and the member can see your progress even when your screen is locked.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>My Car Concierge needs your camera so you can upload required driver documents like your license, vehicle photos, and insurance.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>My Car Concierge needs photo library access so you can attach required driver documents from your existing photos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>My Car Concierge can save trip receipts or payout confirmations to your photo library when you choose to download them.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>My Car Concierge does not track you across other apps. This permission is requested only if a future analytics feature is enabled.</string>
+</dict>
+</plist>

@@ -104,6 +104,23 @@ to verify the full dispatch path end-to-end — confirmed passing as of 2026-05-
 - Supabase Realtime is enabled on `driver_assignments` via the supabase_realtime publication. Do not remove it.
 - **`rides` table must also be added to the publication** for cancellation detection to work. Run `scripts/sql/enable-rides-realtime.sql` once in the Supabase SQL editor.
 
+## iOS (Capacitor) build
+
+The driver web app is wrapped as a native iOS binary via Capacitor 8 (Swift Package Manager, no CocoaPods). All native work happens on a Mac — Replit can scaffold and sync but cannot run a simulator or produce an `.ipa`.
+
+Scripts (run from repo root):
+
+- `pnpm --filter @workspace/driver run build:ios` — build the web bundle and `cap sync` it into `artifacts/driver/ios/App/App/public`
+- `pnpm --filter @workspace/driver run ios:open` — open the Xcode workspace
+- `pnpm --filter @workspace/driver run ios:assets` — regenerate icon + splash from `artifacts/driver/assets/` (Mac only — `sharp` does not run on the Replit Linux container)
+
+Key files:
+
+- `artifacts/driver/capacitor.config.ts` — app id (`com.mycarconcierge.driver`), display name, splash/status bar/keyboard config
+- `artifacts/driver/ios/App/App/Info.plist` — bundle metadata + draft `NSLocation*UsageDescription`, `NSCamera*`, `NSPhotoLibrary*` strings
+- `artifacts/driver/ios/App/App/App.entitlements` — `aps-environment = development` for push (flip to `production` for App Store)
+- `artifacts/driver/ios/README.md` — Mac-side build, signing, and Xcode workflow
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
