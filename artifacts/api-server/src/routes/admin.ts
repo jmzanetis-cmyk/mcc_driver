@@ -470,9 +470,26 @@ router.post("/admin/rides/dispatch", async (req: Request, res: Response): Promis
       )
       .orderBy(asc(driversTable.totalRidesCompleted), asc(driversTable.createdAt));
 
-    const targetDriverIds = eligibleDrivers
+    let targetDriverIds = eligibleDrivers
       .map((d) => d.id)
       .filter((id) => !busyIds.includes(id));
+
+    // Mirror the main dispatch path: when any assignment requires driving the
+    // member's vehicle, restrict the pool to drivers with canDriveMemberVehicle.
+    if (config.assignments.some((a) => a.drivesMemberVehicle)) {
+      const capableDrivers = await db
+        .select({ id: driversTable.id })
+        .from(driversTable)
+        .where(
+          and(
+            eq(driversTable.isOnline, true),
+            eq(driversTable.status, "active"),
+            eq(driversTable.canDriveMemberVehicle, true),
+          ),
+        );
+      const capableIds = new Set(capableDrivers.map((d) => d.id));
+      targetDriverIds = targetDriverIds.filter((id) => capableIds.has(id));
+    }
 
     if (targetDriverIds.length < config.driversRequired) {
       res.status(404).json({
