@@ -14,6 +14,10 @@ import {
   requestPermission,
   type PermissionState,
 } from "./index";
+import {
+  getIosAuthorizationStatus,
+  requestAlwaysAuthorization,
+} from "./alwaysLocation";
 
 const WHEN_IN_USE_KEY = "mcc.location.rationale_shown";
 const ALWAYS_KEY = "mcc.location.always_rationale_shown";
@@ -84,14 +88,30 @@ export async function ensureWhileInUsePermission(): Promise<PermissionState> {
 }
 
 /**
- * Show the "always" upgrade rationale (once) when the driver accepts
- * a ride. iOS itself drives the upgrade prompt after the app uses
- * background location for a few minutes — we just prep the user so
- * they aren't surprised and tap Allow.
+ * Show the "always" upgrade rationale and then trigger the iOS
+ * "Always Allow" upgrade prompt via the in-app AlwaysLocation
+ * plugin. Called once when the driver accepts a ride so background
+ * location can keep flowing when the screen is locked.
+ *
+ * Safe to call repeatedly — the OS call is a no-op once status is
+ * already `always`, and the rationale dialog is shown at most once.
  */
 export async function announceAlwaysUpgrade(): Promise<void> {
-  if (shownAlready(ALWAYS_KEY)) return;
-  markShown(ALWAYS_KEY);
-  await showRationale(ALWAYS_COPY);
-  logger.info("location.always_rationale_shown");
+  // Skip if already on Always — no need to nag.
+  const current = await getIosAuthorizationStatus();
+  if (current === "always" || current === "denied" || current === "restricted") {
+    return;
+  }
+
+  if (!shownAlready(ALWAYS_KEY)) {
+    markShown(ALWAYS_KEY);
+    const proceed = await showRationale(ALWAYS_COPY);
+    if (!proceed) {
+      logger.info("location.always_rationale_dismissed");
+      return;
+    }
+  }
+
+  const status = await requestAlwaysAuthorization();
+  logger.info("location.always_requested", { status });
 }

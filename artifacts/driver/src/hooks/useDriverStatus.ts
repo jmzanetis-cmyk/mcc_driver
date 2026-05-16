@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { useDriverStatusStore } from '@/store/driverStatusStore';
+import { useDispatchStore } from '@/store/dispatchStore';
 import { logger } from '@/services/telemetry/logger';
 import {
   startWatching,
@@ -10,17 +11,35 @@ import {
 import { ensureWhileInUsePermission } from '@/services/location/permissionFlow';
 import type { DriverRow } from '@/services/supabase/types';
 
-// Min cadence at which the device pushes a fix to the server.
-// The Capacitor plugin / browser may emit fixes faster than this;
-// `startWatching` throttles client-side, and the server further
-// coalesces in routes/driverLocation.ts.
-const BROADCAST_INTERVAL_MS = 12_000;
+// Two tracking profiles, gated on whether the driver is mid-ride:
+//   - idle (online but no active ride): low-power, infrequent updates so
+//     dispatch still has a recent fix without burning battery on the home
+//     screen and without showing the iOS background-location indicator.
+//   - active (offered/accepted/navigating/arrived/in_progress): high-
+//     accuracy fixes broadcast every 12 s for the dispatcher + member.
+const IDLE_BROADCAST_MS = 30_000;
+const IDLE_HIGH_ACCURACY = false;
+const ACTIVE_BROADCAST_MS = 12_000;
+const ACTIVE_HIGH_ACCURACY = true;
+
+const ACTIVE_STAGES = new Set<string>([
+  'offered',
+  'accepted',
+  'navigating',
+  'arrived',
+  'in_progress',
+  'completing',
+]);
+
+type TrackingMode = 'idle' | 'active';
 
 export function useDriverStatus(driverId: string | null) {
   const store = useDriverStatusStore();
+  const dispatchStage = useDispatchStore((s) => s.stage);
   const watchRef = useRef<WatchHandle | null>(null);
   const broadcastRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLocRef = useRef<LocationFix | null>(null);
+  const modeRef = useRef<TrackingMode | null>(null);
 
   const stopLocationTracking = useCallback(async () => {
     if (watchRef.current) {
@@ -31,6 +50,7 @@ export function useDriverStatus(driverId: string | null) {
       clearInterval(broadcastRef.current);
       broadcastRef.current = null;
     }
+    modeRef.current = null;
     lastLocRef.current = null;
   }, []);
 
@@ -63,9 +83,11 @@ export function useDriverStatus(driverId: string | null) {
     }
   }, [driverId]);
 
-  const startLocationTracking = useCallback(async () => {
-    // Idempotent — never double-start a watch.
-    if (watchRef.current) return;
+  // Start (or switch to) a tracking profile. Tearing down the previous watch
+  // ensures the Capacitor plugin re-issues `startUpdatingLocation` with the
+  // new accuracy — iOS only honours accuracy/distance filters at start time.
+  const startLocationTracking = useCallback(async (mode: TrackingMode) => {
+    if (modeRef.current === mode && watchRef.current) return;
 
     const perm = await ensureWhileInUsePermission();
     if (perm !== 'granted') {
@@ -77,25 +99,46 @@ export function useDriverStatus(driverId: string | null) {
       return;
     }
 
+    // Tear down any in-flight watch before starting a new one with different
+    // accuracy / cadence.
+    if (watchRef.current) {
+      await watchRef.current.cancel();
+      watchRef.current = null;
+    }
+    if (broadcastRef.current) {
+      clearInterval(broadcastRef.current);
+      broadcastRef.current = null;
+    }
+
+    const highAccuracy = mode === 'active' ? ACTIVE_HIGH_ACCURACY : IDLE_HIGH_ACCURACY;
+    const broadcastMs = mode === 'active' ? ACTIVE_BROADCAST_MS : IDLE_BROADCAST_MS;
+
     const handle = await startWatching(
       (fix) => {
         lastLocRef.current = fix;
         store.setLocation(fix.lat, fix.lng);
       },
-      { enableHighAccuracy: true, minIntervalMs: 2000 },
+      {
+        enableHighAccuracy: highAccuracy,
+        minIntervalMs: mode === 'active' ? 2000 : 10000,
+      },
     );
     if (!handle) {
       store.setLocationError('Geolocation not available on this device.');
       return;
     }
     watchRef.current = handle;
+    modeRef.current = mode;
 
     broadcastRef.current = setInterval(() => {
       const loc = lastLocRef.current;
       if (loc) void postLocation(loc);
-    }, BROADCAST_INTERVAL_MS);
+    }, broadcastMs);
+
+    logger.info('driver.location_tracking_started', { mode });
   }, [postLocation, store]);
 
+  // Initial bootstrap: hydrate online state, kick off tracking if online.
   useEffect(() => {
     if (!driverId) return;
 
@@ -114,7 +157,10 @@ export function useDriverStatus(driverId: string | null) {
         if (row.current_lat && row.current_lng) {
           store.setLocation(row.current_lat, row.current_lng);
         }
-        if (row.is_online) void startLocationTracking();
+        if (row.is_online) {
+          const mode: TrackingMode = ACTIVE_STAGES.has(dispatchStage) ? 'active' : 'idle';
+          void startLocationTracking(mode);
+        }
       }
     })();
 
@@ -123,6 +169,16 @@ export function useDriverStatus(driverId: string | null) {
       void stopLocationTracking();
     };
   }, [driverId]);
+
+  // React to ride-stage changes — upgrade to high-accuracy/12 s when an
+  // offer/active stage starts, downgrade back to idle profile when the
+  // ride finishes or is cancelled. No-op when the driver is offline.
+  useEffect(() => {
+    if (!store.isOnline) return;
+    const desired: TrackingMode = ACTIVE_STAGES.has(dispatchStage) ? 'active' : 'idle';
+    if (modeRef.current === desired) return;
+    void startLocationTracking(desired);
+  }, [dispatchStage, store.isOnline, startLocationTracking]);
 
   const toggleOnline = useCallback(async () => {
     if (!driverId) return;
@@ -152,12 +208,16 @@ export function useDriverStatus(driverId: string | null) {
     if (!error) {
       store.setOnline(newStatus);
       logger.info('driver.status_toggled', { online: newStatus });
-      if (newStatus) void startLocationTracking();
-      else void stopLocationTracking();
+      if (newStatus) {
+        const mode: TrackingMode = ACTIVE_STAGES.has(dispatchStage) ? 'active' : 'idle';
+        void startLocationTracking(mode);
+      } else {
+        void stopLocationTracking();
+      }
     }
 
     store.setToggling(false);
-  }, [driverId, store, startLocationTracking, stopLocationTracking]);
+  }, [driverId, store, dispatchStage, startLocationTracking, stopLocationTracking]);
 
   return {
     isOnline: store.isOnline,

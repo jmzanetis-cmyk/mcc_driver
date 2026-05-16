@@ -64,6 +64,10 @@ export const driversTable = pgTable("drivers", {
   stripeAccountId: text("stripe_account_id"),
   currentLat: real("current_lat"),
   currentLng: real("current_lng"),
+  // Server-side freshness marker: stamped whenever the driver posts a
+  // location fix to POST /api/drivers/me/location. Dispatch / admin
+  // monitoring use this to flag "stale" drivers (>2 min without a fix).
+  locationUpdatedAt: timestamp("location_updated_at", { withTimezone: true }),
   // Standing preferred tandem partner (ride-along driver ID, set in Settings)
   preferredPartnerId: uuid("preferred_partner_id"),
   // Admin-set field: non-null when an admin has rejected the driver's documents

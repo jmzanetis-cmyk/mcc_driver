@@ -108,9 +108,12 @@ router.post("/drivers/me/location", async (req, res) => {
   lastWriteAt.set(driver.id, now);
 
   // Write to local Postgres (read by dispatch eligibility query in routes/rides.ts).
+  // `locationUpdatedAt` is the server-side freshness marker used by dispatch /
+  // admin monitoring to flag stale drivers.
+  const nowIso = new Date();
   await db
     .update(driversTable)
-    .set({ currentLat: lat, currentLng: lng })
+    .set({ currentLat: lat, currentLng: lng, locationUpdatedAt: nowIso })
     .where(eq(driversTable.id, driver.id));
 
   // Mirror to Supabase so the admin map / any Realtime listeners stay in sync.
@@ -121,7 +124,7 @@ router.post("/drivers/me/location", async (req, res) => {
       .update({
         current_lat: lat,
         current_lng: lng,
-        location_updated_at: new Date().toISOString(),
+        location_updated_at: nowIso.toISOString(),
       })
       .eq("id", driver.id);
     if (mirrorErr) {
