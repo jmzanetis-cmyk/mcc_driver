@@ -143,9 +143,13 @@ Most of this content already lives in `docs/app-store/`:
 
 - **Name / Subtitle / Promotional text / Description / Keywords /
   Support URL / Marketing URL** → `listing-copy.md`.
-- **Privacy Policy URL** → host `docs/app-store/privacy-policy.md` at a
-  public HTTPS URL **and** keep the in-app `/legal/privacy` route as a
-  fallback. App Store Connect's Privacy URL field accepts either.
+- **Privacy Policy URL** → served publicly by the marketing artifact
+  (`artifacts/marketing`) at `https://mycarconcierge.com/privacy`
+  (and `/terms`, `/support`), rendered from `docs/app-store/*.md`.
+  The in-app `/legal/{privacy,terms,support}` routes in the driver
+  app remain as a fallback (hand-written React screens with
+  equivalent content). App Store Connect's Privacy URL field accepts
+  either.
 - **App Privacy "nutrition label"** → `app-privacy.md` (paste answers
   one-by-one into the App Privacy section).
 - **Age rating** answers → `listing-copy.md` § "Age rating".

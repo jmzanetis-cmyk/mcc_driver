@@ -196,6 +196,25 @@ Drivers can permanently delete their account from Settings → Delete Account
 Out of scope (separate tasks if needed): admin-initiated soft-delete tooling
 and a GDPR / CCPA data-export endpoint.
 
+## Marketing site (public legal & support pages)
+
+The `artifacts/marketing` artifact is a small React + Vite site mounted at
+`/` of the project's published domain. It exists primarily to satisfy App
+Store Connect's requirement for public HTTPS Privacy / Terms / Support URLs,
+and renders the canonical markdown in `docs/app-store/` at build time via
+Vite `?raw` imports (so the docs/ source files remain the single source of
+truth).
+
+Routes:
+
+- `/` — landing page with links to the three policy pages
+- `/privacy` — renders `docs/app-store/privacy-policy.md`
+- `/terms` — renders `docs/app-store/terms-of-service.md`
+- `/support` — renders `docs/app-store/support.md`
+
+The driver app's in-app `/legal/{privacy,terms,support}` routes remain as
+a fallback (and for offline / in-app linking from SignIn / Settings).
+
 ## App Store listing assets
 
 Drafted material for App Store Connect submission (Task #77) lives in `docs/app-store/`:

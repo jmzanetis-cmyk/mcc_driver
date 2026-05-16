@@ -72,8 +72,10 @@ permanently anonymizes the driver record and removes the Supabase auth
 user (see in-app screen for full disclosure). You can re-register the
 same phone immediately afterward.
 
-**Privacy / Terms / Support:** linked from the sign-in footer and
-from Settings → Legal & About. Also reachable at
-`/legal/privacy`, `/legal/terms`, `/legal/support`.
+**Privacy / Terms / Support:** published publicly at
+`https://mycarconcierge.com/privacy`, `/terms`, and `/support`
+(served by our marketing site). Also linked from the sign-in footer
+and from Settings → Legal & About, and reachable in-app at
+`/legal/privacy`, `/legal/terms`, `/legal/support` as a fallback.
 
 Contact for any questions: `appreview@mycarconcierge.com`.

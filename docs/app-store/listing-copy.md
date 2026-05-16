@@ -89,36 +89,35 @@ driver,rideshare,concierge,luxury,chauffeur,delivery,vehicle,car service,gig,pay
 ## Support URL
 
 ```
-https://mycarconcierge.com/driver/legal/support
+https://mycarconcierge.com/support
 ```
 
 ## Marketing URL (optional)
 
 ```
-https://mycarconcierge.com/drivers
+https://mycarconcierge.com/
 ```
 
 ## Privacy Policy URL
 
 ```
-https://mycarconcierge.com/driver/legal/privacy
+https://mycarconcierge.com/privacy
 ```
 
 ## Terms of Use (EULA) URL
 
 ```
-https://mycarconcierge.com/driver/legal/terms
+https://mycarconcierge.com/terms
 ```
 
-> If the main mycarconcierge.com property is not yet hosting these
-> pages at launch, the in-app routes `/driver/legal/privacy`,
-> `/driver/legal/terms`, and `/driver/legal/support` resolve to the
-> same content over HTTPS via the deployed driver app domain (the
-> driver app is mounted under the `/driver` base path) — App Store
-> Connect accepts either. The deployed driver app URL is exposed in
-> the `REPLIT_DOMAINS` env var on the production deployment; substitute
-> that hostname for `mycarconcierge.com` above if marketing has not
-> mirrored the pages yet.
+> These URLs are served by the public marketing artifact
+> (`artifacts/marketing`, mounted at `/` of the project's published
+> domain). Until the apex `mycarconcierge.com` domain is pointed at
+> the production deployment, substitute the hostname from the
+> `REPLIT_DOMAINS` env var on the marketing deployment (e.g.
+> `https://<deployment-host>/privacy`). The in-app driver routes
+> `/driver/legal/{privacy,terms,support}` remain as a fallback and
+> render the same source markdown.
 
 ## Category
 
