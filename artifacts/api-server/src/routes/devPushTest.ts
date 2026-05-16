@@ -11,9 +11,18 @@
 // rides/dispatch gate.
 
 import { Router, type IRouter, type Request, type Response } from "express";
+import { z } from "zod/v4";
 import { sendNativePush } from "../lib/webPush";
 import { isApnsConfigured } from "../lib/apnsPush";
 import { logger } from "../lib/logger";
+
+const pushTestBodySchema = z.object({
+  audienceKind: z.enum(["driver", "ride_along_driver"]).default("driver"),
+  audienceId: z.string().min(1),
+  title: z.string().min(1).max(120).optional(),
+  message: z.string().min(1).max(500).optional(),
+  url: z.string().min(1).max(500).optional(),
+});
 
 const router: IRouter = Router();
 
@@ -37,21 +46,15 @@ function requireDispatchKey(req: Request, res: Response): boolean {
 router.post("/dev/push-test", async (req: Request, res: Response) => {
   if (!requireDispatchKey(req, res)) return;
 
-  const body = req.body as {
-    audienceKind?: "driver" | "ride_along_driver";
-    audienceId?: string;
-    title?: string;
-    message?: string;
-    url?: string;
-  };
-  if (!body.audienceId) {
-    res.status(400).json({ error: "audienceId is required" });
+  const parsed = pushTestBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
     return;
   }
-  const kind = body.audienceKind ?? "driver";
+  const body = parsed.data;
 
   await sendNativePush(
-    { kind, id: body.audienceId },
+    { kind: body.audienceKind, id: body.audienceId },
     {
       event: "dev.push_test",
       title: body.title ?? "MCC test push",
@@ -62,7 +65,10 @@ router.post("/dev/push-test", async (req: Request, res: Response) => {
   );
 
   logger.info(
-    { audience: { kind, id: body.audienceId }, apnsConfigured: isApnsConfigured() },
+    {
+      audience: { kind: body.audienceKind, id: body.audienceId },
+      apnsConfigured: isApnsConfigured(),
+    },
     "dev.push_test.fired",
   );
 
