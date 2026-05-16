@@ -440,10 +440,17 @@ router.post("/admin/rides/dispatch", async (req: Request, res: Response): Promis
     return;
   }
 
-  const serviceType = body.serviceType
-    ?? (body.tier === "tier_0_rideshare" ? "rideshare"
-      : body.tier === "tier_0_delivery" ? "delivery"
-      : "concierge");
+  // Derive service type authoritatively from tier so capability gating cannot be bypassed.
+  const derivedServiceType = body.tier === "tier_0_rideshare" ? "rideshare"
+    : body.tier === "tier_0_delivery" ? "delivery"
+    : "concierge";
+  if (body.serviceType && body.serviceType !== derivedServiceType) {
+    res.status(400).json({
+      error: `serviceType "${body.serviceType}" is inconsistent with tier "${body.tier}" (expected "${derivedServiceType}")`,
+    });
+    return;
+  }
+  const serviceType = derivedServiceType;
 
   try {
     const activeStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];

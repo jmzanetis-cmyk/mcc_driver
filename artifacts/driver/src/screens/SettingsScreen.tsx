@@ -72,12 +72,27 @@ export function SettingsScreen() {
     navigate('/');
   };
 
+  const [servicesError, setServicesError] = useState<string | null>(null);
+
   const handleServiceToggle = async (service: 'rideshare' | 'delivery', value: boolean) => {
+    // Optimistically update the toggle
     if (service === 'rideshare') setCanDoRideshare(value);
     else setCanDoDelivery(value);
     setServicesSaving(true);
-    await updateDriverServices(service === 'rideshare' ? { canDoRideshare: value } : { canDoDelivery: value });
+    setServicesError(null);
+
+    const result = await updateDriverServices(
+      service === 'rideshare' ? { canDoRideshare: value } : { canDoDelivery: value }
+    );
+
     setServicesSaving(false);
+
+    if (!result.success) {
+      // Roll back the optimistic update
+      if (service === 'rideshare') setCanDoRideshare(!value);
+      else setCanDoDelivery(!value);
+      setServicesError('Failed to save. Please try again.');
+    }
   };
 
   const handlePartnerLookup = async () => {
@@ -200,6 +215,7 @@ export function SettingsScreen() {
           <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>
             Enable additional service types to receive rideshare and delivery requests.
             {servicesSaving && <span style={{ color: colors.gold, marginLeft: 8 }}>Saving…</span>}
+            {servicesError && <span style={{ color: '#c0392b', marginLeft: 8 }}>{servicesError}</span>}
           </div>
 
           {/* Rideshare toggle */}
