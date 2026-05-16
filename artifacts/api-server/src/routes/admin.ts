@@ -8,10 +8,15 @@
 
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq } from "drizzle-orm";
+import { z } from "zod/v4";
 import { db } from "@workspace/db";
 import { driversTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { requireAdminAuth } from "../lib/adminAuth";
+
+const RejectDocumentsBody = z.object({
+  reason: z.string().min(1).max(1000),
+});
 
 const router: IRouter = Router();
 
@@ -39,6 +44,7 @@ router.get("/admin/drivers", async (req: Request, res: Response): Promise<void> 
         canDriveMemberVehicle: driversTable.canDriveMemberVehicle,
         totalRidesCompleted: driversTable.totalRidesCompleted,
         averageRating: driversTable.averageRating,
+        documentRejectionReason: driversTable.documentRejectionReason,
         createdAt: driversTable.createdAt,
       })
       .from(driversTable)
@@ -62,6 +68,7 @@ router.get("/admin/drivers", async (req: Request, res: Response): Promise<void> 
         canDriveMemberVehicle: d.canDriveMemberVehicle,
         totalRidesCompleted: d.totalRidesCompleted,
         averageRating: d.averageRating,
+        documentRejectionReason: d.documentRejectionReason ?? null,
         createdAt: d.createdAt?.toISOString() ?? null,
       })),
     );
@@ -133,6 +140,80 @@ router.post("/admin/drivers/:driverId/reject", async (req: Request, res: Respons
     });
   } catch (err) {
     logger.error({ err }, "admin.driver.reject failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/admin/drivers/:driverId/reject-documents ────────────────────────
+// Flags specific documents as rejected without changing the driver's status.
+// The driver remains in pending_approval and is prompted to resubmit.
+
+router.post("/admin/drivers/:driverId/reject-documents", async (req: Request, res: Response): Promise<void> => {
+  const admin = await requireAdminAuth(req, res);
+  if (!admin) return;
+
+  const driverId = String(req.params["driverId"]);
+
+  const parsed = RejectDocumentsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "reason is required and must be a non-empty string (max 1000 chars)" });
+    return;
+  }
+
+  const { reason } = parsed.data;
+
+  try {
+    const [updated] = await db
+      .update(driversTable)
+      .set({ documentRejectionReason: reason })
+      .where(eq(driversTable.id, driverId))
+      .returning({ id: driversTable.id, status: driversTable.status });
+
+    if (!updated) {
+      res.status(404).json({ error: "Driver not found" });
+      return;
+    }
+
+    req.log.info({ driverId, adminEmail: admin.email, reason }, "admin.driver.documents_rejected");
+
+    res.json({
+      success: true,
+      driverId: updated.id,
+      status: updated.status,
+      documentRejectionReason: reason,
+    });
+  } catch (err) {
+    logger.error({ err }, "admin.driver.reject-documents failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/admin/drivers/:driverId/clear-document-rejection ────────────────
+// Clears the rejection reason (e.g. after admin manually verifies new docs).
+
+router.post("/admin/drivers/:driverId/clear-document-rejection", async (req: Request, res: Response): Promise<void> => {
+  const admin = await requireAdminAuth(req, res);
+  if (!admin) return;
+
+  const driverId = String(req.params["driverId"]);
+
+  try {
+    const [updated] = await db
+      .update(driversTable)
+      .set({ documentRejectionReason: null })
+      .where(eq(driversTable.id, driverId))
+      .returning({ id: driversTable.id, status: driversTable.status });
+
+    if (!updated) {
+      res.status(404).json({ error: "Driver not found" });
+      return;
+    }
+
+    req.log.info({ driverId, adminEmail: admin.email }, "admin.driver.document_rejection_cleared");
+
+    res.json({ success: true, driverId: updated.id });
+  } catch (err) {
+    logger.error({ err }, "admin.driver.clear-document-rejection failed");
     res.status(500).json({ error: "Internal error" });
   }
 });

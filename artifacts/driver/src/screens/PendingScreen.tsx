@@ -2,7 +2,7 @@
 // MCC Driver — Approval Pending Screen
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { colors, borderRadius } from '@/theme';
 import { Button } from '@/components';
@@ -45,6 +45,15 @@ export function PendingScreen() {
   const { refreshDriver, signOut, driver } = useAuth();
   const [showUpdateDocs, setShowUpdateDocs] = useState(false);
 
+  const hasRejection = !!driver?.documentRejectionReason;
+
+  // Auto-open the modal when the driver has a rejection reason
+  useEffect(() => {
+    if (hasRejection) {
+      setShowUpdateDocs(true);
+    }
+  }, [hasRejection]);
+
   const steps = buildSteps(driver?.status, driver?.backgroundCheckPassed ?? false);
 
   return (
@@ -53,26 +62,63 @@ export function PendingScreen() {
       justifyContent: 'center', alignItems: 'center', padding: 32,
       background: colors.bgPrimary,
     }}>
+      {/* Document rejection notice — shown prominently when admin has flagged docs */}
+      {hasRejection && (
+        <div style={{
+          width: '100%', maxWidth: 360, marginBottom: 20,
+          background: colors.errorBg,
+          border: `2px solid ${colors.error}`,
+          borderRadius: borderRadius.lg,
+          padding: '16px 18px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>⚠️</div>
+            <div>
+              <div style={{
+                fontSize: 14, fontWeight: 700, color: colors.error,
+                marginBottom: 6,
+              }}>
+                Action Required — Documents Rejected
+              </div>
+              <div style={{
+                fontSize: 13, color: colors.textPrimary, lineHeight: 1.5,
+              }}>
+                {driver?.documentRejectionReason}
+              </div>
+              <div style={{
+                fontSize: 12, color: colors.textMuted, marginTop: 8,
+              }}>
+                Please re-upload the required documents below. Your application will be re-reviewed once new documents are received.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{
         width: 64, height: 64, borderRadius: '50%',
-        background: colors.warningBg, display: 'flex',
-        alignItems: 'center', justifyContent: 'center',
+        background: hasRejection ? colors.errorBg : colors.warningBg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 28, marginBottom: 20,
+        border: hasRejection ? `2px solid ${colors.error}40` : 'none',
       }}>
-        ⏳
+        {hasRejection ? '📋' : '⏳'}
       </div>
 
       <h1 style={{ fontSize: 22, fontWeight: 700, color: colors.navy, marginBottom: 8, textAlign: 'center' }}>
-        Application Under Review
+        {hasRejection ? 'Documents Need Updating' : 'Application Under Review'}
       </h1>
       <p style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', maxWidth: 320, marginBottom: 32 }}>
-        We're reviewing your application. You'll receive a push notification when you're approved to start driving.
+        {hasRejection
+          ? 'An MCC reviewer has flagged your documents. Please re-upload them to continue your application.'
+          : "We're reviewing your application. You'll receive a push notification when you're approved to start driving."}
       </p>
 
       {/* Status checklist */}
       <div style={{
         background: colors.bgCard, borderRadius: borderRadius.lg,
-        border: `1px solid ${colors.border}`, padding: 20,
+        border: `1px solid ${hasRejection ? `${colors.error}40` : colors.border}`,
+        padding: 20,
         width: '100%', maxWidth: 360,
       }}>
         {steps.map((step, i) => (
@@ -122,19 +168,28 @@ export function PendingScreen() {
       {driver?.licenseDocumentPath || driver?.insuranceDocumentPath ? (
         <div style={{
           marginTop: 16, padding: 12,
-          background: `${colors.success}15`, borderRadius: borderRadius.md,
-          border: `1px solid ${colors.success}30`,
+          background: hasRejection ? colors.errorBg : `${colors.success}15`,
+          borderRadius: borderRadius.md,
+          border: `1px solid ${hasRejection ? `${colors.error}30` : `${colors.success}30`}`,
           width: '100%', maxWidth: 360,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: colors.success, marginBottom: 6 }}>
-            Documents Received
+          <div style={{
+            fontSize: 12, fontWeight: 600,
+            color: hasRejection ? colors.error : colors.success,
+            marginBottom: 6,
+          }}>
+            {hasRejection ? '⚠️ Documents Flagged for Resubmission' : 'Documents Received'}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {driver.licenseDocumentPath && (
-              <div style={{ fontSize: 12, color: colors.textMuted }}>✓ Driver's license photo</div>
+              <div style={{ fontSize: 12, color: colors.textMuted }}>
+                {hasRejection ? '⚠️' : '✓'} Driver's license photo
+              </div>
             )}
             {driver.insuranceDocumentPath && (
-              <div style={{ fontSize: 12, color: colors.textMuted }}>✓ Proof of insurance</div>
+              <div style={{ fontSize: 12, color: colors.textMuted }}>
+                {hasRejection ? '⚠️' : '✓'} Proof of insurance
+              </div>
             )}
           </div>
         </div>
@@ -142,14 +197,31 @@ export function PendingScreen() {
 
       {driver?.status === 'pending_approval' && (
         <div style={{ marginTop: 20, width: '100%', maxWidth: 360 }}>
-          <Button
-            onClick={() => setShowUpdateDocs(true)}
-            variant="secondary"
-            size="md"
-            fullWidth
-          >
-            📎 Update Documents
-          </Button>
+          {hasRejection ? (
+            <Button
+              onClick={() => setShowUpdateDocs(true)}
+              variant="primary"
+              size="md"
+              fullWidth
+              style={{
+                background: colors.error,
+                borderColor: colors.error,
+                fontWeight: 700,
+                fontSize: 15,
+              }}
+            >
+              📎 Re-upload Documents Now
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setShowUpdateDocs(true)}
+              variant="secondary"
+              size="md"
+              fullWidth
+            >
+              📎 Update Documents
+            </Button>
+          )}
         </div>
       )}
 
@@ -163,7 +235,10 @@ export function PendingScreen() {
       </div>
 
       {showUpdateDocs && (
-        <UpdateDocumentsModal onClose={() => setShowUpdateDocs(false)} />
+        <UpdateDocumentsModal
+          onClose={() => setShowUpdateDocs(false)}
+          rejectionReason={driver?.documentRejectionReason}
+        />
       )}
     </div>
   );

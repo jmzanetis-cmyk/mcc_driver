@@ -93,8 +93,22 @@ export interface AdminDriverRecord {
   canDriveMemberVehicle: boolean;
   totalRidesCompleted: number;
   averageRating: number;
+  /**
+   * Non-null when an admin has flagged documents for resubmission.
+   * @nullable
+   */
+  documentRejectionReason?: string | null;
   /** @nullable */
   createdAt?: string | null;
+}
+
+export interface RejectDocumentsRequest {
+  /**
+   * Human-readable reason shown to the driver explaining why their documents were rejected.
+   * @minLength 1
+   * @maxLength 1000
+   */
+  reason: string;
 }
 
 export interface StripeAccountLink {

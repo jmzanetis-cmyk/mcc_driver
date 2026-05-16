@@ -25,6 +25,7 @@ export interface DriverProfile {
   backgroundCheckPassed: boolean;
   licenseDocumentPath?: string;
   insuranceDocumentPath?: string;
+  documentRejectionReason?: string;
 }
 
 interface AuthState {

@@ -19,6 +19,7 @@ export interface DriverRow {
   stripe_account_id: string | null;
   current_lat: number | null;
   current_lng: number | null;
+  document_rejection_reason: string | null;
 }
 
 export interface PartnerRow {

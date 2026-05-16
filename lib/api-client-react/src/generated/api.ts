@@ -32,6 +32,7 @@ import type {
   ListAdminRideAlongDriversParams,
   LookupTandemPartnerParams,
   PartnerLookupResult,
+  RejectDocumentsRequest,
   RideAlongDriverRecord,
   RideCompletionResult,
   SetKnownPartnerRequest,
@@ -1631,6 +1632,187 @@ export const useRejectDriver = <
   TContext
 > => {
   return useMutation(getRejectDriverMutationOptions(options));
+};
+
+/**
+ * Flags the driver's documents as rejected and records a reason.
+The driver's status remains pending_approval so they can re-upload.
+The driver sees a prominent rejection notice on their pending screen.
+
+ * @summary Request document resubmission from a driver
+ */
+export const getRejectDriverDocumentsUrl = (driverId: string) => {
+  return `/api/admin/drivers/${driverId}/reject-documents`;
+};
+
+export const rejectDriverDocuments = async (
+  driverId: string,
+  rejectDocumentsRequest: RejectDocumentsRequest,
+  options?: RequestInit,
+): Promise<AdminActionResult> => {
+  return customFetch<AdminActionResult>(getRejectDriverDocumentsUrl(driverId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rejectDocumentsRequest),
+  });
+};
+
+export const getRejectDriverDocumentsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectDriverDocuments>>,
+    TError,
+    { driverId: string; data: BodyType<RejectDocumentsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectDriverDocuments>>,
+  TError,
+  { driverId: string; data: BodyType<RejectDocumentsRequest> },
+  TContext
+> => {
+  const mutationKey = ["rejectDriverDocuments"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectDriverDocuments>>,
+    { driverId: string; data: BodyType<RejectDocumentsRequest> }
+  > = (props) => {
+    const { driverId, data } = props ?? {};
+
+    return rejectDriverDocuments(driverId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectDriverDocumentsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectDriverDocuments>>
+>;
+export type RejectDriverDocumentsMutationBody =
+  BodyType<RejectDocumentsRequest>;
+export type RejectDriverDocumentsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Request document resubmission from a driver
+ */
+export const useRejectDriverDocuments = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectDriverDocuments>>,
+    TError,
+    { driverId: string; data: BodyType<RejectDocumentsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectDriverDocuments>>,
+  TError,
+  { driverId: string; data: BodyType<RejectDocumentsRequest> },
+  TContext
+> => {
+  return useMutation(getRejectDriverDocumentsMutationOptions(options));
+};
+
+/**
+ * Removes the rejection reason from a driver record (e.g. after manually verifying re-uploaded documents).
+ * @summary Clear a document rejection flag
+ */
+export const getClearDriverDocumentRejectionUrl = (driverId: string) => {
+  return `/api/admin/drivers/${driverId}/clear-document-rejection`;
+};
+
+export const clearDriverDocumentRejection = async (
+  driverId: string,
+  options?: RequestInit,
+): Promise<AdminActionResult> => {
+  return customFetch<AdminActionResult>(
+    getClearDriverDocumentRejectionUrl(driverId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getClearDriverDocumentRejectionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearDriverDocumentRejection>>,
+    TError,
+    { driverId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearDriverDocumentRejection>>,
+  TError,
+  { driverId: string },
+  TContext
+> => {
+  const mutationKey = ["clearDriverDocumentRejection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearDriverDocumentRejection>>,
+    { driverId: string }
+  > = (props) => {
+    const { driverId } = props ?? {};
+
+    return clearDriverDocumentRejection(driverId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearDriverDocumentRejectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearDriverDocumentRejection>>
+>;
+
+export type ClearDriverDocumentRejectionMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Clear a document rejection flag
+ */
+export const useClearDriverDocumentRejection = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearDriverDocumentRejection>>,
+    TError,
+    { driverId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearDriverDocumentRejection>>,
+  TError,
+  { driverId: string },
+  TContext
+> => {
+  return useMutation(getClearDriverDocumentRejectionMutationOptions(options));
 };
 
 /**

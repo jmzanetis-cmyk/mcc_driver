@@ -672,6 +672,99 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/drivers/{driverId}/reject-documents:
+    post:
+      operationId: rejectDriverDocuments
+      tags: [admin]
+      summary: Request document resubmission from a driver
+      description: |
+        Flags the driver's documents as rejected and records a reason.
+        The driver's status remains pending_approval so they can re-upload.
+        The driver sees a prominent rejection notice on their pending screen.
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectDocumentsRequest"
+      responses:
+        "200":
+          description: Documents flagged for resubmission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Driver not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/drivers/{driverId}/clear-document-rejection:
+    post:
+      operationId: clearDriverDocumentRejection
+      tags: [admin]
+      summary: Clear a document rejection flag
+      description: Removes the rejection reason from a driver record (e.g. after manually verifying re-uploaded documents).
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Rejection flag cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Driver not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /tandem-jobs:
     post:
       operationId: createTandemJob
@@ -1082,6 +1175,9 @@ components:
         averageRating:
           type: number
           format: float
+        documentRejectionReason:
+          type: ["string", "null"]
+          description: Non-null when an admin has flagged documents for resubmission.
         createdAt:
           type: ["string", "null"]
       required:
@@ -1095,6 +1191,17 @@ components:
         - canDriveMemberVehicle
         - totalRidesCompleted
         - averageRating
+
+    RejectDocumentsRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Human-readable reason shown to the driver explaining why their documents were rejected.
+      required:
+        - reason
 
     StripeAccountLink:
       type: object

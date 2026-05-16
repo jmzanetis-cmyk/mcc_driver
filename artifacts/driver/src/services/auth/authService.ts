@@ -162,11 +162,14 @@ export async function updateDriverDocuments(params: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Not authenticated' };
 
-  const updates: Record<string, string> = {};
+  const updates: Record<string, string | null> = {};
   if (params.licenseDocumentPath) updates['license_document_path'] = params.licenseDocumentPath;
   if (params.insuranceDocumentPath) updates['insurance_document_path'] = params.insuranceDocumentPath;
 
   if (Object.keys(updates).length === 0) return { success: true };
+
+  // Clear any rejection reason when the driver submits new documents
+  updates['document_rejection_reason'] = null;
 
   const { error } = await supabase
     .from('drivers')

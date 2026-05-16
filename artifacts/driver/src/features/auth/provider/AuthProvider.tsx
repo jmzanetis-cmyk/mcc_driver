@@ -106,6 +106,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       backgroundCheckPassed: driver.background_check_passed ?? false,
       licenseDocumentPath: driver.license_document_path ?? undefined,
       insuranceDocumentPath: driver.insurance_document_path ?? undefined,
+      documentRejectionReason: driver.document_rejection_reason ?? undefined,
     };
 
     setDriver(profile);

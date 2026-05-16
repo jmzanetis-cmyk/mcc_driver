@@ -23,6 +23,11 @@ export interface AdminDriverRecord {
   canDriveMemberVehicle: boolean;
   totalRidesCompleted: number;
   averageRating: number;
+  /**
+   * Non-null when an admin has flagged documents for resubmission.
+   * @nullable
+   */
+  documentRejectionReason?: string | null;
   /** @nullable */
   createdAt?: string | null;
 }

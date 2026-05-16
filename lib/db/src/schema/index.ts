@@ -45,6 +45,9 @@ export const driversTable = pgTable("drivers", {
   currentLng: real("current_lng"),
   // Standing preferred tandem partner (ride-along driver ID, set in Settings)
   preferredPartnerId: uuid("preferred_partner_id"),
+  // Admin-set field: non-null when an admin has rejected the driver's documents
+  // and wants them to resubmit. Cleared when the driver re-uploads documents.
+  documentRejectionReason: text("document_rejection_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

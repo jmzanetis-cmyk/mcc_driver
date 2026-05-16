@@ -381,6 +381,10 @@ export const ListAdminDriversResponseItem = zod.object({
   canDriveMemberVehicle: zod.boolean(),
   totalRidesCompleted: zod.number(),
   averageRating: zod.number(),
+  documentRejectionReason: zod
+    .string()
+    .nullish()
+    .describe("Non-null when an admin has flagged documents for resubmission."),
   createdAt: zod.string().nullish(),
 });
 export const ListAdminDriversResponse = zod.array(ListAdminDriversResponseItem);
@@ -408,6 +412,49 @@ export const RejectDriverParams = zod.object({
 });
 
 export const RejectDriverResponse = zod.object({
+  success: zod.boolean(),
+  driverId: zod.string().uuid(),
+  status: zod.string(),
+});
+
+/**
+ * Flags the driver's documents as rejected and records a reason.
+The driver's status remains pending_approval so they can re-upload.
+The driver sees a prominent rejection notice on their pending screen.
+
+ * @summary Request document resubmission from a driver
+ */
+export const RejectDriverDocumentsParams = zod.object({
+  driverId: zod.coerce.string().uuid(),
+});
+
+export const rejectDriverDocumentsBodyReasonMax = 1000;
+
+export const RejectDriverDocumentsBody = zod.object({
+  reason: zod
+    .string()
+    .min(1)
+    .max(rejectDriverDocumentsBodyReasonMax)
+    .describe(
+      "Human-readable reason shown to the driver explaining why their documents were rejected.",
+    ),
+});
+
+export const RejectDriverDocumentsResponse = zod.object({
+  success: zod.boolean(),
+  driverId: zod.string().uuid(),
+  status: zod.string(),
+});
+
+/**
+ * Removes the rejection reason from a driver record (e.g. after manually verifying re-uploaded documents).
+ * @summary Clear a document rejection flag
+ */
+export const ClearDriverDocumentRejectionParams = zod.object({
+  driverId: zod.coerce.string().uuid(),
+});
+
+export const ClearDriverDocumentRejectionResponse = zod.object({
   success: zod.boolean(),
   driverId: zod.string().uuid(),
   status: zod.string(),

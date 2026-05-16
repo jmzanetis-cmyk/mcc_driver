@@ -5,6 +5,8 @@ import {
   getListAdminDriversQueryKey,
   useApproveDriver,
   useRejectDriver,
+  useRejectDriverDocuments,
+  useClearDriverDocumentRejection,
 } from '@workspace/api-client-react';
 import type { AdminDriverRecord } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -15,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +30,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   ArrowLeft,
   ShieldCheck,
   LogOut,
@@ -36,6 +47,8 @@ import {
   FileText,
   User,
   Star,
+  AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -50,13 +63,12 @@ function statusVariant(status: string): 'default' | 'secondary' | 'destructive' 
 const DOCUMENT_BUCKET = 'driver-documents';
 
 function DocumentLink({ path, label }: { path: string | null | undefined; label: string }) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleOpen = async () => {
     if (!path) return;
 
-    // If already a full URL, open directly
     if (path.startsWith('http')) {
       window.open(path, '_blank', 'noopener,noreferrer');
       return;
@@ -69,7 +81,6 @@ function DocumentLink({ path, label }: { path: string | null | undefined; label:
         .createSignedUrl(path, 3600);
 
       if (error || !data?.signedUrl) {
-        // Fallback: try public URL
         const { data: publicData } = supabase.storage
           .from(DOCUMENT_BUCKET)
           .getPublicUrl(path);
@@ -126,7 +137,9 @@ export default function DriverDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all statuses to find the driver by ID
+  const [showRejectDocsDialog, setShowRejectDocsDialog] = useState(false);
+  const [rejectDocsReason, setRejectDocsReason] = useState('');
+
   const { data: pendingDrivers, isLoading: pendingLoading } = useListAdminDrivers(
     { status: 'pending_approval' },
     { query: { queryKey: getListAdminDriversQueryKey({ status: 'pending_approval' }) } },
@@ -174,6 +187,35 @@ export default function DriverDetail() {
     },
   });
 
+  const rejectDocuments = useRejectDriverDocuments({
+    mutation: {
+      onSuccess: () => {
+        toast({
+          title: 'Documents flagged for resubmission',
+          description: 'The driver will see a rejection notice and be prompted to re-upload.',
+        });
+        queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey() });
+        setShowRejectDocsDialog(false);
+        setRejectDocsReason('');
+      },
+      onError: (err) => {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      },
+    },
+  });
+
+  const clearRejection = useClearDriverDocumentRejection({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: 'Rejection cleared', description: 'The document rejection notice has been removed.' });
+        queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey() });
+      },
+      onError: (err) => {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      },
+    },
+  });
+
   const formatDate = (iso: string | null | undefined) => {
     if (!iso) return '—';
     try {
@@ -183,7 +225,11 @@ export default function DriverDetail() {
     }
   };
 
-  const isPending = approveDriver.isPending || rejectDriver.isPending;
+  const isPending =
+    approveDriver.isPending ||
+    rejectDriver.isPending ||
+    rejectDocuments.isPending ||
+    clearRejection.isPending;
 
   return (
     <div className="min-h-screen bg-background">
@@ -237,6 +283,31 @@ export default function DriverDetail() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Document rejection notice for admin */}
+            {driver.documentRejectionReason && (
+              <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/40 bg-destructive/5">
+                <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-destructive mb-1">
+                    Documents flagged for resubmission
+                  </p>
+                  <p className="text-sm text-muted-foreground break-words">
+                    {driver.documentRejectionReason}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() => clearRejection.mutate({ driverId: driver.id })}
+                  data-testid="button-clear-rejection"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                  Clear
+                </Button>
+              </div>
+            )}
+
             {/* Title bar */}
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -254,7 +325,20 @@ export default function DriverDetail() {
               </div>
 
               {driver.status === 'pending_approval' && (
-                <div className="flex gap-2 shrink-0">
+                <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                  {/* Request document resubmission */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+                    disabled={isPending}
+                    onClick={() => setShowRejectDocsDialog(true)}
+                    data-testid="button-reject-docs"
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-1.5" />
+                    Request Resubmission
+                  </Button>
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -386,6 +470,52 @@ export default function DriverDetail() {
           </div>
         )}
       </main>
+
+      {/* Request document resubmission dialog */}
+      <Dialog open={showRejectDocsDialog} onOpenChange={setShowRejectDocsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Document Resubmission</DialogTitle>
+            <DialogDescription>
+              Explain to the driver exactly which documents need to be replaced and why.
+              Their application status will remain pending while they re-upload.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Textarea
+              placeholder="e.g. Your driver's license photo is blurry and unreadable. Please re-upload a clear, well-lit photo showing all text on the front of your license."
+              value={rejectDocsReason}
+              onChange={(e) => setRejectDocsReason(e.target.value)}
+              rows={5}
+              className="resize-none"
+              data-testid="input-rejection-reason"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              {rejectDocsReason.length}/1000 characters
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setShowRejectDocsDialog(false); setRejectDocsReason(''); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!rejectDocsReason.trim() || rejectDocsReason.length > 1000 || rejectDocuments.isPending}
+              onClick={() => {
+                if (driver) {
+                  rejectDocuments.mutate({ driverId: driver.id, data: { reason: rejectDocsReason.trim() } });
+                }
+              }}
+              data-testid="button-confirm-reject-docs"
+            >
+              {rejectDocuments.isPending ? 'Sending…' : 'Send to Driver'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

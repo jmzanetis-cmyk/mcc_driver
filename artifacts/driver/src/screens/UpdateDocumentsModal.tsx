@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface UpdateDocumentsModalProps {
   onClose: () => void;
+  rejectionReason?: string;
 }
 
 type UploadState = 'idle' | 'uploading' | 'done' | 'error';
@@ -186,7 +187,7 @@ function FileUploadRow({
   );
 }
 
-export function UpdateDocumentsModal({ onClose }: UpdateDocumentsModalProps) {
+export function UpdateDocumentsModal({ onClose, rejectionReason }: UpdateDocumentsModalProps) {
   const { driver, refreshDriver } = useAuth();
 
   const licenseRef = useRef<HTMLInputElement | null>(null);
@@ -290,10 +291,12 @@ export function UpdateDocumentsModal({ onClose }: UpdateDocumentsModalProps) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: colors.navy, margin: 0 }}>
-                Update Documents
+                {rejectionReason ? 'Re-upload Documents' : 'Update Documents'}
               </h2>
               <p style={{ fontSize: 13, color: colors.textMuted, margin: '4px 0 0' }}>
-                Re-upload any documents that need to be replaced.
+                {rejectionReason
+                  ? 'Your documents were flagged by an MCC reviewer. Please re-upload them below.'
+                  : 'Re-upload any documents that need to be replaced.'}
               </p>
             </div>
             <button
@@ -306,6 +309,23 @@ export function UpdateDocumentsModal({ onClose }: UpdateDocumentsModalProps) {
               ✕
             </button>
           </div>
+
+          {/* Rejection reason banner inside modal */}
+          {rejectionReason && (
+            <div style={{
+              marginTop: 12, padding: '10px 14px',
+              background: colors.errorBg,
+              border: `1px solid ${colors.error}40`,
+              borderRadius: borderRadius.md,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: colors.error, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Reviewer note
+              </div>
+              <div style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 1.5 }}>
+                {rejectionReason}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Body */}
