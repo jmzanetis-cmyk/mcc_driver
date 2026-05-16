@@ -1208,7 +1208,6 @@ components:
         - dropoffAddress
         - dropoffLat
         - dropoffLng
-        - estimatedFare
         - estimatedDistanceMiles
 
     DispatchRideResponse:

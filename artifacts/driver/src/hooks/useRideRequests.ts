@@ -63,7 +63,11 @@ export function useRideRequests(driverId: string | null, isOnline: boolean) {
 
           const tandemRequired = ride.tandem_required ?? false;
           const tandemFee = tandemRequired ? computeTandemFee(ride.estimated_distance_miles) : null;
-          const serviceType = getServiceTypeFromTier(ride.tier);
+          // Prefer the persisted service_type from the DB; fall back to tier-derived value.
+          const serviceType: 'rideshare' | 'delivery' | 'concierge' =
+            ride.service_type === 'rideshare' ? 'rideshare'
+              : ride.service_type === 'delivery' ? 'delivery'
+              : getServiceTypeFromTier(ride.tier);
 
           dispatch.setOffer({
             rideId: ride.id,

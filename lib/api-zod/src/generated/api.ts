@@ -51,7 +51,7 @@ export const DispatchRideBody = zod.object({
   dropoffAddress: zod.string(),
   dropoffLat: zod.number(),
   dropoffLng: zod.number(),
-  estimatedFare: zod.number(),
+  estimatedFare: zod.number().optional(),
   estimatedDistanceMiles: zod.number(),
   memberId: zod.string().nullish(),
   memberVehicleYear: zod.number().nullish(),

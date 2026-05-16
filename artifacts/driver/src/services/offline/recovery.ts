@@ -15,8 +15,10 @@ export async function recoverRideState(driverId: string): Promise<void> {
     .from('driver_assignments')
     .select(`
       id, ride_id, role, status, drives_member_vehicle, carries_passenger,
+      member_vehicle_description, member_vehicle_plate,
       rides (
-        id, scenario, tier, pickup_address, pickup_lat, pickup_lng,
+        id, scenario, tier, service_type, package_description,
+        pickup_address, pickup_lat, pickup_lng,
         dropoff_address, dropoff_lat, dropoff_lng, estimated_fare,
         estimated_distance_miles, started_at
       )
@@ -57,12 +59,21 @@ export async function recoverRideState(driverId: string): Promise<void> {
       server: { rideId: ride.id, stage: serverStage },
     });
 
+    // Prefer the persisted service_type from the DB; fall back to tier-derived value
+    // so service-specific UI (labels, navigation steps) is correct after app restart.
+    const serviceType: 'rideshare' | 'delivery' | 'concierge' =
+      ride.service_type === 'rideshare' ? 'rideshare'
+        : ride.service_type === 'delivery' ? 'delivery'
+        : 'concierge';
+
     store.setStage(serverStage, {
       rideId: ride.id,
       assignmentId: assignment.id,
       role: (assignment.role === 'primary' || assignment.role === 'chase') ? assignment.role : null,
       scenario: ride.scenario,
       tier: ride.tier,
+      serviceType,
+      packageDescription: ride.package_description ?? null,
       pickupAddress: ride.pickup_address,
       pickupLat: ride.pickup_lat,
       pickupLng: ride.pickup_lng,
@@ -71,6 +82,7 @@ export async function recoverRideState(driverId: string): Promise<void> {
       dropoffLng: ride.dropoff_lng,
       estimatedFare: ride.estimated_fare,
       estimatedDistance: ride.estimated_distance_miles,
+      memberVehicleDescription: assignment.member_vehicle_description ?? null,
       drivesMemberVehicle: assignment.drives_member_vehicle,
       carriesPassenger: assignment.carries_passenger,
       startedAt: ride.started_at ?? undefined,

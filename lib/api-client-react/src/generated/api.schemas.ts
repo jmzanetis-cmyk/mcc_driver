@@ -40,7 +40,7 @@ export interface DispatchRideRequest {
   dropoffAddress: string;
   dropoffLat: number;
   dropoffLng: number;
-  estimatedFare: number;
+  estimatedFare?: number;
   estimatedDistanceMiles: number;
   memberId?: string | null;
   memberVehicleYear?: number | null;
