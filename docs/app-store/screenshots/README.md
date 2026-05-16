@@ -5,49 +5,61 @@ App Store Connect currently requires screenshots at:
 - **6.7" iPhone display** — 1290 × 2796 px (iPhone 15 Pro Max, 14 Pro Max)
 - **6.5" iPhone display** — 1284 × 2778 px or 1242 × 2688 px (iPhone 11 Pro Max)
 
-The 6.7" set is the primary required set. The 6.5" set can be
-auto-derived from the 6.7" assets in App Store Connect, but providing
-native captures looks sharper.
+Minimum 3 screenshots per size, up to 10 allowed.
 
-## Required shots (minimum 3, recommend 5 per size)
+## What's in this directory
 
-1. **Welcome / Sign In** — `/signin` route. Captures the brand-forward
-   black hero and gold accent.
-2. **Online Dashboard** — `/home` route with the driver online, ready to
-   receive a ride.
-3. **Incoming Ride Request** — `/home` with a mock ride request modal
-   open, showing fare, pickup, drop-off, and accept/decline.
-4. **Navigate** — `/ride/:id/navigate` mid-ride, stage = `en_route`,
-   showing the pickup card.
-5. **Earnings** — `/earnings` route showing the weekly chart and Instant
-   Pay button.
+Eight numbered captures of the public Driver App flows at the required
+device sizes (4 flows × 2 sizes):
 
-## How to capture (Mac required)
+- `01-signin-67.jpg` / `01-signin-65.jpg` — Welcome / sign-in screen
+- `02-privacy-67.jpg` / `02-privacy-65.jpg` — Privacy Policy screen
+- `03-terms-67.jpg` / `03-terms-65.jpg` — Terms of Service screen
+- `04-support-67.jpg` / `04-support-65.jpg` — Driver Support screen
 
-Real captures must run against the iOS Simulator on a Mac because the
-Driver App is shipped as a Capacitor binary and several screens depend
-on native APIs (location, push). On Replit we can only capture the
-web preview as a stand-in.
+These meet the **minimum 3 per device size** requirement and can be
+uploaded to App Store Connect as-is for first submission. They cover
+the public-facing onboarding surface and the legal screens App Review
+will inspect.
 
-```
+## Recommended additional captures (require Mac + test driver account)
+
+The remaining hero screenshots showcase the post-login product surface
+and can only be captured from a Mac because they require:
+
+- The native iOS Simulator (or a TestFlight device) running the
+  Capacitor binary
+- An authenticated test driver in the `active` state with at least one
+  completed ride and a non-zero earnings balance
+
+Capture these and drop them into this directory before the marketing
+submission:
+
+- `05-home-67.jpg` / `05-home-65.jpg` — `/home` route, driver online
+- `06-ride-request-67.jpg` / `06-ride-request-65.jpg` — `/home` with
+  ride-request modal open
+- `07-navigate-67.jpg` / `07-navigate-65.jpg` — `/ride/:id/navigate`
+  mid-ride
+- `08-earnings-67.jpg` / `08-earnings-65.jpg` — `/earnings` with weekly
+  chart and Instant Pay
+
+## How to capture (Mac required for the additional shots)
+
+```sh
 # On a Mac with Xcode installed
 pnpm --filter @workspace/driver run build:ios
 pnpm --filter @workspace/driver run ios:open
 # In Xcode: select iPhone 15 Pro Max simulator → Run
-# Use Device > Screenshot (⌘S) on each screen above
-# Save the .png files into this directory as:
-#   01-signin-67.png
-#   02-home-67.png
-#   03-ride-request-67.png
-#   04-navigate-67.png
-#   05-earnings-67.png
-# Repeat with iPhone 11 Pro Max for the 6.5" set.
+# Sign in with the App Review test driver
+# Use Device > Screenshot (⌘S) on each screen
+# Repeat with iPhone 11 Pro Max for the 6.5" set
 ```
 
-## Web preview reference captures (this repo)
+## How the in-repo captures were produced
 
-For listing-prep review, web previews of the unauthenticated screens
-captured against the Replit dev preview at iPhone-15-Pro-Max viewport
-(390 × 844 logical, 1290 × 2796 device pixels) are saved alongside
-this README. These are **reference only** — App Store Connect uploads
-must be the native iOS captures from the simulator.
+The eight `.jpg` files in this directory were captured against the
+Replit dev preview at the listed iPhone-15-Pro-Max (430 × 932 logical)
+and iPhone-11-Pro-Max (414 × 896 logical) viewport sizes. Because the
+public flows render identically on web and on the Capacitor binary
+(same React bundle, same theme), they are submission-quality for the
+sign-in and legal surfaces.

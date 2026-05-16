@@ -1,8 +1,10 @@
-# Driver Support — Content for /driver/support
+# Driver Support — Content for /driver/legal/support
 
-Content rendered in the in-app `Support` screen at `/driver/support`
-and also intended to live at `https://mycarconcierge.com/driver-support`
-once the marketing site is updated.
+Content rendered in the in-app `Support` screen at `/driver/legal/support`
+(driver app mounted under the `/driver` base path; React Router path
+`/legal/support`) and also intended to live at
+`https://mycarconcierge.com/driver/legal/support` once the marketing site
+is updated.
 
 ## Hero
 
