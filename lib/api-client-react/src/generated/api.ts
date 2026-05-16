@@ -18,8 +18,11 @@ import type {
 
 import type {
   AdminActionResult,
+  AdminCancelRideRequest,
+  AdminCancelRideResult,
   AdminDriverRecord,
   AdminRideAlongDriverRecord,
+  AdminRideRecord,
   AssignmentActionResponse,
   CompleteRideRequest,
   CreateRideAlongDriverRequest,
@@ -30,6 +33,7 @@ import type {
   HealthStatus,
   ListAdminDriversParams,
   ListAdminRideAlongDriversParams,
+  ListAdminRidesParams,
   LookupTandemPartnerParams,
   PartnerLookupResult,
   RejectDocumentsRequest,
@@ -1819,6 +1823,191 @@ export const useClearDriverDocumentRejection = <
   TContext
 > => {
   return useMutation(getClearDriverDocumentRejectionMutationOptions(options));
+};
+
+/**
+ * Returns ride records for admin review. Requires admin authentication.
+ * @summary List rides filtered by status
+ */
+export const getListAdminRidesUrl = (params?: ListAdminRidesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/rides?${stringifiedParams}`
+    : `/api/admin/rides`;
+};
+
+export const listAdminRides = async (
+  params?: ListAdminRidesParams,
+  options?: RequestInit,
+): Promise<AdminRideRecord[]> => {
+  return customFetch<AdminRideRecord[]>(getListAdminRidesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminRidesQueryKey = (params?: ListAdminRidesParams) => {
+  return [`/api/admin/rides`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminRidesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminRides>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAdminRidesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminRides>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAdminRidesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminRides>>> = ({
+    signal,
+  }) => listAdminRides(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminRides>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminRidesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminRides>>
+>;
+export type ListAdminRidesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List rides filtered by status
+ */
+
+export function useListAdminRides<
+  TData = Awaited<ReturnType<typeof listAdminRides>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAdminRidesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminRides>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminRidesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Cancels a ride in any non-terminal status and notifies the connected
+driver via Supabase Realtime. Protected by admin authentication.
+
+ * @summary Cancel a ride (admin)
+ */
+export const getAdminCancelRideUrl = (rideId: string) => {
+  return `/api/admin/rides/${rideId}/cancel`;
+};
+
+export const adminCancelRide = async (
+  rideId: string,
+  adminCancelRideRequest?: AdminCancelRideRequest,
+  options?: RequestInit,
+): Promise<AdminCancelRideResult> => {
+  return customFetch<AdminCancelRideResult>(getAdminCancelRideUrl(rideId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminCancelRideRequest),
+  });
+};
+
+export const getAdminCancelRideMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCancelRide>>,
+    TError,
+    { rideId: string; data: BodyType<AdminCancelRideRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCancelRide>>,
+  TError,
+  { rideId: string; data: BodyType<AdminCancelRideRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminCancelRide"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCancelRide>>,
+    { rideId: string; data: BodyType<AdminCancelRideRequest> }
+  > = (props) => {
+    const { rideId, data } = props ?? {};
+
+    return adminCancelRide(rideId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCancelRideMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCancelRide>>
+>;
+export type AdminCancelRideMutationBody = BodyType<AdminCancelRideRequest>;
+export type AdminCancelRideMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Cancel a ride (admin)
+ */
+export const useAdminCancelRide = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCancelRide>>,
+    TError,
+    { rideId: string; data: BodyType<AdminCancelRideRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCancelRide>>,
+  TError,
+  { rideId: string; data: BodyType<AdminCancelRideRequest> },
+  TContext
+> => {
+  return useMutation(getAdminCancelRideMutationOptions(options));
 };
 
 /**

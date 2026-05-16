@@ -7,13 +7,14 @@
 // ============================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq } from "drizzle-orm";
+import { eq, inArray, and, desc } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@workspace/db";
-import { driversTable } from "@workspace/db/schema";
+import { driversTable, ridesTable, driverAssignmentsTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { requireAdminAuth } from "../lib/adminAuth";
 import { sendDriverApprovedEmail, sendDriverRejectedEmail } from "../lib/email";
+import { updateRideViaSupabase, updateAssignmentViaSupabase } from "../lib/supabaseAdmin";
 
 const RejectDocumentsBody = z.object({
   reason: z.string().trim().min(1).max(1000),
@@ -263,6 +264,129 @@ router.post("/admin/drivers/:driverId/clear-document-rejection", async (req: Req
     res.json({ success: true, driverId: updated.id, status: updated.status });
   } catch (err) {
     logger.error({ err }, "admin.driver.clear-document-rejection failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── GET /api/admin/rides ──────────────────────────────────────────────────────
+// Lists rides, optionally filtered by status. Defaults to all non-terminal
+// statuses (pending_dispatch, dispatched, accepted, en_route, arrived,
+// in_progress) so admins see the live queue.
+
+router.get("/admin/rides", async (req: Request, res: Response): Promise<void> => {
+  const admin = await requireAdminAuth(req, res);
+  if (!admin) return;
+
+  const statusParam = req.query["status"] as string | undefined;
+
+  try {
+    const rows = await db
+      .select({
+        id: ridesTable.id,
+        scenario: ridesTable.scenario,
+        tier: ridesTable.tier,
+        status: ridesTable.status,
+        memberId: ridesTable.memberId,
+        pickupAddress: ridesTable.pickupAddress,
+        dropoffAddress: ridesTable.dropoffAddress,
+        estimatedFare: ridesTable.estimatedFare,
+        actualFare: ridesTable.actualFare,
+        estimatedDistanceMiles: ridesTable.estimatedDistanceMiles,
+        createdAt: ridesTable.createdAt,
+        startedAt: ridesTable.startedAt,
+      })
+      .from(ridesTable)
+      .where(statusParam ? eq(ridesTable.status, statusParam) : undefined)
+      .orderBy(desc(ridesTable.createdAt))
+      .limit(200);
+
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "admin.rides.list failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/admin/rides/:rideId/cancel ─────────────────────────────────────
+// Cancels a ride in any non-terminal status and mirrors the cancellation to
+// Supabase so connected drivers receive the real-time notification.
+
+router.post("/admin/rides/:rideId/cancel", async (req: Request, res: Response): Promise<void> => {
+  const admin = await requireAdminAuth(req, res);
+  if (!admin) return;
+
+  const rideId = String(req.params["rideId"]);
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : undefined;
+
+  try {
+    const [ride] = await db
+      .select({ id: ridesTable.id, status: ridesTable.status })
+      .from(ridesTable)
+      .where(eq(ridesTable.id, rideId))
+      .limit(1);
+
+    if (!ride) {
+      res.status(404).json({ error: "Ride not found" });
+      return;
+    }
+
+    const TERMINAL = ["completed", "cancelled", "dispatch_failed"];
+    if (TERMINAL.includes(ride.status)) {
+      res.status(400).json({ error: `Ride is already in terminal state: ${ride.status}` });
+      return;
+    }
+
+    const ACTIVE_ASSIGNMENT_STATUSES = ["pending", "accepted", "en_route", "arrived", "in_progress"] as const;
+
+    const activeAssignments = await db
+      .select({ id: driverAssignmentsTable.id })
+      .from(driverAssignmentsTable)
+      .where(
+        and(
+          eq(driverAssignmentsTable.rideId, rideId),
+          inArray(driverAssignmentsTable.status, [...ACTIVE_ASSIGNMENT_STATUSES]),
+        ),
+      );
+
+    // ── Phase 1: Local Postgres writes ───────────────────────────────────────
+    await db
+      .update(ridesTable)
+      .set({ status: "cancelled" })
+      .where(eq(ridesTable.id, rideId));
+
+    if (activeAssignments.length > 0) {
+      await db
+        .update(driverAssignmentsTable)
+        .set({ status: "cancelled" })
+        .where(
+          and(
+            eq(driverAssignmentsTable.rideId, rideId),
+            inArray(driverAssignmentsTable.status, [...ACTIVE_ASSIGNMENT_STATUSES]),
+          ),
+        );
+    }
+
+    // ── Phase 2: Supabase mirrors (fire-and-forget for Realtime) ─────────────
+    const assignmentIds = activeAssignments.map((a) => a.id);
+    await Promise.allSettled([
+      updateRideViaSupabase(rideId, { status: "cancelled" }).catch((err) =>
+        logger.warn({ err, rideId }, "admin.rides.cancel: Supabase ride mirror failed"),
+      ),
+      assignmentIds.length > 0
+        ? updateAssignmentViaSupabase(assignmentIds, { status: "cancelled" }).catch((err) =>
+            logger.warn({ err, rideId }, "admin.rides.cancel: Supabase assignment mirror failed"),
+          )
+        : Promise.resolve(),
+    ]);
+
+    req.log.info(
+      { rideId, adminEmail: admin.email, reason, driversNotified: activeAssignments.length },
+      "admin.rides.cancel.success",
+    );
+
+    res.json({ success: true, rideId, driversNotified: activeAssignments.length });
+  } catch (err) {
+    logger.error({ err }, "admin.rides.cancel failed");
     res.status(500).json({ error: "Internal error" });
   }
 });

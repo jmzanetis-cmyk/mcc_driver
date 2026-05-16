@@ -779,6 +779,94 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/rides:
+    get:
+      operationId: listAdminRides
+      tags: [admin]
+      summary: List rides filtered by status
+      description: Returns ride records for admin review. Requires admin authentication.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "Filter by ride status. If omitted, returns all non-terminal rides."
+      responses:
+        "200":
+          description: Ride list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminRideRecord"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/rides/{rideId}/cancel:
+    post:
+      operationId: adminCancelRide
+      tags: [admin]
+      summary: Cancel a ride (admin)
+      description: |
+        Cancels a ride in any non-terminal status and notifies the connected
+        driver via Supabase Realtime. Protected by admin authentication.
+      parameters:
+        - name: rideId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCancelRideRequest"
+      responses:
+        "200":
+          description: Ride cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCancelRideResult"
+        "400":
+          description: Ride is already in a terminal state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Ride not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /tandem-jobs:
     post:
       operationId: createTandemJob
@@ -1278,6 +1366,72 @@ components:
         - success
         - driverId
         - status
+
+    AdminRideRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        scenario:
+          type: string
+        tier:
+          type: string
+        status:
+          type: string
+        memberId:
+          type: string
+          nullable: true
+        pickupAddress:
+          type: string
+        dropoffAddress:
+          type: string
+        estimatedFare:
+          type: number
+        actualFare:
+          type: number
+          nullable: true
+        estimatedDistanceMiles:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - scenario
+        - tier
+        - status
+        - pickupAddress
+        - dropoffAddress
+        - estimatedFare
+        - estimatedDistanceMiles
+
+    AdminCancelRideRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Optional reason for the cancellation (logged server-side).
+
+    AdminCancelRideResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        rideId:
+          type: string
+          format: uuid
+        driversNotified:
+          type: integer
+      required:
+        - success
+        - rideId
+        - driversNotified
 
     CreateRideAlongDriverRequest:
       type: object

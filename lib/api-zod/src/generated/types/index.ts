@@ -7,8 +7,11 @@
  */
 
 export * from "./adminActionResult";
+export * from "./adminCancelRideRequest";
+export * from "./adminCancelRideResult";
 export * from "./adminDriverRecord";
 export * from "./adminRideAlongDriverRecord";
+export * from "./adminRideRecord";
 export * from "./assignmentActionResponse";
 export * from "./completeRideRequest";
 export * from "./createRideAlongDriverRequest";
@@ -20,6 +23,7 @@ export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./listAdminDriversParams";
 export * from "./listAdminRideAlongDriversParams";
+export * from "./listAdminRidesParams";
 export * from "./lookupTandemPartnerParams";
 export * from "./partnerLookupResult";
 export * from "./rejectDocumentsRequest";

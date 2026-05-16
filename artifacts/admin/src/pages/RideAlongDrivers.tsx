@@ -401,6 +401,12 @@ export default function RideAlongDrivers() {
             >
               Ride-Along Drivers
             </button>
+            <button
+              onClick={() => setLocation('/rides')}
+              className="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Rides
+            </button>
           </div>
         )}
 

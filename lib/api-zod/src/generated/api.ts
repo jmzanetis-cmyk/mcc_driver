@@ -475,6 +475,58 @@ export const ClearDriverDocumentRejectionResponse = zod.object({
 });
 
 /**
+ * Returns ride records for admin review. Requires admin authentication.
+ * @summary List rides filtered by status
+ */
+export const ListAdminRidesQueryParams = zod.object({
+  status: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Filter by ride status. If omitted, returns all non-terminal rides.",
+    ),
+});
+
+export const ListAdminRidesResponseItem = zod.object({
+  id: zod.string().uuid(),
+  scenario: zod.string(),
+  tier: zod.string(),
+  status: zod.string(),
+  memberId: zod.string().nullish(),
+  pickupAddress: zod.string(),
+  dropoffAddress: zod.string(),
+  estimatedFare: zod.number(),
+  actualFare: zod.number().nullish(),
+  estimatedDistanceMiles: zod.number(),
+  createdAt: zod.coerce.date().nullish(),
+  startedAt: zod.coerce.date().nullish(),
+});
+export const ListAdminRidesResponse = zod.array(ListAdminRidesResponseItem);
+
+/**
+ * Cancels a ride in any non-terminal status and notifies the connected
+driver via Supabase Realtime. Protected by admin authentication.
+
+ * @summary Cancel a ride (admin)
+ */
+export const AdminCancelRideParams = zod.object({
+  rideId: zod.coerce.string().uuid(),
+});
+
+export const AdminCancelRideBody = zod.object({
+  reason: zod
+    .string()
+    .optional()
+    .describe("Optional reason for the cancellation (logged server-side)."),
+});
+
+export const AdminCancelRideResponse = zod.object({
+  success: zod.boolean(),
+  rideId: zod.string().uuid(),
+  driversNotified: zod.number(),
+});
+
+/**
  * @summary Create a tandem job for a ride
  */
 export const CreateTandemJobBody = zod.object({

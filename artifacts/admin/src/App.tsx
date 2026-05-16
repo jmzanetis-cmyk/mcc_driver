@@ -8,6 +8,7 @@ import Login from "@/pages/Login";
 import Drivers from "@/pages/Drivers";
 import DriverDetail from "@/pages/DriverDetail";
 import RideAlongDrivers from "@/pages/RideAlongDrivers";
+import Rides from "@/pages/Rides";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/drivers" component={() => <ProtectedRoute component={Drivers} />} />
       <Route path="/drivers/:id" component={() => <ProtectedRoute component={DriverDetail} />} />
       <Route path="/ride-along-drivers" component={() => <ProtectedRoute component={RideAlongDrivers} />} />
+      <Route path="/rides" component={() => <ProtectedRoute component={Rides} />} />
       <Route component={NotFound} />
     </Switch>
   );

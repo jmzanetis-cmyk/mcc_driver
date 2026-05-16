@@ -147,6 +147,32 @@ export interface AdminActionResult {
   status: string;
 }
 
+export interface AdminRideRecord {
+  id: string;
+  scenario: string;
+  tier: string;
+  status: string;
+  memberId?: string | null;
+  pickupAddress: string;
+  dropoffAddress: string;
+  estimatedFare: number;
+  actualFare?: number | null;
+  estimatedDistanceMiles: number;
+  createdAt?: string | null;
+  startedAt?: string | null;
+}
+
+export interface AdminCancelRideRequest {
+  /** Optional reason for the cancellation (logged server-side). */
+  reason?: string;
+}
+
+export interface AdminCancelRideResult {
+  success: boolean;
+  rideId: string;
+  driversNotified: number;
+}
+
 export interface CreateRideAlongDriverRequest {
   firstName: string;
   lastName: string;
@@ -335,6 +361,13 @@ export type ListAdminRideAlongDriversParams = {
 export type ListAdminDriversParams = {
   /**
    * Filter by driver status
+   */
+  status?: string;
+};
+
+export type ListAdminRidesParams = {
+  /**
+   * Filter by ride status. If omitted, returns all non-terminal rides.
    */
   status?: string;
 };
