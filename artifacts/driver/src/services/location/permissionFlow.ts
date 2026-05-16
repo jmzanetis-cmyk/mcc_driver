@@ -75,12 +75,14 @@ export async function ensureWhileInUsePermission(): Promise<PermissionState> {
     return current;
   }
   if (!shownAlready(WHEN_IN_USE_KEY)) {
-    markShown(WHEN_IN_USE_KEY);
     const proceed = await showRationale(WHEN_IN_USE_COPY);
     if (!proceed) {
+      // Don't persist `shown=1` for a dismissed rationale — the driver should
+      // see the explanation again next time they try to go online.
       logger.info("location.while_in_use_rationale_dismissed");
       return "prompt";
     }
+    markShown(WHEN_IN_USE_KEY);
   }
   const result = await requestPermission();
   logger.info("location.while_in_use_requested", { result });
@@ -104,12 +106,14 @@ export async function announceAlwaysUpgrade(): Promise<void> {
   }
 
   if (!shownAlready(ALWAYS_KEY)) {
-    markShown(ALWAYS_KEY);
     const proceed = await showRationale(ALWAYS_COPY);
     if (!proceed) {
+      // Don't persist `shown=1` for a dismissed rationale — the driver should
+      // see the explanation again on the next active-ride stage entry.
       logger.info("location.always_rationale_dismissed");
       return;
     }
+    markShown(ALWAYS_KEY);
   }
 
   const status = await requestAlwaysAuthorization();
