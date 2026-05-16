@@ -72,3 +72,6 @@ externalPort = 4200
 [userenv.shared]
 SUPABASE_DB_REGION = "aws-0-us-east-2"
 DRIVER_EMAIL_FROM = "noreply@mycarconcierge.com"
+
+[nix]
+channel = "stable-25_05"

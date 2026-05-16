@@ -312,6 +312,19 @@ Links are wired from `SignInScreen` (footer), `ApplicationScreen`
   `resolveCallerDriver` (driver row) so any error captured later in the
   request lifecycle is grouped against the right account — ids only, no PII.
 
+## Visual-regression tests (driver app)
+
+Lightweight Playwright snapshot suite guards the driver app's
+editorial look-and-feel. Lives in `artifacts/driver/tests/`.
+
+- `pnpm --filter @workspace/driver run test:visual` — compare to baselines
+- `pnpm --filter @workspace/driver run test:visual:update` — refresh baselines after an intentional visual change
+- Requires the `artifacts/driver: web` workflow running (hits `localhost:80/driver/*`)
+- Covers Sign In, Application, Pending, Privacy, Terms, Support — both light + dark themes via `?theme=` deep-link
+- Baselines committed under `tests/visual.spec.ts-snapshots/`; transient `test-results/` + `playwright-report/` are gitignored
+- Auth-gated screens (Home / Earnings / Navigate / RideComplete) are NOT covered — see `artifacts/driver/tests/README.md` for the two options to add them later (an `E2E_AUTH_BYPASS` build flag, or programmatic Supabase test-OTP login)
+- System deps required for Chromium headless on Replit (already installed): `glib`, `nss`, `nspr`, `dbus`, `atk`, `at-spi2-atk`, `at-spi2-core`, `cups`, `libdrm`, `expat`, `mesa`, `libGL`, `libgbm`, `pango`, `cairo`, `alsa-lib`, plus various xorg libs.
+
 ## Network resilience (offline / flaky signal)
 
 - **Network status hook** — `artifacts/driver/src/hooks/useNetworkStatus.ts` exposes a singleton subscription that prefers the Capacitor Network plugin on native iOS and falls back to `navigator.onLine` + browser `online`/`offline` events on web. Also exports `getNetworkStatus()` for one-shot reads and `onNetworkRestored()` for offline → online edge callbacks.

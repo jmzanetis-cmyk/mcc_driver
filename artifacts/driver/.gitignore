@@ -1,0 +1,4 @@
+# Playwright transient outputs — only the baselines under
+# tests/visual.spec.ts-snapshots/ should be committed.
+test-results/
+playwright-report/
