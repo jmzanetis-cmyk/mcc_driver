@@ -181,25 +181,35 @@ export function InstantPayScreen() {
             </div>
             {useCustomAmount && (
               <>
+                <label htmlFor="instant-pay-custom-amount" style={{
+                  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+                  overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
+                }}>
+                  Custom cash-out amount in US dollars
+                </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 24, fontWeight: 700, color: colors.navy }}>$</span>
+                  <span aria-hidden="true" style={{ fontSize: 24, fontWeight: 700, color: colors.navy }}>$</span>
                   <input
+                    id="instant-pay-custom-amount"
                     type="number"
+                    inputMode="decimal"
                     value={customAmount}
                     onChange={e => setCustomAmount(e.target.value)}
                     placeholder={balance.available.toFixed(2)}
                     min={MINIMUM_CASHOUT}
                     max={balance.available}
                     step="0.01"
+                    aria-describedby="instant-pay-custom-amount-help"
                     style={{
                       flex: 1, padding: '10px 14px', fontSize: 24, fontWeight: 700,
                       border: `2px solid ${colors.gold}`, borderRadius: borderRadius.md,
                       background: colors.bgPrimary, color: colors.navy,
                       outline: 'none', fontFamily: 'inherit',
+                      minHeight: 44,
                     }}
                   />
                 </div>
-                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 8 }}>
+                <div id="instant-pay-custom-amount-help" style={{ fontSize: 11, color: colors.textMuted, marginTop: 8 }}>
                   Payouts are allocated by completed trip — the disbursed amount may be slightly less than entered if trip amounts don't add up exactly.
                 </div>
               </>

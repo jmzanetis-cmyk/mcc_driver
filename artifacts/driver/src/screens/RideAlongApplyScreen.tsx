@@ -63,6 +63,7 @@ function FileUploadField({
       </div>
       <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 8 }}>{hint}</div>
       <input ref={inputRef} type="file" accept="image/*,application/pdf"
+        aria-label={`Upload ${label}${required ? ' (required)' : ''}`}
         style={{ display: 'none' }}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onSelect(f); }}
       />
