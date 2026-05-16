@@ -354,6 +354,8 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
     estimatedFare: number;
     estimatedDistanceMiles: number;
     memberId?: string;
+    memberPhone?: string;
+    memberName?: string;
     memberVehicleYear?: number;
     memberVehicleMake?: string;
     memberVehicleModel?: string;
@@ -492,6 +494,8 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
         packageDescription: body.packageDescription ?? null,
         status: "pending_dispatch",
         memberId: body.memberId ?? null,
+        memberPhone: body.memberPhone ?? null,
+        memberName: body.memberName ?? null,
         pickupAddress: body.pickupAddress,
         pickupLat: body.pickupLat,
         pickupLng: body.pickupLng,

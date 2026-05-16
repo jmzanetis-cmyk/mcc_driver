@@ -985,6 +985,22 @@ router.patch(
           });
       }
 
+      // Capture the previously-matched ride-along driver id BEFORE reopening
+      // the broadcast — `reopenBroadcast` clears `matchedRideAlongDriverId`,
+      // so we'd otherwise lose the recipient for the decline notification.
+      const [preDeclineJob] = await db
+        .select({
+          matchedRideAlongDriverId: tandemJobsTable.matchedRideAlongDriverId,
+          rideAlongDriverId: tandemJobsTable.rideAlongDriverId,
+        })
+        .from(tandemJobsTable)
+        .where(eq(tandemJobsTable.id, tandemJobId))
+        .limit(1);
+      const previouslyMatchedId =
+        preDeclineJob?.matchedRideAlongDriverId ??
+        preDeclineJob?.rideAlongDriverId ??
+        null;
+
       const result = await reopenBroadcast(tandemJobId);
 
       req.log.info(
@@ -993,7 +1009,7 @@ router.patch(
       );
       // Phase 3c: notify provider + previously matched driver of the decline.
       // (The re-broadcast fan-out is fired inside reopenBroadcast above.)
-      void notifyApprovalOutcome(tandemJobId, false).catch((err) =>
+      void notifyApprovalOutcome(tandemJobId, false, previouslyMatchedId).catch((err) =>
         logger.error({ err, tandemJobId }, "tandem.notify.approval_outcome_failed"),
       );
       res.status(200).json({

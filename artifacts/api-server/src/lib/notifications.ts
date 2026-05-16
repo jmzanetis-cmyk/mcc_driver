@@ -203,27 +203,36 @@ export async function notifyMemberAwaitingApproval(tandemJobId: string): Promise
     { tandemJobId, link },
   );
 
-  // Members are not in the local schema (they live in the MCC member app);
-  // we don't have a member phone number to text yet. Log the intent so the
-  // member-app integration can pick it up; SMS will start once the member
-  // contact info is wired in.
-  logger.info(
-    { tandemJobId, memberId, link },
-    "tandem.notifications.member_sms_skipped (no member phone on file)",
-  );
+  if (ctx.ride.memberPhone) {
+    const greeting = ctx.ride.memberName ? `Hi ${ctx.ride.memberName}, ` : "";
+    await sendSms(
+      ctx.ride.memberPhone,
+      `${greeting}MCC: your ride needs a quick approval — a ride-along driver has been matched alongside your provider. Review and confirm: ${link}`,
+    );
+  } else {
+    logger.info(
+      { tandemJobId, memberId, link },
+      "tandem.notifications.member_sms_skipped (no member phone on file)",
+    );
+  }
 }
 
 // ── 4. Member approval outcome → notify both sides ──────────────────────────
 export async function notifyApprovalOutcome(
   tandemJobId: string,
   approved: boolean,
+  // Callers should pass the matched ride-along driver id explicitly when the
+  // outcome is `false` — by the time this runs the broadcast may already be
+  // re-opened (which clears the matched id from the row).
+  explicitMatchedRideAlongDriverId?: string | null,
 ): Promise<void> {
   const ctx = await loadContext(tandemJobId);
   if (!ctx) return;
 
-  // Use the latest matched driver id even after re-broadcast (which clears it)
-  // by looking at the rideAlongDriverId fallback.
-  const matchedId = ctx.job.matchedRideAlongDriverId ?? ctx.job.rideAlongDriverId;
+  const matchedId =
+    explicitMatchedRideAlongDriverId ??
+    ctx.job.matchedRideAlongDriverId ??
+    ctx.job.rideAlongDriverId;
 
   const [provider] = await db
     .select({ id: driversTable.id, phone: driversTable.phone })
@@ -266,6 +275,21 @@ export async function notifyApprovalOutcome(
       { tandemJobId, approved },
     );
     await sendSms(match.phone, matchMsg);
+  } else {
+    logger.warn(
+      { tandemJobId, approved },
+      "tandem.notifications.approval_outcome: no matched ride-along driver to notify",
+    );
+  }
+
+  // Member confirmation: only on approval — decline notice already implied
+  // by the original approval prompt going stale.
+  if (approved && ctx.ride.memberPhone) {
+    const greeting = ctx.ride.memberName ? `Hi ${ctx.ride.memberName}, ` : "";
+    await sendSms(
+      ctx.ride.memberPhone,
+      `${greeting}MCC: your ride is fully confirmed — provider and ride-along driver are on the way.`,
+    );
   }
 
   logger.info({ tandemJobId, verb }, "tandem.notifications.approval_outcome");

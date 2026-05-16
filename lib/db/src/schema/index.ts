@@ -64,6 +64,8 @@ export const ridesTable = pgTable("rides", {
   tier: text("tier").notNull(),
   status: text("status").notNull().default("pending_dispatch"),
   memberId: text("member_id"),
+  memberPhone: text("member_phone"),
+  memberName: text("member_name"),
   pickupAddress: text("pickup_address").notNull(),
   pickupLat: real("pickup_lat").notNull(),
   pickupLng: real("pickup_lng").notNull(),
