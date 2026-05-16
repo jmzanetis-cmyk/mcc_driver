@@ -9,6 +9,7 @@ import {
   driverAssignmentsTable,
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import { setSentryRequestIdentity } from "../lib/sentry";
 import { computeRideAlongFee } from "../lib/tandemFee";
 import { verifySupabaseToken, extractBearerToken, type SupabaseUser } from "../lib/adminAuth";
 
@@ -43,6 +44,7 @@ async function resolveCallerDriver(
     res.status(403).json({ error: "No driver profile found" });
     return null;
   }
+  setSentryRequestIdentity({ userId: user.id, driverId: driver.id });
   return driver;
 }
 

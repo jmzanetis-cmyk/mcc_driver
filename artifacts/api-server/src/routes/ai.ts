@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { logger } from "../lib/logger";
+import { setSentryRequestIdentity } from "../lib/sentry";
 
 const router: IRouter = Router();
 
@@ -49,6 +50,7 @@ async function verifySupabaseToken(token: string): Promise<SupabaseUser | null> 
 
     const user = (await res.json()) as SupabaseUser;
     if (!user?.id) return null;
+    setSentryRequestIdentity({ userId: user.id });
     return user;
   } catch {
     return null;

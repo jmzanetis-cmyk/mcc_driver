@@ -14,6 +14,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { adminUsersTable } from "@workspace/db/schema";
 import { logger } from "./logger";
+import { setSentryRequestIdentity } from "./sentry";
 
 export interface SupabaseUser {
   id: string;
@@ -34,6 +35,7 @@ export async function verifySupabaseToken(token: string): Promise<SupabaseUser |
     if (!res.ok) return null;
     const user = (await res.json()) as SupabaseUser;
     if (!user?.id) return null;
+    setSentryRequestIdentity({ userId: user.id });
     return user;
   } catch {
     return null;

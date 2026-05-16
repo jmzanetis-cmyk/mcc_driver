@@ -18,6 +18,7 @@ import {
   driversTable,
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import { setSentryRequestIdentity } from "../lib/sentry";
 import {
   verifySupabaseToken,
   extractBearerToken,
@@ -71,6 +72,7 @@ async function resolveCallerDriver(
     res.status(403).json({ error: "No driver profile found" });
     return null;
   }
+  setSentryRequestIdentity({ userId: user.id, driverId: driver.id });
   return driver;
 }
 
@@ -87,6 +89,7 @@ async function resolveCallerRideAlongDriver(
     res.status(403).json({ error: "No ride-along driver profile found" });
     return null;
   }
+  setSentryRequestIdentity({ userId: user.id, driverId: record.id });
   return record;
 }
 

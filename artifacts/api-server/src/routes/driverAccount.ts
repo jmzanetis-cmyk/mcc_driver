@@ -39,6 +39,7 @@ import {
   driverAuditLogTable,
 } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { setSentryRequestIdentity } from "../lib/sentry";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 
 const router: IRouter = Router();
@@ -60,7 +61,9 @@ async function verifySupabaseToken(token: string): Promise<SupabaseUser | null> 
     });
     if (!res.ok) return null;
     const user = (await res.json()) as SupabaseUser;
-    return user?.id ? user : null;
+    if (!user?.id) return null;
+    setSentryRequestIdentity({ userId: user.id });
+    return user;
   } catch {
     return null;
   }

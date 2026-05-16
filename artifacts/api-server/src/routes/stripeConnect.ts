@@ -12,6 +12,7 @@ import Stripe from "stripe";
 import { db } from "@workspace/db";
 import { driversTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import { setSentryRequestIdentity } from "../lib/sentry";
 
 const router: IRouter = Router();
 
@@ -52,6 +53,7 @@ async function verifySupabaseToken(token: string): Promise<SupabaseUser | null> 
     if (!res.ok) return null;
     const user = (await res.json()) as SupabaseUser;
     if (!user?.id) return null;
+    setSentryRequestIdentity({ userId: user.id });
     return user;
   } catch {
     return null;

@@ -68,8 +68,12 @@ if (isSentryEnabled()) {
   process.on("unhandledRejection", (reason) => {
     Sentry.captureException(reason);
   });
+  // For uncaught exceptions the Node process is in an undefined state — flush
+  // the event then exit so the supervisor can restart cleanly. Sentry's flush
+  // is async; we cap the wait at 2s so a wedged transport can't block exit.
   process.on("uncaughtException", (err) => {
     Sentry.captureException(err);
+    void Sentry.flush(2000).finally(() => process.exit(1));
   });
 }
 
