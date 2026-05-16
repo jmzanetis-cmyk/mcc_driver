@@ -99,9 +99,26 @@ export async function ensureWhileInUsePermission(): Promise<PermissionState> {
  * already `always`, and the rationale dialog is shown at most once.
  */
 export async function announceAlwaysUpgrade(): Promise<void> {
-  // Skip if already on Always — no need to nag.
   const current = await getIosAuthorizationStatus();
-  if (current === "always" || current === "denied" || current === "restricted") {
+  if (current === "always") {
+    return; // already on Always — no need to nag
+  }
+  // If the driver previously denied Always (or it's restricted by parental
+  // controls / MDM), iOS won't re-prompt programmatically — they have to
+  // change it from Settings. Show explicit guidance so they understand why
+  // background tracking is degraded mid-ride.
+  if (current === "denied" || current === "restricted") {
+    logger.warn("location.always_blocked", { current });
+    try {
+      window.alert(
+        "Background location is currently disabled for My Car Concierge. " +
+        "While the screen is locked, dispatch and the member can lose sight " +
+        "of you. To fix this, open iOS Settings → My Car Concierge → Location " +
+        "and choose “Always”.",
+      );
+    } catch {
+      // window.alert can throw in some embedded WebView configs — ignore.
+    }
     return;
   }
 
