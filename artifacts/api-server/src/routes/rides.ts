@@ -371,7 +371,6 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
     !body.dropoffAddress ||
     body.dropoffLat == null ||
     body.dropoffLng == null ||
-    body.estimatedFare == null ||
     body.estimatedDistanceMiles == null
   ) {
     res.status(400).json({ error: "Missing required ride fields" });
