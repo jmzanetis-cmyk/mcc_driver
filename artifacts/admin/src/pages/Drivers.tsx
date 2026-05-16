@@ -4,7 +4,6 @@ import {
   useListAdminDrivers,
   getListAdminDriversQueryKey,
   useApproveDriver,
-  useRejectDriver,
 } from '@workspace/api-client-react';
 import type { AdminDriverRecord } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -71,18 +70,6 @@ export default function Drivers() {
     mutation: {
       onSuccess: () => {
         toast({ title: 'Driver approved', description: 'Driver status set to active.' });
-        queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey({ status: statusFilter }) });
-      },
-      onError: (err) => {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      },
-    },
-  });
-
-  const rejectDriver = useRejectDriver({
-    mutation: {
-      onSuccess: () => {
-        toast({ title: 'Driver rejected', description: 'Driver status set to inactive.' });
         queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey({ status: statusFilter }) });
       },
       onError: (err) => {
@@ -340,7 +327,6 @@ export default function Drivers() {
                               size="sm"
                               className="text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => handleReject(driver.id)}
-                              disabled={rejectDriver.isPending}
                               data-testid={`button-reject-${driver.id}`}
                             >
                               <XCircle className="w-3.5 h-3.5 mr-1" />
