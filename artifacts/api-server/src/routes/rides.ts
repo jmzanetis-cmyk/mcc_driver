@@ -1049,67 +1049,79 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
 
     const now = new Date();
 
-    // Atomic transition guard: only one concurrent request can flip
-    // in_progress → completed. The losing request gets zero rows back
-    // and must short-circuit before inserting a duplicate payout.
-    const transitioned = await db
-      .update(driverAssignmentsTable)
-      .set({
-        status: "completed",
-        completedAt: now,
-        driverPayoutAmount: driverPayout,
-        payoutStatus: "pending",
-      })
-      .where(
-        and(
-          eq(driverAssignmentsTable.id, assignmentId),
-          eq(driverAssignmentsTable.status, "in_progress"),
-        ),
-      )
-      .returning({ id: driverAssignmentsTable.id });
+    // All four writes (assignment flip, ride update, payout insert, driver
+    // counter bump) run atomically. The conditional assignment update is the
+    // race guard from task #48; if it returns zero rows we throw a sentinel
+    // to roll back any partial state and respond 409. Any other thrown error
+    // also rolls back, so we never leave a completed assignment without a
+    // matching payout row.
+    const RACE_LOST = Symbol("rides.complete.race_lost");
 
-    if (transitioned.length === 0) {
-      req.log.info(
-        { rideId, assignmentId, driverId: driver.id },
-        "rides.complete.race_lost — assignment no longer in_progress",
-      );
-      res.status(409).json({
-        error: "Ride is already completed",
+    try {
+      await db.transaction(async (tx) => {
+        const transitioned = await tx
+          .update(driverAssignmentsTable)
+          .set({
+            status: "completed",
+            completedAt: now,
+            driverPayoutAmount: driverPayout,
+            payoutStatus: "pending",
+          })
+          .where(
+            and(
+              eq(driverAssignmentsTable.id, assignmentId),
+              eq(driverAssignmentsTable.status, "in_progress"),
+            ),
+          )
+          .returning({ id: driverAssignmentsTable.id });
+
+        if (transitioned.length === 0) {
+          throw RACE_LOST;
+        }
+
+        await tx
+          .update(ridesTable)
+          .set({
+            status: "completed",
+            actualFare: finalFare,
+            actualDistanceMiles,
+            completedAt: now,
+          })
+          .where(eq(ridesTable.id, rideId));
+
+        await tx.insert(driverPayoutsTable).values({
+          driverId: assignment.driverId,
+          amount: driverPayout,
+          netPayout: driverPayout,
+          platformFee: Math.round((finalFare - driverPayout) * 100) / 100,
+          method: "standard",
+          status: "pending",
+          requestedAt: now,
+        });
+
+        const [currentDriver] = await tx
+          .select({ totalRidesCompleted: driversTable.totalRidesCompleted })
+          .from(driversTable)
+          .where(eq(driversTable.id, assignment.driverId))
+          .limit(1);
+
+        if (currentDriver) {
+          await tx
+            .update(driversTable)
+            .set({ totalRidesCompleted: currentDriver.totalRidesCompleted + 1 })
+            .where(eq(driversTable.id, assignment.driverId));
+        }
       });
-      return;
-    }
-
-    await db
-      .update(ridesTable)
-      .set({
-        status: "completed",
-        actualFare: finalFare,
-        actualDistanceMiles,
-        completedAt: now,
-      })
-      .where(eq(ridesTable.id, rideId));
-
-    await db.insert(driverPayoutsTable).values({
-      driverId: assignment.driverId,
-      amount: driverPayout,
-      netPayout: driverPayout,
-      platformFee: Math.round((finalFare - driverPayout) * 100) / 100,
-      method: "standard",
-      status: "pending",
-      requestedAt: now,
-    });
-
-    const [currentDriver] = await db
-      .select({ totalRidesCompleted: driversTable.totalRidesCompleted })
-      .from(driversTable)
-      .where(eq(driversTable.id, assignment.driverId))
-      .limit(1);
-
-    if (currentDriver) {
-      await db
-        .update(driversTable)
-        .set({ totalRidesCompleted: currentDriver.totalRidesCompleted + 1 })
-        .where(eq(driversTable.id, assignment.driverId));
+    } catch (txErr) {
+      if (txErr === RACE_LOST) {
+        req.log.info(
+          { rideId, assignmentId, driverId: driver.id },
+          "rides.complete.race_lost — assignment no longer in_progress",
+        );
+        res.status(409).json({ error: "Ride is already completed" });
+        return;
+      }
+      throw txErr;
     }
 
     req.log.info({ rideId, assignmentId, finalFare, driverPayout, driverId: driver.id }, "rides.complete.success");
