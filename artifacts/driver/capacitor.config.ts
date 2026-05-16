@@ -21,7 +21,9 @@ const config: CapacitorConfig = {
       splashImmersive: true,
     },
     StatusBar: {
-      style: "DARK",
+      // "LIGHT" = light-colored content (white text/icons) for use on our
+      // dark brand background. (#0B1220).
+      style: "LIGHT",
       backgroundColor: "#0B1220",
       overlaysWebView: false,
     },
