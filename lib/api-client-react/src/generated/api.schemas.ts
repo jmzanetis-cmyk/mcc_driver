@@ -111,6 +111,15 @@ export interface RejectDocumentsRequest {
   reason: string;
 }
 
+export interface RejectDriverRequest {
+  /**
+   * Human-readable reason emailed to the driver explaining why their application was rejected.
+   * @minLength 1
+   * @maxLength 1000
+   */
+  reason: string;
+}
+
 export interface StripeAccountLink {
   /** One-time Stripe account link URL to open for onboarding */
   url: string;

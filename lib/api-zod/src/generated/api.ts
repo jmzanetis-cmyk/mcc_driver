@@ -404,11 +404,25 @@ export const ApproveDriverResponse = zod.object({
 });
 
 /**
- * Sets the driver's status to inactive.
+ * Sets the driver's status to inactive and emails the driver with the
+provided reason explaining why their application was rejected.
+
  * @summary Reject a driver application
  */
 export const RejectDriverParams = zod.object({
   driverId: zod.coerce.string().uuid(),
+});
+
+export const rejectDriverBodyReasonMax = 1000;
+
+export const RejectDriverBody = zod.object({
+  reason: zod
+    .string()
+    .min(1)
+    .max(rejectDriverBodyReasonMax)
+    .describe(
+      "Human-readable reason emailed to the driver explaining why their application was rejected.",
+    ),
 });
 
 export const RejectDriverResponse = zod.object({

@@ -13,8 +13,13 @@ import { db } from "@workspace/db";
 import { driversTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { requireAdminAuth } from "../lib/adminAuth";
+import { sendDriverApprovedEmail, sendDriverRejectedEmail } from "../lib/email";
 
 const RejectDocumentsBody = z.object({
+  reason: z.string().trim().min(1).max(1000),
+});
+
+const RejectDriverBody = z.object({
   reason: z.string().trim().min(1).max(1000),
 });
 
@@ -91,7 +96,12 @@ router.post("/admin/drivers/:driverId/approve", async (req: Request, res: Respon
       .update(driversTable)
       .set({ status: "active" })
       .where(eq(driversTable.id, driverId))
-      .returning({ id: driversTable.id, status: driversTable.status });
+      .returning({
+        id: driversTable.id,
+        status: driversTable.status,
+        email: driversTable.email,
+        firstName: driversTable.firstName,
+      });
 
     if (!updated) {
       res.status(404).json({ error: "Driver not found" });
@@ -99,6 +109,19 @@ router.post("/admin/drivers/:driverId/approve", async (req: Request, res: Respon
     }
 
     req.log.info({ driverId, adminEmail: admin.email }, "admin.driver.approved");
+
+    const emailResult = await sendDriverApprovedEmail({
+      to: updated.email,
+      firstName: updated.firstName,
+    });
+    if (!emailResult.ok && !emailResult.skipped) {
+      req.log.warn(
+        { driverId, error: emailResult.error },
+        "admin.driver.approved.email_failed",
+      );
+    } else if (emailResult.ok) {
+      req.log.info({ driverId, to: updated.email }, "admin.driver.approved.email_sent");
+    }
 
     res.json({
       success: true,
@@ -119,12 +142,24 @@ router.post("/admin/drivers/:driverId/reject", async (req: Request, res: Respons
 
   const driverId = String(req.params["driverId"]);
 
+  const parsed = RejectDriverBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "reason is required and must be a non-empty string (max 1000 chars)" });
+    return;
+  }
+  const { reason } = parsed.data;
+
   try {
     const [updated] = await db
       .update(driversTable)
       .set({ status: "inactive" })
       .where(eq(driversTable.id, driverId))
-      .returning({ id: driversTable.id, status: driversTable.status });
+      .returning({
+        id: driversTable.id,
+        status: driversTable.status,
+        email: driversTable.email,
+        firstName: driversTable.firstName,
+      });
 
     if (!updated) {
       res.status(404).json({ error: "Driver not found" });
@@ -132,6 +167,20 @@ router.post("/admin/drivers/:driverId/reject", async (req: Request, res: Respons
     }
 
     req.log.info({ driverId, adminEmail: admin.email }, "admin.driver.rejected");
+
+    const emailResult = await sendDriverRejectedEmail({
+      to: updated.email,
+      firstName: updated.firstName,
+      reason,
+    });
+    if (!emailResult.ok && !emailResult.skipped) {
+      req.log.warn(
+        { driverId, error: emailResult.error },
+        "admin.driver.rejected.email_failed",
+      );
+    } else if (emailResult.ok) {
+      req.log.info({ driverId, to: updated.email }, "admin.driver.rejected.email_sent");
+    }
 
     res.json({
       success: true,

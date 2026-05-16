@@ -638,7 +638,9 @@ paths:
       operationId: rejectDriver
       tags: [admin]
       summary: Reject a driver application
-      description: Sets the driver's status to inactive.
+      description: |
+        Sets the driver's status to inactive and emails the driver with the
+        provided reason explaining why their application was rejected.
       parameters:
         - name: driverId
           in: path
@@ -646,6 +648,12 @@ paths:
           schema:
             type: string
             format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectDriverRequest"
       responses:
         "200":
           description: Driver rejected
@@ -653,6 +661,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminActionResult"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -1200,6 +1214,17 @@ components:
           minLength: 1
           maxLength: 1000
           description: Human-readable reason shown to the driver explaining why their documents were rejected.
+      required:
+        - reason
+
+    RejectDriverRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Human-readable reason emailed to the driver explaining why their application was rejected.
       required:
         - reason
 

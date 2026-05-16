@@ -23,6 +23,7 @@ export * from "./listAdminRideAlongDriversParams";
 export * from "./lookupTandemPartnerParams";
 export * from "./partnerLookupResult";
 export * from "./rejectDocumentsRequest";
+export * from "./rejectDriverRequest";
 export * from "./rideAlongDriverRecord";
 export * from "./rideCompletionResult";
 export * from "./setKnownPartnerRequest";

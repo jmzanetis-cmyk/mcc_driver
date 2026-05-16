@@ -107,7 +107,7 @@ export default function Drivers() {
   };
 
   const handleReject = (driverId: string) => {
-    rejectDriver.mutate({ driverId });
+    setLocation(`/drivers/${driverId}`);
   };
 
   const formatDate = (iso: string | null | undefined) => {

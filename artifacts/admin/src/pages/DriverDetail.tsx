@@ -139,6 +139,8 @@ export default function DriverDetail() {
 
   const [showRejectDocsDialog, setShowRejectDocsDialog] = useState(false);
   const [rejectDocsReason, setRejectDocsReason] = useState('');
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const { data: pendingDrivers, isLoading: pendingLoading } = useListAdminDrivers(
     { status: 'pending_approval' },
@@ -177,8 +179,13 @@ export default function DriverDetail() {
   const rejectDriver = useRejectDriver({
     mutation: {
       onSuccess: () => {
-        toast({ title: 'Driver rejected', description: 'Driver status set to inactive.' });
+        toast({
+          title: 'Driver rejected',
+          description: 'Driver status set to inactive and notification email sent.',
+        });
         queryClient.invalidateQueries({ queryKey: getListAdminDriversQueryKey() });
+        setShowRejectDialog(false);
+        setRejectReason('');
         setLocation('/drivers');
       },
       onError: (err) => {
@@ -339,38 +346,16 @@ export default function DriverDetail() {
                     Request Resubmission
                   </Button>
 
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="border-destructive text-destructive hover:bg-destructive/10"
-                        disabled={isPending}
-                        data-testid="button-reject"
-                      >
-                        <XCircle className="w-4 h-4 mr-1.5" />
-                        Reject
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Reject application?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will set {driver.firstName} {driver.lastName}'s status to inactive.
-                          They will not be able to receive rides.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={() => rejectDriver.mutate({ driverId: driver.id })}
-                          data-testid="button-confirm-reject"
-                        >
-                          Reject
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <Button
+                    variant="outline"
+                    className="border-destructive text-destructive hover:bg-destructive/10"
+                    disabled={isPending}
+                    onClick={() => setShowRejectDialog(true)}
+                    data-testid="button-reject"
+                  >
+                    <XCircle className="w-4 h-4 mr-1.5" />
+                    Reject
+                  </Button>
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -512,6 +497,57 @@ export default function DriverDetail() {
               data-testid="button-confirm-reject-docs"
             >
               {rejectDocuments.isPending ? 'Sending…' : 'Send to Driver'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject application dialog */}
+      <Dialog open={showRejectDialog} onOpenChange={(open) => {
+        setShowRejectDialog(open);
+        if (!open) setRejectReason('');
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject application?</DialogTitle>
+            <DialogDescription>
+              {driver ? (
+                <>This will set {driver.firstName} {driver.lastName}'s status to inactive
+                and email them the reason below. They will not be able to receive rides.</>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Textarea
+              placeholder="e.g. We were unable to verify your driving record. You're welcome to reapply once your record is clear."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={5}
+              className="resize-none"
+              data-testid="input-reject-reason"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              {rejectReason.length}/1000 characters
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setShowRejectDialog(false); setRejectReason(''); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!rejectReason.trim() || rejectReason.length > 1000 || rejectDriver.isPending}
+              onClick={() => {
+                if (driver) {
+                  rejectDriver.mutate({ driverId: driver.id, data: { reason: rejectReason.trim() } });
+                }
+              }}
+              data-testid="button-confirm-reject"
+            >
+              {rejectDriver.isPending ? 'Rejecting…' : 'Reject & Notify'}
             </Button>
           </DialogFooter>
         </DialogContent>

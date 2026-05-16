@@ -33,6 +33,7 @@ import type {
   LookupTandemPartnerParams,
   PartnerLookupResult,
   RejectDocumentsRequest,
+  RejectDriverRequest,
   RideAlongDriverRecord,
   RideCompletionResult,
   SetKnownPartnerRequest,
@@ -1550,7 +1551,9 @@ export const useApproveDriver = <
 };
 
 /**
- * Sets the driver's status to inactive.
+ * Sets the driver's status to inactive and emails the driver with the
+provided reason explaining why their application was rejected.
+
  * @summary Reject a driver application
  */
 export const getRejectDriverUrl = (driverId: string) => {
@@ -1559,11 +1562,14 @@ export const getRejectDriverUrl = (driverId: string) => {
 
 export const rejectDriver = async (
   driverId: string,
+  rejectDriverRequest: RejectDriverRequest,
   options?: RequestInit,
 ): Promise<AdminActionResult> => {
   return customFetch<AdminActionResult>(getRejectDriverUrl(driverId), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rejectDriverRequest),
   });
 };
 
@@ -1574,14 +1580,14 @@ export const getRejectDriverMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof rejectDriver>>,
     TError,
-    { driverId: string },
+    { driverId: string; data: BodyType<RejectDriverRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof rejectDriver>>,
   TError,
-  { driverId: string },
+  { driverId: string; data: BodyType<RejectDriverRequest> },
   TContext
 > => {
   const mutationKey = ["rejectDriver"];
@@ -1595,11 +1601,11 @@ export const getRejectDriverMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof rejectDriver>>,
-    { driverId: string }
+    { driverId: string; data: BodyType<RejectDriverRequest> }
   > = (props) => {
-    const { driverId } = props ?? {};
+    const { driverId, data } = props ?? {};
 
-    return rejectDriver(driverId, requestOptions);
+    return rejectDriver(driverId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1608,7 +1614,7 @@ export const getRejectDriverMutationOptions = <
 export type RejectDriverMutationResult = NonNullable<
   Awaited<ReturnType<typeof rejectDriver>>
 >;
-
+export type RejectDriverMutationBody = BodyType<RejectDriverRequest>;
 export type RejectDriverMutationError = ErrorType<ErrorResponse>;
 
 /**
@@ -1621,14 +1627,14 @@ export const useRejectDriver = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof rejectDriver>>,
     TError,
-    { driverId: string },
+    { driverId: string; data: BodyType<RejectDriverRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof rejectDriver>>,
   TError,
-  { driverId: string },
+  { driverId: string; data: BodyType<RejectDriverRequest> },
   TContext
 > => {
   return useMutation(getRejectDriverMutationOptions(options));
