@@ -78,7 +78,10 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
           <div>
             <div style={{
               fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: 0.8, color: tierColor,
+              letterSpacing: 0.8,
+              color: serviceType === 'rideshare' ? '#1A6FC4'
+                : serviceType === 'delivery' ? '#D4680A'
+                : colors.gold,
               animation: 'pulse 1.5s infinite',
             }}>
               {serviceType === 'rideshare' ? '🚗 RIDESHARE REQUEST'
@@ -128,6 +131,11 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
             {formatCurrency(estimatedFare)} fare × 85% driver share
           </div>
+          {(serviceType === 'rideshare' || serviceType === 'delivery') && (
+            <div style={{ fontSize: 11, color: colors.gold, marginTop: 4 }}>
+              + per-minute rate added at completion
+            </div>
+          )}
         </div>
 
         {/* Your role */}

@@ -252,7 +252,7 @@ export function NavigateScreen() {
     ? [
         { key: 'navigating', label: 'En Route to Pickup', icon: '🚗' },
         { key: 'arrived', label: 'Parcel Collected', icon: '📦' },
-        { key: 'in_progress', label: 'Delivering', icon: '🚚' },
+        { key: 'in_progress', label: 'En Route to Drop-off', icon: '🚚' },
         { key: 'delivered', label: 'Delivered', icon: '✅' },
       ]
     : [
@@ -568,6 +568,17 @@ export function NavigateScreen() {
           >
             Open in {getNavAppName(preferredNav)} →
           </Button>
+        )}
+
+        {/* Delivery confirmation reminder */}
+        {activeRide.stage === 'in_progress' && serviceType === 'delivery' && (
+          <div style={{
+            background: 'rgba(212,104,10,0.08)', border: '1px solid rgba(212,104,10,0.3)',
+            borderRadius: 10, padding: '10px 14px', marginBottom: 10,
+            fontSize: 13, color: '#8B4513',
+          }}>
+            📋 Confirm delivery with the recipient before tapping "Mark as Delivered."
+          </div>
         )}
 
         {/* Main action button */}
