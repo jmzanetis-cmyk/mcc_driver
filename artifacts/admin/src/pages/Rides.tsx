@@ -106,6 +106,8 @@ const BLANK_FORM = {
   dropoffLng: '',
   estimatedDistanceMiles: '',
   packageDescription: '',
+  memberName: '',
+  memberPhone: '',
 };
 
 function DispatchDialog({ onDispatched }: { onDispatched: () => void }) {
@@ -182,6 +184,8 @@ function DispatchDialog({ onDispatched }: { onDispatched: () => void }) {
       dropoffLat: lat2,
       dropoffLng: lng2,
       estimatedDistanceMiles: dist,
+      memberName: form.memberName.trim() || undefined,
+      memberPhone: form.memberPhone.trim() || undefined,
     });
   }
 
@@ -246,6 +250,23 @@ function DispatchDialog({ onDispatched }: { onDispatched: () => void }) {
               />
             </div>
           )}
+
+          {/* Member contact (optional) */}
+          <div className="space-y-1.5">
+            <Label>Member (optional)</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Name" value={form.memberName}
+                onChange={(e) => setField('memberName', e.target.value)}
+                data-testid="input-member-name" />
+              <Input placeholder="Phone (e.g. +15125550123)" type="tel"
+                value={form.memberPhone}
+                onChange={(e) => setField('memberPhone', e.target.value)}
+                data-testid="input-member-phone" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              When provided, the member is texted directly if a ride-along match needs their approval.
+            </p>
+          </div>
 
           {/* Pickup */}
           <div className="space-y-1.5">

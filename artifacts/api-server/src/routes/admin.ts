@@ -510,6 +510,9 @@ const AdminDispatchBody = z.object({
   dropoffLat: z.number(),
   dropoffLng: z.number(),
   estimatedDistanceMiles: z.number().min(0),
+  memberId: z.string().min(1).optional(),
+  memberPhone: z.string().min(1).max(32).optional(),
+  memberName: z.string().min(1).max(120).optional(),
   responseDeadlineSeconds: z.number().int().min(10).max(120).optional(),
 });
 
@@ -615,6 +618,9 @@ router.post("/admin/rides/dispatch", async (req: Request, res: Response): Promis
         serviceType,
         packageDescription: body.packageDescription ?? null,
         status: "pending_dispatch",
+        memberId: body.memberId ?? null,
+        memberPhone: body.memberPhone ?? null,
+        memberName: body.memberName ?? null,
         pickupAddress: body.pickupAddress,
         pickupLat: body.pickupLat,
         pickupLng: body.pickupLng,

@@ -333,13 +333,19 @@ export async function notifyApprovalOutcome(
     );
   }
 
-  // Member confirmation: only on approval — decline notice already implied
-  // by the original approval prompt going stale.
-  if (approved && ctx.ride.memberPhone) {
+  // Member confirmation: text the member for both outcomes so they have an
+  // up-to-date status and a link to revisit the ride details.
+  const memberLink = memberApprovalLink(tandemJobId);
+  if (ctx.ride.memberPhone) {
     const greeting = ctx.ride.memberName ? `Hi ${ctx.ride.memberName}, ` : "";
-    await sendSms(
-      ctx.ride.memberPhone,
-      `${greeting}MCC: your ride is fully confirmed — provider and ride-along driver are on the way.`,
+    const memberMsg = approved
+      ? `${greeting}MCC: your ride is fully confirmed — provider and ride-along driver are on the way. Details: ${memberLink}`
+      : `${greeting}MCC: thanks — we recorded your decline and are looking for a new ride-along match. Details: ${memberLink}`;
+    await sendSms(ctx.ride.memberPhone, memberMsg);
+  } else {
+    logger.info(
+      { tandemJobId, memberId: ctx.ride.memberId ?? "unknown", approved, link: memberLink },
+      "tandem.notifications.member_sms_skipped (no member phone on file)",
     );
   }
 
