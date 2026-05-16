@@ -53,9 +53,14 @@ async function getProvider(): Promise<import("apn").Provider | null> {
   const apnMod = await getApn();
   if (!apnMod) return null;
   try {
+    // Defensive: some secret stores escape newlines as literal `\n`.
+    // The .p8 PEM must contain real newlines or `apn` will throw on init.
+    const normalisedKey = authKey.includes("\\n")
+      ? authKey.replace(/\\n/g, "\n")
+      : authKey;
     cachedProvider = new apnMod.Provider({
       token: {
-        key: Buffer.from(authKey, "utf-8"),
+        key: Buffer.from(normalisedKey, "utf-8"),
         keyId,
         teamId,
       },
