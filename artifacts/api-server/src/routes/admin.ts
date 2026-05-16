@@ -211,7 +211,7 @@ router.post("/admin/drivers/:driverId/clear-document-rejection", async (req: Req
 
     req.log.info({ driverId, adminEmail: admin.email }, "admin.driver.document_rejection_cleared");
 
-    res.json({ success: true, driverId: updated.id });
+    res.json({ success: true, driverId: updated.id, status: updated.status });
   } catch (err) {
     logger.error({ err }, "admin.driver.clear-document-rejection failed");
     res.status(500).json({ error: "Internal error" });

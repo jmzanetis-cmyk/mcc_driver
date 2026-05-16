@@ -1,0 +1,1 @@
+ALTER TABLE "drivers" ADD COLUMN "document_rejection_reason" text;
