@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
-import { Button, Card, InfoRow } from '@/components';
+import { Button, Card, InfoRow, Spinner } from '@/components';
+import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius } from '@/theme';
 import {
   formatCurrency, formatDistance, formatDuration, getScenarioLabel, getTierLabel,
@@ -27,56 +28,114 @@ export function RideCompleteScreen() {
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchRide = useCallback(async () => {
     if (!rideId) return;
-
-    async function fetchRide() {
-      const { data } = await supabase
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { data, error } = await supabase
         .from('rides')
         .select('*')
         .eq('id', rideId)
         .single();
 
-      if (data) {
-        const row = data as unknown as RideRow;
-        const started = row.started_at ? new Date(row.started_at).getTime() : 0;
-        const completed = row.completed_at ? new Date(row.completed_at).getTime() : Date.now();
-        const durationMs = completed - started;
-        const fare = row.actual_fare ?? row.estimated_fare;
-
-        setRide({
-          scenario: row.scenario,
-          tier: row.tier,
-          pickupAddress: row.pickup_address,
-          dropoffAddress: row.dropoff_address,
-          actualFare: fare,
-          driverPayout: fare * 0.85,
-          distanceMiles: row.actual_distance_miles ?? row.estimated_distance_miles,
-          durationMinutes: durationMs / 60000,
-          tipAmount: row.tip_amount ?? 0,
-        });
+      if (error) throw error;
+      if (!data) {
+        setLoadError("We couldn't find that ride. It may have been removed.");
+        return;
       }
-    }
 
-    fetchRide();
+      const row = data as unknown as RideRow;
+      const started = row.started_at ? new Date(row.started_at).getTime() : 0;
+      const completed = row.completed_at ? new Date(row.completed_at).getTime() : Date.now();
+      const durationMs = completed - started;
+      const fare = row.actual_fare ?? row.estimated_fare;
+
+      setRide({
+        scenario: row.scenario,
+        tier: row.tier,
+        pickupAddress: row.pickup_address,
+        dropoffAddress: row.dropoff_address,
+        actualFare: fare,
+        driverPayout: fare * 0.85,
+        distanceMiles: row.actual_distance_miles ?? row.estimated_distance_miles,
+        durationMinutes: durationMs / 60000,
+        tipAmount: row.tip_amount ?? 0,
+      });
+    } catch (err) {
+      setLoadError(
+        isOffline()
+          ? "You're offline — we'll load the summary as soon as you reconnect."
+          : err instanceof Error
+            ? err.message
+            : "Couldn't load ride details. Tap retry.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }, [rideId]);
+
+  useEffect(() => {
+    void fetchRide();
+  }, [fetchRide]);
 
   const handleSubmitRating = async () => {
     if (!rideId) return;
-
-    await supabase.from('rides').update({
-      driver_rating: rating,
-      driver_feedback: feedback || null,
-    }).eq('id', rideId);
-
-    setSubmitted(true);
+    setSubmitError(null);
+    if (isOffline()) {
+      setSubmitError("You're offline — connect to submit your rating.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('rides').update({
+        driver_rating: rating,
+        driver_feedback: feedback || null,
+      }).eq('id', rideId);
+      if (error) throw error;
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Couldn't submit rating. Try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading && !ride) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
+        <Spinner size={28} color={colors.gold} />
+        <div style={{ color: colors.textMuted, fontSize: 13 }}>Loading ride details…</div>
+      </div>
+    );
+  }
 
   if (!ride) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: colors.textMuted }}>Loading ride details…</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: colors.bgPrimary }}>
+        <Card padding={20} style={{ maxWidth: 340, width: '100%', textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>
+            Couldn't load ride
+          </div>
+          <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 16 }}>
+            {loadError ?? 'Something went wrong.'}
+          </div>
+          <OfflineNotice style={{ marginBottom: 12 }} />
+          <Button onClick={() => void fetchRide()} fullWidth>
+            Retry
+          </Button>
+          <Button onClick={() => navigate('/home')} variant="ghost" fullWidth style={{ marginTop: 8 }}>
+            Back to Home
+          </Button>
+        </Card>
       </div>
     );
   }
@@ -174,7 +233,17 @@ export function RideCompleteScreen() {
               }}
             />
 
-            <Button onClick={handleSubmitRating} fullWidth>
+            <OfflineNotice style={{ marginBottom: 10 }} />
+            {submitError && (
+              <div style={{
+                marginBottom: 10, padding: '10px 12px',
+                background: '#FEF2F2', border: '1px solid #FCA5A5',
+                color: '#991B1B', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              }}>
+                {submitError}
+              </div>
+            )}
+            <Button onClick={handleSubmitRating} loading={submitting} fullWidth>
               Submit Rating
             </Button>
           </Card>
