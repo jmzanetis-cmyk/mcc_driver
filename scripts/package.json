@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "smoke-dispatch": "tsx ./src/smoke-dispatch.ts",
     "smoke-notifications": "tsx ./src/smoke-notifications.ts",
+    "send-test-push": "tsx ./src/send-test-push.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

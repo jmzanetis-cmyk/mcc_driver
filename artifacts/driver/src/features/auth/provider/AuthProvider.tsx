@@ -10,6 +10,7 @@ import { useAuthStore, type DriverProfile } from '@/store/authStore';
 import { logger } from '@/services/telemetry/logger';
 import { recoverRideState, replayOfflineActions } from '@/services/offline/recovery';
 import { registerPushSubscription, unregisterPushSubscription } from '@/services/push/registerPush';
+import { registerNativePush, unregisterNativePush } from '@/services/push/registerNativePush';
 import type { DriverRow, PartnerRow } from '@/services/supabase/types';
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
@@ -38,7 +39,11 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
         // resolves the Supabase user to either a `driver` or `ride_along_driver`
         // record, so this runs for both audiences (ride-along users have no
         // `drivers` row but still receive Phase 3 tandem pushes).
+        // - Browsers (incl. PWA): Web Push via VAPID + service worker.
+        // - iOS Capacitor build: APNs via @capacitor/push-notifications.
+        // Both helpers are no-ops on the wrong platform.
         void registerPushSubscription();
+        void registerNativePush();
       }
 
       setLoading(false);
@@ -53,6 +58,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
         if (!session?.user) {
           await unregisterPushSubscription().catch(() => {});
+          await unregisterNativePush().catch(() => {});
           clear();
           return;
         }
@@ -61,6 +67,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
         // Register for native push regardless of whether a `drivers` row was
         // found — ride-along-only sessions still need to receive Phase 3 pushes.
         void registerPushSubscription();
+        void registerNativePush();
       }
     );
 

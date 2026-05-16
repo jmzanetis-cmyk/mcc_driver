@@ -9,6 +9,7 @@ import tandemJobsRouter from "./tandemJobs";
 import tandemMatchingRouter from "./tandemMatching";
 import payoutsRouter from "./payouts";
 import deviceTokensRouter from "./deviceTokens";
+import devPushTestRouter from "./devPushTest";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(tandemJobsRouter);
 router.use(tandemMatchingRouter);
 router.use(payoutsRouter);
 router.use(deviceTokensRouter);
+router.use(devPushTestRouter);
 
 export default router;

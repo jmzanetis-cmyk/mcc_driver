@@ -10,6 +10,7 @@ import { and, eq, isNull, inArray } from "drizzle-orm";
 import { db, deviceTokensTable } from "@workspace/db";
 import type { DeviceToken } from "@workspace/db";
 import { logger } from "./logger";
+import { sendApnsPush } from "./apnsPush";
 
 type WebPushModule = typeof import("web-push");
 let cachedWebPush: WebPushModule | null = null;
@@ -76,21 +77,27 @@ export async function sendNativePush(
   audience: PushAudience,
   payload: PushPayload,
 ): Promise<void> {
-  const webPush = await getWebPush();
-  if (!webPush) {
-    logger.debug(
-      { audience, event: payload.event },
-      "webPush.skipped (VAPID not configured)",
-    );
-    return;
-  }
   const tokens = await loadActiveTokens(audience);
   if (tokens.length === 0) {
     logger.debug(
       { audience, event: payload.event },
-      "webPush.no_tokens",
+      "nativePush.no_tokens",
     );
     return;
+  }
+
+  // Lazy-load the web-push module only when a web token is actually
+  // present — APNs-only deployments don't need VAPID configured.
+  const hasWebToken = tokens.some(
+    (t) => t.platform === "web" && t.p256dh && t.auth,
+  );
+  const webPush = hasWebToken ? await getWebPush() : null;
+  if (hasWebToken && !webPush) {
+    logger.debug(
+      { audience, event: payload.event },
+      "webPush.skipped (VAPID not configured)",
+    );
+    // Continue — APNs tokens (if any) should still be attempted.
   }
 
   const body = JSON.stringify(payload);
@@ -98,10 +105,24 @@ export async function sendNativePush(
 
   await Promise.all(
     tokens.map(async (t) => {
-      if (t.platform !== "web" || !t.p256dh || !t.auth) {
-        // FCM/APNs senders would go here in the future.
+      // ── APNs (iOS via Capacitor) ────────────────────────────────────
+      if (t.platform === "apns") {
+        const result = await sendApnsPush(t.token, payload);
+        if (result.shouldRevoke) {
+          toRevoke.push(t.id);
+          logger.info(
+            { tokenId: t.id, reason: result.reason },
+            "apnsPush.token_revoked_by_provider",
+          );
+        }
         return;
       }
+      // ── Web Push (browsers) ─────────────────────────────────────────
+      if (t.platform !== "web" || !t.p256dh || !t.auth) {
+        // FCM (Android) sender would go here in the future.
+        return;
+      }
+      if (!webPush) return; // VAPID not configured — skip this token only.
       try {
         await webPush.sendNotification(
           {

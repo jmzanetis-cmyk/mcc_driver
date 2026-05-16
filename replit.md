@@ -17,6 +17,7 @@ A real-time driver portal for My Car Concierge — a premium vehicle concierge s
 - Optional env: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` — Phase 3c tandem SMS notifications. If unset, `notifications.ts` logs `sms_skipped` and skips delivery; push (Realtime) still fires. A Replit Twilio integration is available and preferred.
 - Optional env: `APP_BASE_URL` — base URL used in SMS deep links; falls back to first entry of `REPLIT_DOMAINS`.
 - Optional env: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — Web Push (native browser push) credentials. When unset, `webPush.ts` logs `skipped` and the API server falls back to Supabase Realtime broadcasts only. Generate a pair with `npx web-push generate-vapid-keys`. `VAPID_SUBJECT` defaults to `mailto:support@mycarconcierge.com`.
+- Optional env: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_AUTH_KEY`, `APNS_BUNDLE_ID`, `APNS_PRODUCTION` — Apple Push Notification service credentials for the Capacitor iOS build. `APNS_AUTH_KEY` is the full PEM contents of the .p8 file from the Apple Developer console; `APNS_BUNDLE_ID` defaults to `com.mycarconcierge.driver`; set `APNS_PRODUCTION=true` for the App Store / TestFlight build (sandbox otherwise — must match `App.entitlements` `aps-environment`). When unset, `apnsPush.ts` logs a skip and Web Push / Realtime continue to work.
 
 ## Stack
 
@@ -119,6 +120,9 @@ Key files:
 - `artifacts/driver/capacitor.config.ts` — app id (`com.mycarconcierge.driver`), display name, splash/status bar/keyboard config
 - `artifacts/driver/ios/App/App/Info.plist` — bundle metadata + draft `NSLocation*UsageDescription`, `NSCamera*`, `NSPhotoLibrary*` strings
 - `artifacts/driver/ios/App/App/App.entitlements` — `aps-environment = development` for push (flip to `production` for App Store)
+- `artifacts/api-server/src/lib/apnsPush.ts` — APNs sender (HTTP/2 + JWT via the `apn` package), dispatched from `webPush.ts` for tokens with `platform = "apns"`
+- `artifacts/driver/src/services/push/registerNativePush.ts` — Capacitor PushNotifications registration; posts the APNs token to `/api/device-tokens` and listens for taps to deep-link via `data.url`
+- `scripts/src/send-test-push.ts` — smoke test (`pnpm --filter @workspace/scripts run send-test-push -- --driver <id>`) that hits `POST /api/dev/push-test`; use to verify delivery in foreground / background / killed states on a real device.
 - `artifacts/driver/ios/README.md` — Mac-side build, signing, and Xcode workflow
 
 ## Pointers
