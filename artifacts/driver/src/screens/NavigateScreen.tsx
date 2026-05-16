@@ -393,7 +393,7 @@ export function NavigateScreen() {
                                   fontSize: 9, fontWeight: 700, color: colors.navy,
                                   background: colors.gold, padding: '1px 5px',
                                   borderRadius: borderRadius.full,
-                                }}>MCC VERIFIED</span>
+                                }}>VERIFIED</span>
                                 <span style={{ fontSize: 11, color: colors.textMuted }}>★ {savedPartner.rating.toFixed(1)}</span>
                               </div>
                             </div>

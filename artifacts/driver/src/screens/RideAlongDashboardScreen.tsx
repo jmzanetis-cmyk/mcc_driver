@@ -247,7 +247,7 @@ export function RideAlongDashboardScreen() {
                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
                 background: `${withAlpha(colors.success, '15')}`, color: colors.success,
               }}>
-                MCC VERIFIED
+                VERIFIED
               </div>
             </div>
             {(profile.totalJobs ?? 0) === 0 && (

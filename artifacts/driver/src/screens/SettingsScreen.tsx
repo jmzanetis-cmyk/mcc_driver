@@ -394,7 +394,7 @@ export function SettingsScreen() {
                         background: colors.gold, padding: '1px 6px',
                         borderRadius: borderRadius.full,
                       }}>
-                        MCC VERIFIED
+                        VERIFIED
                       </span>
                     )}
                     <span style={{ fontSize: 11, color: colors.textMuted }}>

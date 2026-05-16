@@ -102,7 +102,7 @@ function DriverCard({
           background: colors.gold, padding: '2px 6px',
           borderRadius: borderRadius.full, letterSpacing: 0.5,
         }}>
-          MCC VERIFIED
+          VERIFIED
         </span>
       </div>
       <div style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 6 }}>

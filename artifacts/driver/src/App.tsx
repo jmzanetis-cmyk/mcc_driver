@@ -34,13 +34,11 @@ function AuthRedirect() {
         minHeight: '100vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', background: colors.surfaceDark,
       }}>
-        <div style={{
-          width: 64, height: 64, borderRadius: 16,
-          background: colors.gold, display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, fontWeight: 700, color: colors.navy,
-          marginBottom: 16,
-        }}>MCC</div>
+        <img
+          src="/driver/mcc-driver-logo.png"
+          alt="My Car Concierge Driver"
+          style={{ width: 96, height: 96, objectFit: 'contain', marginBottom: 16 }}
+        />
         <Spinner size={24} color={colors.gold} />
       </div>
     );

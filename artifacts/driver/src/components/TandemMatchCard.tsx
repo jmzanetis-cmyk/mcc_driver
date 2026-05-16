@@ -126,7 +126,7 @@ export function TandemMatchCard({
                 background: colors.gold, padding: '2px 6px',
                 borderRadius: borderRadius.full, letterSpacing: 0.5,
               }}>
-                MCC VERIFIED
+                VERIFIED
               </span>
               <span style={{ fontSize: 12, color: colors.textMuted }}>
                 ⭐ {Number(matchedDriver.rating ?? 0).toFixed(1)} · {matchedDriver.totalJobs ?? 0} jobs
