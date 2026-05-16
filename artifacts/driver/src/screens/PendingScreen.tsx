@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { colors, borderRadius } from '@/theme';
 import { Button } from '@/components';
 import { UpdateDocumentsModal } from './UpdateDocumentsModal';
+import { getSignedDocumentUrl } from '@/services/documents/documentService';
 
 type StepStatus = 'done' | 'pending' | 'waiting';
 
@@ -41,11 +42,29 @@ function buildSteps(
   ];
 }
 
+type DocViewState = { loading: boolean; error: string | null };
+
 export function PendingScreen() {
   const { refreshDriver, signOut, driver } = useAuth();
   const [showUpdateDocs, setShowUpdateDocs] = useState(false);
+  const [docViewState, setDocViewState] = useState<Record<string, DocViewState>>({});
 
   const hasRejection = !!driver?.documentRejectionReason;
+
+  async function handleViewDocument(path: string, label: string) {
+    setDocViewState(prev => ({ ...prev, [label]: { loading: true, error: null } }));
+    try {
+      const url = await getSignedDocumentUrl(path);
+      if (!url) {
+        setDocViewState(prev => ({ ...prev, [label]: { loading: false, error: 'Could not load document. Please try again.' } }));
+        return;
+      }
+      setDocViewState(prev => ({ ...prev, [label]: { loading: false, error: null } }));
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setDocViewState(prev => ({ ...prev, [label]: { loading: false, error: 'Could not load document. Please try again.' } }));
+    }
+  }
 
   // Auto-open the modal when the driver has a rejection reason
   useEffect(() => {
@@ -180,15 +199,65 @@ export function PendingScreen() {
           }}>
             {hasRejection ? '⚠️ Documents Flagged for Resubmission' : 'Documents Received'}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {driver.licenseDocumentPath && (
-              <div style={{ fontSize: 12, color: colors.textMuted }}>
-                {hasRejection ? '⚠️' : '✓'} Driver's license photo
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: colors.textMuted }}>
+                    {hasRejection ? '⚠️' : '✓'} Driver's license photo
+                  </span>
+                  <button
+                    onClick={() => handleViewDocument(driver.licenseDocumentPath!, 'license')}
+                    disabled={docViewState['license']?.loading}
+                    style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: colors.navy,
+                      background: 'transparent',
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: 4,
+                      padding: '2px 8px',
+                      cursor: docViewState['license']?.loading ? 'wait' : 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {docViewState['license']?.loading ? 'Loading…' : 'View'}
+                  </button>
+                </div>
+                {docViewState['license']?.error && (
+                  <div style={{ fontSize: 11, color: colors.error, marginTop: 3 }}>
+                    {docViewState['license'].error}
+                  </div>
+                )}
               </div>
             )}
             {driver.insuranceDocumentPath && (
-              <div style={{ fontSize: 12, color: colors.textMuted }}>
-                {hasRejection ? '⚠️' : '✓'} Proof of insurance
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: colors.textMuted }}>
+                    {hasRejection ? '⚠️' : '✓'} Proof of insurance
+                  </span>
+                  <button
+                    onClick={() => handleViewDocument(driver.insuranceDocumentPath!, 'insurance')}
+                    disabled={docViewState['insurance']?.loading}
+                    style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: colors.navy,
+                      background: 'transparent',
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: 4,
+                      padding: '2px 8px',
+                      cursor: docViewState['insurance']?.loading ? 'wait' : 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {docViewState['insurance']?.loading ? 'Loading…' : 'View'}
+                  </button>
+                </div>
+                {docViewState['insurance']?.error && (
+                  <div style={{ fontSize: 11, color: colors.error, marginTop: 3 }}>
+                    {docViewState['insurance'].error}
+                  </div>
+                )}
               </div>
             )}
           </div>
