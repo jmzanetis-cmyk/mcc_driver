@@ -169,7 +169,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
                 : serviceType === 'delivery' ? '📦 DELIVERY REQUEST'
                 : '🚘 CONCIERGE REQUEST'}
             </div>
-            <h2 id={titleId} style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginTop: 4, margin: 0 }}>
+            <h2 id={titleId} className="heading-editorial heading-editorial-lg" style={{ marginTop: 4 }}>
               {getScenarioLabel(scenario)}
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>

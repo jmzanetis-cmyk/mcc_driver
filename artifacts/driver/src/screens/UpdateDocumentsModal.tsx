@@ -290,7 +290,7 @@ export function UpdateDocumentsModal({ onClose, rejectionReason }: UpdateDocumen
         <div style={{ padding: '12px 20px 16px', borderBottom: `1px solid ${colors.borderLight}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: colors.navy, margin: 0 }}>
+              <h2 className="heading-editorial heading-editorial-md">
                 {rejectionReason ? 'Re-upload Documents' : 'Update Documents'}
               </h2>
               <p style={{ fontSize: 13, color: colors.textMuted, margin: '4px 0 0' }}>

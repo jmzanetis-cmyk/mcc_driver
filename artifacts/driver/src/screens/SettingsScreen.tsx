@@ -274,7 +274,7 @@ export function SettingsScreen() {
               {driver.firstName[0]}{driver.lastName[0]}
             </div>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy }}>
+              <div className="heading-editorial heading-editorial-md">
                 {driver.firstName} {driver.lastName}
               </div>
               <div style={{ fontSize: 13, color: colors.textMuted }}>
@@ -712,7 +712,7 @@ export function SettingsScreen() {
               </>
             ) : deleteBlocked ? (
               <>
-                <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
+                <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>
                   {deleteBlocked.reason === 'active_ride'
                     ? 'Finish your current ride first'
                     : deleteBlocked.reason === 'pending_payout'
@@ -742,7 +742,7 @@ export function SettingsScreen() {
               </>
             ) : deleteStep === 1 ? (
               <>
-                <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
+                <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>
                   Delete your account?
                 </div>
                 <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 16 }}>
@@ -833,7 +833,7 @@ export function SettingsScreen() {
           padding: 24,
         }}>
           <Card style={{ maxWidth: 320, width: '100%' }} padding={24}>
-            <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
+            <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>
               Sign out?
             </div>
             <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>

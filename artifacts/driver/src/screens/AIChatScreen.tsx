@@ -166,7 +166,7 @@ export function AIChatScreen() {
         {messages.length === 0 && (
           <div style={{ textAlign: 'center', paddingTop: 32 }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🤖</div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 4 }}>
               Hey {driver.firstName}!
             </div>
             <div style={{ fontSize: 14, color: colors.textMuted, maxWidth: 300, margin: '0 auto 24px' }}>

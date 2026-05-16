@@ -193,7 +193,7 @@ export function MemberApprovalScreen() {
         <div style={{ fontSize: 56, marginBottom: 16 }}>
           {doneState === 'approved' ? '✅' : '🔁'}
         </div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginBottom: 8, textAlign: 'center' }}>
+        <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8, textAlign: 'center' }}>
           {doneState === 'approved' ? 'Match Approved' : 'Looking for a New Match'}
         </div>
         <div style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', maxWidth: 320, marginBottom: 24 }}>

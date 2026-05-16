@@ -297,7 +297,7 @@ export function RideAlongApplyScreen() {
       <div style={{ padding: 24 }} className="scroll-container">
         {step === 1 && (
           <>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Personal Information
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
@@ -334,7 +334,7 @@ export function RideAlongApplyScreen() {
 
         {step === 2 && (
           <>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               License & Insurance
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
@@ -368,7 +368,7 @@ export function RideAlongApplyScreen() {
 
         {step === 3 && (
           <>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Profile Photo
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
@@ -390,7 +390,7 @@ export function RideAlongApplyScreen() {
 
         {step === 4 && (
           <>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Ride-Along Driver Agreement
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>

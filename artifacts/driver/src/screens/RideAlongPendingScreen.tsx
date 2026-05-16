@@ -122,7 +122,7 @@ export function RideAlongPendingScreen() {
         {isApproved ? '✅' : isRejected ? '❌' : '⏳'}
       </div>
 
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: colors.navy, marginBottom: 8, textAlign: 'center' }}>
+      <h1 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8, textAlign: 'center' }}>
         {isApproved
           ? "You're Verified!"
           : isRejected

@@ -44,7 +44,7 @@ export function InstantPayScreen() {
         <PageHeader title="Instant Pay" onBack={() => navigate('/earnings')} />
         <div style={{ padding: 24, textAlign: 'center', marginTop: 48 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
-          <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
+          <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>
             Managed by Your Partner
           </div>
           <div style={{ fontSize: 14, color: colors.textMuted, maxWidth: 300, margin: '0 auto' }}>
@@ -369,7 +369,7 @@ export function InstantPayScreen() {
               <div style={{ fontSize: 40, marginBottom: 12 }}>
                 {showConfirm === 'instant' ? '⚡' : '🏦'}
               </div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: colors.navy }}>
+              <div className="heading-editorial heading-editorial-lg">
                 {showConfirm === 'instant' ? 'Instant Pay' : 'Standard Payout'}
               </div>
             </div>
@@ -390,7 +390,7 @@ export function InstantPayScreen() {
               )}
               <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 15, fontWeight: 600, color: colors.navy }}>You'll receive</span>
-                <span style={{ fontSize: 18, fontWeight: 700, color: colors.navy }}>
+                <span className="heading-editorial heading-editorial-md">
                   {formatCurrency(showConfirm === 'instant' ? cashOutValue - INSTANT_PAY_FEE : cashOutValue)}
                 </span>
               </div>

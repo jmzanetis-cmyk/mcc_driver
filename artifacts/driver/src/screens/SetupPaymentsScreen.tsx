@@ -153,7 +153,7 @@ export function SetupPaymentsScreen() {
           <>
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>
+              <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8 }}>
                 Payouts Enabled
               </div>
               <div style={{ fontSize: 14, color: colors.textMuted }}>
@@ -214,7 +214,7 @@ export function SetupPaymentsScreen() {
           <>
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🏦</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>
+              <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8 }}>
                 Connect Your Bank
               </div>
               <div style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.6 }}>
@@ -252,7 +252,7 @@ export function SetupPaymentsScreen() {
           <>
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>⏳</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>
+              <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8 }}>
                 Setup Incomplete
               </div>
               <div style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.6 }}>
@@ -297,7 +297,7 @@ export function SetupPaymentsScreen() {
           <>
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>⚠️</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
+              <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8 }}>
                 Something went wrong
               </div>
               <div style={{ fontSize: 14, color: colors.textMuted }}>

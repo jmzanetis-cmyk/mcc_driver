@@ -237,7 +237,7 @@ export function HomeScreen() {
         }}>
           <Card style={{ maxWidth: 340, width: '100%' }} padding={28}>
             <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚫</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: colors.navy, textAlign: 'center', marginBottom: 8 }}>
+            <div className="heading-editorial heading-editorial-md" style={{ textAlign: 'center', marginBottom: 8 }}>
               Ride Cancelled
             </div>
             <div style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginBottom: 24, lineHeight: 1.5 }}>

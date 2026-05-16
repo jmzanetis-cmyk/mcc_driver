@@ -108,7 +108,7 @@ export function NavigateScreen() {
       }}>
         <Card style={{ maxWidth: 360, width: '100%', textAlign: 'center' }} padding={32}>
           <div style={{ fontSize: 56, marginBottom: 16 }}>🚫</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>
+          <div className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8 }}>
             Ride Cancelled
           </div>
           <div style={{ fontSize: 14, color: colors.textMuted, marginBottom: 24 }}>
@@ -189,7 +189,7 @@ export function NavigateScreen() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🏁</div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>No Active Ride</div>
+        <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>No Active Ride</div>
         <Button onClick={() => navigate('/home')} variant="secondary">Go Home</Button>
       </div>
     );
@@ -279,7 +279,7 @@ export function NavigateScreen() {
       }}>
         <Card style={{ maxWidth: 360, width: '100%' }} padding={28}>
           <div style={{ fontSize: 32, textAlign: 'center', marginBottom: 12 }}>⚠️</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: colors.navy, textAlign: 'center', marginBottom: 12 }}>
+          <div className="heading-editorial heading-editorial-md" style={{ textAlign: 'center', marginBottom: 12 }}>
             Self-Sufficient Acknowledgment
           </div>
           <div style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
@@ -534,7 +534,7 @@ export function NavigateScreen() {
 
         {/* Scenario & role */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: colors.navy }}>
+          <div className="heading-editorial heading-editorial-md">
             {getScenarioLabel(activeRide.scenario)}
           </div>
           <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>
@@ -625,7 +625,7 @@ export function NavigateScreen() {
                 padding: 24,
               }}>
                 <Card style={{ maxWidth: 340, width: '100%' }} padding={24}>
-                  <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
+                  <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>
                     Cancel this ride?
                   </div>
                   <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
