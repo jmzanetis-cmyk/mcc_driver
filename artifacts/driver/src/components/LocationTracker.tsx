@@ -59,21 +59,37 @@ export function LocationTracker() {
   const modeRef = useRef<TrackingMode | null>(null);
   const startingRef = useRef(false);
   const generationRef = useRef(0);
+  // If state changes while we're inside an async startTracking(), the new
+  // effect run can't start a competing watch (it would race with the
+  // in-flight one). Instead, we queue the latest desired mode here and the
+  // finally-block of the in-flight start picks it up after returning. This
+  // guarantees eventual convergence: tracking will always settle on the
+  // most-recently-desired profile rather than being stranded "off" because
+  // of an aborted stale start.
+  const pendingDesiredRef = useRef<TrackingMode | 'off' | null>(null);
 
   // Effect orchestrates start/stop/switch based on isOnline + stage. Owning
   // the watch in a ref + cancelling on cleanup keeps things idempotent.
   useEffect(() => {
-    if (!driverId) {
+    const desired: TrackingMode | 'off' =
+      !driverId || !isOnline
+        ? 'off'
+        : ACTIVE_STAGES.has(stage)
+          ? 'active'
+          : 'idle';
+
+    // If a start is already in flight, just record the latest desired state.
+    // The finally block of the in-flight start will converge to it.
+    if (startingRef.current) {
+      pendingDesiredRef.current = desired;
+      return;
+    }
+
+    if (desired === 'off') {
       void stopTracking();
       return;
     }
 
-    if (!isOnline) {
-      void stopTracking();
-      return;
-    }
-
-    const desired: TrackingMode = ACTIVE_STAGES.has(stage) ? 'active' : 'idle';
     if (modeRef.current !== desired) {
       void startTracking(desired);
     }
@@ -157,6 +173,18 @@ export function LocationTracker() {
         logger.info('driver.location_tracking_started', { mode });
       } finally {
         startingRef.current = false;
+        // Drain any queued desired-state change that arrived while we were
+        // starting — guarantees the tracker converges even if multiple
+        // online/stage transitions happened during the await window.
+        const queued = pendingDesiredRef.current;
+        if (queued !== null) {
+          pendingDesiredRef.current = null;
+          if (queued === 'off') {
+            void stopTracking();
+          } else if (modeRef.current !== queued) {
+            void startTracking(queued);
+          }
+        }
       }
     }
 
