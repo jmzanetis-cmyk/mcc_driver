@@ -24,6 +24,7 @@ import {
   extractBearerToken,
   type SupabaseUser,
 } from "../lib/adminAuth";
+import { tandemEvents } from "../lib/tandemEvents";
 
 const router: IRouter = Router();
 
@@ -293,11 +294,16 @@ router.post(
 
       const eligible = await computeEligibleDrivers(tandemJobId);
 
-      // Phase 3c notification hook point — fan-out push/SMS to eligible drivers.
       req.log.info(
         { tandemJobId, eligibleCount: eligible.length, matchDeadline },
         "tandem.broadcast.opened",
       );
+      // Internal event for downstream notification fan-out (Phase 3c).
+      tandemEvents.emit("tandem.broadcast.opened", {
+        tandemJobId,
+        eligibleDriverIds: eligible.map((r) => r.driver.id),
+        matchDeadline,
+      });
 
       res.status(200).json({
         tandemJob: updated,
@@ -405,19 +411,13 @@ router.post(
         return;
       }
 
-      // Exclude drivers who already declined this job from accepting.
-      const [decline] = await db
-        .select({ id: tandemJobDeclinesTable.id })
-        .from(tandemJobDeclinesTable)
-        .where(
-          and(
-            eq(tandemJobDeclinesTable.tandemJobId, tandemJobId),
-            eq(tandemJobDeclinesTable.rideAlongDriverId, partner.id),
-          ),
-        )
-        .limit(1);
-      if (decline) {
-        res.status(409).json({ error: "You have declined this tandem job" });
+      // Eligibility gate: caller must be in the freshly computed eligible
+      // set for this job (verified+active+license/insurance+distance+busy+
+      // decline filters all enforced). Prevents broken access control where
+      // a driver who knows a job id could claim an unrelated broadcast.
+      const eligible = await computeEligibleDrivers(tandemJobId);
+      if (!eligible.some((r) => r.driver.id === partner.id)) {
+        res.status(403).json({ error: "Not eligible for this tandem job" });
         return;
       }
 
@@ -452,6 +452,10 @@ router.post(
         { tandemJobId, rideAlongDriverId: partner.id },
         "tandem.matching.accepted",
       );
+      tandemEvents.emit("tandem.matching.accepted", {
+        tandemJobId,
+        rideAlongDriverId: partner.id,
+      });
       res.status(200).json(winner[0]);
     } catch (err) {
       logger.error({ err }, "tandem.matching.accept failed");
@@ -486,22 +490,32 @@ router.post(
         return;
       }
 
-      // Idempotent insert: ignore unique-violation if the driver already declined.
-      try {
-        await db.insert(tandemJobDeclinesTable).values({
+      // Idempotent insert: rely on the unique index on (tandem_job_id,
+      // ride_along_driver_id) via onConflictDoNothing. Real DB errors still
+      // propagate to the outer catch so we don't silently lose declines.
+      await db
+        .insert(tandemJobDeclinesTable)
+        .values({
           tandemJobId,
           rideAlongDriverId: partner.id,
           reason: reason ?? null,
+        })
+        .onConflictDoNothing({
+          target: [
+            tandemJobDeclinesTable.tandemJobId,
+            tandemJobDeclinesTable.rideAlongDriverId,
+          ],
         });
-      } catch (err) {
-        // Treat duplicate decline as success.
-        logger.info({ err, tandemJobId, partnerId: partner.id }, "tandem.matching.decline already recorded");
-      }
 
       req.log.info(
         { tandemJobId, rideAlongDriverId: partner.id },
         "tandem.matching.declined",
       );
+      tandemEvents.emit("tandem.matching.declined", {
+        tandemJobId,
+        rideAlongDriverId: partner.id,
+        reason: reason ?? null,
+      });
       res.status(200).json({ ok: true });
     } catch (err) {
       logger.error({ err }, "tandem.matching.decline failed");
@@ -533,12 +547,13 @@ export function startTandemExpiryWorker(intervalMs = 5 * 60 * 1000): NodeJS.Time
         .returning({ id: tandemJobsTable.id });
 
       if (expired.length > 0) {
+        const ids = expired.map((e) => e.id);
         logger.info(
-          { count: expired.length, ids: expired.map((e) => e.id) },
+          { count: expired.length, ids },
           "tandem.expiryWorker: expired overdue broadcasts",
         );
-        // Phase 3c notification hook point — notify providers that the match
-        // window closed without a partner.
+        // Internal event for downstream provider notifications (Phase 3c).
+        tandemEvents.emit("tandem.expired", { tandemJobIds: ids });
       }
     } catch (err) {
       logger.error({ err }, "tandem.expiryWorker: sweep error");
