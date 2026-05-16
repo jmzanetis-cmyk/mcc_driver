@@ -54,6 +54,16 @@ export const DispatchRideBody = zod.object({
   estimatedFare: zod.number().optional(),
   estimatedDistanceMiles: zod.number(),
   memberId: zod.string().nullish(),
+  memberPhone: zod
+    .string()
+    .nullish()
+    .describe(
+      "Member's phone number in E.164 format. When present, Phase 3\ntandem flows SMS the member when their approval is required and\nagain when the match is confirmed.\n",
+    ),
+  memberName: zod
+    .string()
+    .nullish()
+    .describe("Optional member display name used in SMS greetings."),
   memberVehicleYear: zod.number().nullish(),
   memberVehicleMake: zod.string().nullish(),
   memberVehicleModel: zod.string().nullish(),

@@ -19,6 +19,7 @@
  */
 
 import pg from "pg";
+import { createClient } from "@supabase/supabase-js";
 
 const { Client } = pg;
 
@@ -34,9 +35,22 @@ function requireEnv(name: string): string {
 
 async function main(): Promise<void> {
   const DATABASE_URL = requireEnv("DATABASE_URL");
+  const SUPABASE_URL = requireEnv("VITE_SUPABASE_URL");
+  const SUPABASE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   const pgClient = new Client({ connectionString: DATABASE_URL });
   await pgClient.connect();
+
+  // Two listener clients — one per recipient channel — so we can assert
+  // the per-recipient targeted push actually fires.
+  const listenerProvider = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const listenerRideAlong = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const providerEvents: string[] = [];
+  const rideAlongEvents: string[] = [];
 
   let providerId = "";
   let rideAlongId = "";
@@ -44,25 +58,61 @@ async function main(): Promise<void> {
   let tandemJobId = "";
 
   try {
-    console.log("→ inserting test driver (provider)…");
+    // Recipient ids must be deterministic before insert so we can subscribe
+  // to the right channels in advance — Postgres will accept a client-supplied
+  // uuid and skip the default-random.
+  const providerIdSeed = `00000000-0000-0000-0000-${Date.now().toString().padStart(12, "0").slice(-12)}`;
+  const rideAlongIdSeed = `00000000-0000-0000-0001-${Date.now().toString().padStart(12, "0").slice(-12)}`;
+
+  const providerChannel = listenerProvider
+    .channel(`notifications:driver:${providerIdSeed}`, {
+      config: { broadcast: { self: false } },
+    })
+    .on("broadcast", { event: "*" }, (msg) => {
+      providerEvents.push(msg.event);
+    });
+  const rideAlongChannel = listenerRideAlong
+    .channel(`notifications:ride_along_driver:${rideAlongIdSeed}`, {
+      config: { broadcast: { self: false } },
+    })
+    .on("broadcast", { event: "*" }, (msg) => {
+      rideAlongEvents.push(msg.event);
+    });
+  await Promise.all([
+    new Promise<void>((resolve, reject) =>
+      providerChannel.subscribe((status) => {
+        if (status === "SUBSCRIBED") resolve();
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reject(new Error(`provider channel: ${status}`));
+      }),
+    ),
+    new Promise<void>((resolve, reject) =>
+      rideAlongChannel.subscribe((status) => {
+        if (status === "SUBSCRIBED") resolve();
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reject(new Error(`ride-along channel: ${status}`));
+      }),
+    ),
+  ]);
+  console.log("✓ subscribed to per-recipient notification channels");
+
+  console.log("→ inserting test driver (provider)…");
     const driverRow = await pgClient.query<{ id: string }>(
       `INSERT INTO drivers
-        (user_id, first_name, last_name, email, phone, status, is_online, current_lat, current_lng)
-       VALUES ($1, 'Smoke', 'Provider', $2, '+15555550111', 'active', true, 33.45, -112.07)
+        (id, user_id, first_name, last_name, email, phone, status, is_online, current_lat, current_lng)
+       VALUES ($1, $2, 'Smoke', 'Provider', $3, '+15555550111', 'active', true, 33.45, -112.07)
        RETURNING id`,
-      [PROVIDER_USER_ID, `${PROVIDER_USER_ID}@test.local`],
+      [providerIdSeed, PROVIDER_USER_ID, `${PROVIDER_USER_ID}@test.local`],
     );
     providerId = driverRow.rows[0]!.id;
 
     console.log("→ inserting test ride-along driver…");
     const radRow = await pgClient.query<{ id: string }>(
       `INSERT INTO ride_along_drivers
-        (user_id, first_name, last_name, email, phone, max_distance_miles,
+        (id, user_id, first_name, last_name, email, phone, max_distance_miles,
          zip_lat, zip_lng, background_check_status, verified, status, rating, total_jobs)
-       VALUES ($1, 'Smoke', 'RideAlong', $2, '+15555550222', 30,
+       VALUES ($1, $2, 'Smoke', 'RideAlong', $3, '+15555550222', 30,
          33.45, -112.07, 'passed', true, 'active', 4.9, 12)
        RETURNING id`,
-      [RIDE_ALONG_USER_ID, `${RIDE_ALONG_USER_ID}@test.local`],
+      [rideAlongIdSeed, RIDE_ALONG_USER_ID, `${RIDE_ALONG_USER_ID}@test.local`],
     );
     rideAlongId = radRow.rows[0]!.id;
 
@@ -71,11 +121,13 @@ async function main(): Promise<void> {
       `INSERT INTO rides
         (scenario, tier, status, pickup_address, pickup_lat, pickup_lng,
          dropoff_address, dropoff_lat, dropoff_lng,
-         estimated_fare, estimated_distance_miles, tandem_required, tandem_mode)
+         estimated_fare, estimated_distance_miles, tandem_required, tandem_mode,
+         member_phone, member_name)
        VALUES ('member_vehicle_tandem','premium','accepted',
          '101 Pickup St', 33.45, -112.07,
          '202 Dropoff Ave', 33.50, -112.10,
-         80.0, 8.5, true, 'B')
+         80.0, 8.5, true, 'B',
+         '+15555550999', 'Test Member')
        RETURNING id`,
     );
     rideId = rideRow.rows[0]!.id;
@@ -121,9 +173,43 @@ async function main(): Promise<void> {
     console.log("  • notifyMatchExpired");
     await mod.notifyMatchExpired(tandemJobId);
 
-    console.log("\n✓ All notification helpers executed without throwing.");
-    console.log("  (Check API server logs for SMS attempts; if Twilio creds");
-    console.log("   are not set, you'll see 'sms_skipped' warnings instead.)");
+    console.log("\n→ waiting for broadcast events to settle…");
+    await new Promise((r) => setTimeout(r, 1500));
+
+    // Required events per recipient channel (5 events targeted at each).
+    const expectedProvider = [
+      "tandem.matched.provider",
+      "tandem.approval.outcome.provider", // approved=true
+      "tandem.approval.outcome.provider", // approved=false
+      "tandem.expired.provider",
+    ];
+    const expectedRideAlong = [
+      "tandem.broadcast",
+      "tandem.approval.outcome.ride_along", // approved=true
+      "tandem.approval.outcome.ride_along", // approved=false
+    ];
+
+    console.log(`  provider channel events:    ${JSON.stringify(providerEvents)}`);
+    console.log(`  ride-along channel events:  ${JSON.stringify(rideAlongEvents)}`);
+
+    const missingProvider = expectedProvider.filter(
+      (e, i) => providerEvents.filter((x) => x === e).length <
+        expectedProvider.slice(0, i + 1).filter((x) => x === e).length,
+    );
+    const missingRideAlong = expectedRideAlong.filter(
+      (e, i) => rideAlongEvents.filter((x) => x === e).length <
+        expectedRideAlong.slice(0, i + 1).filter((x) => x === e).length,
+    );
+
+    if (missingProvider.length > 0 || missingRideAlong.length > 0) {
+      throw new Error(
+        `Missing broadcast events. provider missing: ${JSON.stringify(missingProvider)}, ride-along missing: ${JSON.stringify(missingRideAlong)}`,
+      );
+    }
+
+    console.log("\n✓ All 5 notification helpers fired and broadcasts arrived on the");
+    console.log("  per-recipient Supabase channels. SMS attempts are visible in the");
+    console.log("  API server logs (sms_skipped if Twilio creds not configured).");
   } finally {
     console.log("\n→ cleaning up test rows…");
     if (tandemJobId) {
@@ -136,6 +222,8 @@ async function main(): Promise<void> {
     if (rideAlongId) await pgClient.query("DELETE FROM ride_along_drivers WHERE id = $1", [rideAlongId]);
     if (providerId) await pgClient.query("DELETE FROM drivers WHERE id = $1", [providerId]);
     await pgClient.end();
+    await listenerProvider.removeAllChannels();
+    await listenerRideAlong.removeAllChannels();
     console.log("✓ cleanup complete");
   }
 }

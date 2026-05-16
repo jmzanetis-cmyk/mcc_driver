@@ -25,6 +25,13 @@ export interface DispatchRideRequest {
   estimatedFare?: number;
   estimatedDistanceMiles: number;
   memberId?: string | null;
+  /** Member's phone number in E.164 format. When present, Phase 3
+tandem flows SMS the member when their approval is required and
+again when the match is confirmed.
+ */
+  memberPhone?: string | null;
+  /** Optional member display name used in SMS greetings. */
+  memberName?: string | null;
   memberVehicleYear?: number | null;
   memberVehicleMake?: string | null;
   memberVehicleModel?: string | null;

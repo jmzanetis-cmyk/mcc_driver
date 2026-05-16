@@ -25,6 +25,7 @@ import {
   tandemJobsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { supabaseAdmin } from "./supabaseAdmin";
 
 // ── Twilio client (lazy) ────────────────────────────────────────────────────
 type TwilioClient = import("twilio").Twilio;
@@ -87,19 +88,38 @@ async function sendSms(to: string, body: string): Promise<void> {
 }
 
 // ── Push transport ──────────────────────────────────────────────────────────
-// We don't yet have a real push pipeline (FCM/APNs) for the driver app;
-// the existing Supabase Realtime mirror already pushes UPDATE events to
-// subscribed clients. We log a structured "push" entry so it shows up in
-// observability alongside the SMS attempt, but no network call is made.
-function logPush(
-  channel: string,
+// Real transport: emit a Supabase Realtime *broadcast* to a per-recipient
+// channel name (e.g. `notifications:driver:<id>` or
+// `notifications:ride_along_driver:<id>`). The driver / ride-along apps
+// subscribe to their own channel on login. We use broadcast (not
+// postgres_changes) so this works without an extra database table and
+// without depending on the existing `tandem_jobs` mirror.
+async function sendPush(
+  event: string,
   audience: { kind: string; id: string },
   payload: Record<string, unknown>,
-): void {
-  logger.info(
-    { channel, audience, payload },
-    "tandem.notifications.push (delivered via Supabase Realtime mirror)",
-  );
+): Promise<void> {
+  const channelName = `notifications:${audience.kind}:${audience.id}`;
+  try {
+    const channel = supabaseAdmin.channel(channelName, {
+      config: { broadcast: { ack: true, self: false } },
+    });
+    const status = await channel.send({
+      type: "broadcast",
+      event,
+      payload: { event, audience, ...payload, sentAt: new Date().toISOString() },
+    });
+    await supabaseAdmin.removeChannel(channel);
+    logger.info(
+      { event, audience, channelName, status },
+      "tandem.notifications.push_sent",
+    );
+  } catch (err) {
+    logger.error(
+      { err, event, audience, channelName },
+      "tandem.notifications.push_failed",
+    );
+  }
 }
 
 // ── Internal: fetch ride+tandem context ─────────────────────────────────────
@@ -147,13 +167,13 @@ export async function notifyBroadcastToDrivers(
   const summary = `MCC Ride-Along: new job available near ${ctx.ride.pickupAddress}. Est. fee $${fee.toFixed(2)}.`;
 
   await Promise.all(
-    drivers.map((d) => {
-      logPush(
+    drivers.map(async (d) => {
+      await sendPush(
         "tandem.broadcast",
         { kind: "ride_along_driver", id: d.id },
         { tandemJobId, link },
       );
-      return sendSms(d.phone, `${summary} Open the dashboard to accept: ${link}`);
+      await sendSms(d.phone, `${summary} Open the dashboard to accept: ${link}`);
     }),
   );
 }
@@ -179,7 +199,7 @@ export async function notifyProviderMatched(tandemJobId: string): Promise<void> 
   if (!provider || !match) return;
 
   const link = providerMatchLink(tandemJobId);
-  logPush(
+  await sendPush(
     "tandem.matched.provider",
     { kind: "driver", id: provider.id },
     { tandemJobId, link },
@@ -197,7 +217,7 @@ export async function notifyMemberAwaitingApproval(tandemJobId: string): Promise
 
   const link = memberApprovalLink(tandemJobId);
   const memberId = ctx.ride.memberId ?? "unknown";
-  logPush(
+  await sendPush(
     "tandem.member.approval_requested",
     { kind: "member", id: memberId },
     { tandemJobId, link },
@@ -261,7 +281,7 @@ export async function notifyApprovalOutcome(
     : `MCC Ride-Along: the member declined this match. Don't worry — keep an eye on the dashboard for more jobs.`;
 
   if (provider) {
-    logPush(
+    await sendPush(
       "tandem.approval.outcome.provider",
       { kind: "driver", id: provider.id },
       { tandemJobId, approved },
@@ -269,7 +289,7 @@ export async function notifyApprovalOutcome(
     await sendSms(provider.phone, providerMsg);
   }
   if (match) {
-    logPush(
+    await sendPush(
       "tandem.approval.outcome.ride_along",
       { kind: "ride_along_driver", id: match.id },
       { tandemJobId, approved },
@@ -308,7 +328,7 @@ export async function notifyMatchExpired(tandemJobId: string): Promise<void> {
   if (!provider) return;
 
   const link = providerMatchLink(tandemJobId);
-  logPush(
+  await sendPush(
     "tandem.expired.provider",
     { kind: "driver", id: provider.id },
     { tandemJobId, link },
