@@ -437,9 +437,20 @@ export async function deleteMyAccount(): Promise<
     const json = (await res.json()) as Record<string, unknown>;
 
     // 200 = full success, 207 = local row anonymized but auth-user delete
-    // failed (server has surfaced a `warning` field for the UI).
+    // failed (server has surfaced a `warning` field for the UI). Validate
+    // the response shape rather than blind-casting so a malformed payload
+    // can't trick the client into thinking deletion succeeded.
     if (res.ok || res.status === 207) {
-      return { success: true, data: json as unknown as DeleteAccountSuccess };
+      const success = json['success'] === true;
+      const anonymized = typeof json['anonymized'] === 'boolean' ? (json['anonymized'] as boolean) : false;
+      const authDeleted = typeof json['authDeleted'] === 'boolean' ? (json['authDeleted'] as boolean) : false;
+      const warning = typeof json['warning'] === 'string' ? (json['warning'] as string) : undefined;
+      if (!success) {
+        logger.error('account.delete.malformed_success', { status: res.status });
+        return { success: false, error: 'Server returned an unexpected response. Please try again.' };
+      }
+      const data: DeleteAccountSuccess = { success: true, anonymized, authDeleted, ...(warning ? { warning } : {}) };
+      return { success: true, data };
     }
 
     const reason = json['reason'];

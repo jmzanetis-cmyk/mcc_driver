@@ -149,7 +149,12 @@ export function SettingsScreen() {
       setDeletePartialWarning(null);
       return;
     }
+    // Clear the partial-warning branch so the retry error is actually
+    // visible — otherwise the modal stays on the warning view and hides
+    // `deleteError`.
+    setDeletePartialWarning(null);
     setDeleteError(result.error || 'Retry failed. Please try again or contact support.');
+    setDeleteStep(2);
   };
 
   const acceptPartialAndExit = async () => {
