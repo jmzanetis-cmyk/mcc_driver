@@ -387,18 +387,28 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
   const deadlineSeconds = body.responseDeadlineSeconds ?? 30;
   const responseDeadline = new Date(Date.now() + deadlineSeconds * 1000);
 
-  // Derive service type authoritatively from tier so capability gating cannot be bypassed
-  // by sending a mismatched serviceType.
-  const derivedServiceType = body.tier === "tier_0_rideshare" ? "rideshare"
-    : body.tier === "tier_0_delivery" ? "delivery"
-    : "concierge";
-  if (body.serviceType && body.serviceType !== derivedServiceType) {
+  // Validate scenario↔tier consistency: the tier the caller sends must match what
+  // SCENARIO_CONFIG defines for that scenario, so capability gating cannot be bypassed
+  // by sending a delivery/rideshare scenario with a concierge tier (or vice-versa).
+  if (body.tier !== config.tier) {
     res.status(400).json({
-      error: `serviceType "${body.serviceType}" is inconsistent with tier "${body.tier}" (expected "${derivedServiceType}")`,
+      error: `tier "${body.tier}" does not match scenario "${body.scenario}" (expected "${config.tier}")`,
     });
     return;
   }
-  const serviceType = derivedServiceType;
+
+  // Derive service type authoritatively from the scenario-validated tier.
+  const serviceType = config.tier === "tier_0_rideshare" ? "rideshare"
+    : config.tier === "tier_0_delivery" ? "delivery"
+    : "concierge";
+
+  // Reject explicit serviceType that contradicts what we derived from the scenario.
+  if (body.serviceType && body.serviceType !== serviceType) {
+    res.status(400).json({
+      error: `serviceType "${body.serviceType}" is inconsistent with scenario "${body.scenario}" (expected "${serviceType}")`,
+    });
+    return;
+  }
 
   try {
     const activeStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];
