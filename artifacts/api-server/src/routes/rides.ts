@@ -394,51 +394,64 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
       : "concierge");
 
   try {
-    let targetDriverIds: string[] = body.targetDriverIds ?? [];
+    const activeStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];
 
-    if (targetDriverIds.length === 0) {
-      const activeStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];
+    const busyDriverRows = await db
+      .select({ driverId: driverAssignmentsTable.driverId })
+      .from(driverAssignmentsTable)
+      .where(inArray(driverAssignmentsTable.status, activeStatuses));
 
-      const busyDriverRows = await db
-        .select({ driverId: driverAssignmentsTable.driverId })
-        .from(driverAssignmentsTable)
-        .where(inArray(driverAssignmentsTable.status, activeStatuses));
+    const busyIds = new Set(busyDriverRows.map((r) => r.driverId));
 
-      const busyIds = busyDriverRows.map((r) => r.driverId);
+    // Build eligibility conditions: base + service-type capability filter
+    const baseEligibility = and(
+      eq(driversTable.isOnline, true),
+      eq(driversTable.status, "active"),
+      isNotNull(driversTable.currentLat),
+      isNotNull(driversTable.currentLng),
+      serviceType === "rideshare" ? eq(driversTable.canDoRideshare, true) : undefined,
+      serviceType === "delivery" ? eq(driversTable.canDoDelivery, true) : undefined,
+    );
 
-      // Build eligibility conditions: base + service-type capability filter
-      const baseEligibility = and(
-        eq(driversTable.isOnline, true),
-        eq(driversTable.status, "active"),
-        isNotNull(driversTable.currentLat),
-        isNotNull(driversTable.currentLng),
-        serviceType === "rideshare" ? eq(driversTable.canDoRideshare, true) : undefined,
-        serviceType === "delivery" ? eq(driversTable.canDoDelivery, true) : undefined,
-      );
+    let targetDriverIds: string[];
 
+    const callerProvidedIds = body.targetDriverIds ?? [];
+    if (callerProvidedIds.length > 0) {
+      // Caller supplied specific driver IDs — still validate against eligibility rules
+      // so dispatch cannot be used to bypass capability or availability checks.
+      const eligibleRows = await db
+        .select({ id: driversTable.id })
+        .from(driversTable)
+        .where(and(baseEligibility, inArray(driversTable.id, callerProvidedIds)));
+
+      targetDriverIds = eligibleRows
+        .map((d) => d.id)
+        .filter((id) => !busyIds.has(id));
+    } else {
       const eligibleDrivers = await db
         .select({ id: driversTable.id })
         .from(driversTable)
-        .where(baseEligibility);
+        .where(baseEligibility)
+        .orderBy(asc(driversTable.totalRidesCompleted), asc(driversTable.createdAt));
 
       targetDriverIds = eligibleDrivers
         .map((d) => d.id)
-        .filter((id) => !busyIds.includes(id));
+        .filter((id) => !busyIds.has(id));
+    }
 
-      if (config.assignments.some((a) => a.drivesMemberVehicle)) {
-        const capableDrivers = await db
-          .select({ id: driversTable.id })
-          .from(driversTable)
-          .where(
-            and(
-              eq(driversTable.isOnline, true),
-              eq(driversTable.status, "active"),
-              eq(driversTable.canDriveMemberVehicle, true),
-            ),
-          );
-        const capableIds = new Set(capableDrivers.map((d) => d.id));
-        targetDriverIds = targetDriverIds.filter((id) => capableIds.has(id));
-      }
+    if (config.assignments.some((a) => a.drivesMemberVehicle)) {
+      const capableDrivers = await db
+        .select({ id: driversTable.id })
+        .from(driversTable)
+        .where(
+          and(
+            eq(driversTable.isOnline, true),
+            eq(driversTable.status, "active"),
+            eq(driversTable.canDriveMemberVehicle, true),
+          ),
+        );
+      const capableIds = new Set(capableDrivers.map((d) => d.id));
+      targetDriverIds = targetDriverIds.filter((id) => capableIds.has(id));
     }
 
     const driversNeeded = config.driversRequired;
