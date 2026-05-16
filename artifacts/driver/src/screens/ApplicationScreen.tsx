@@ -34,6 +34,35 @@ const INITIAL_FORM: FormData = {
   vehicleYear: '', vehicleColor: '', vehiclePlate: '', partnerInviteCode: '',
 };
 
+const DRAFT_KEY = 'mcc_driver_application_draft';
+
+function loadDraft(): FormData {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return INITIAL_FORM;
+    const parsed = JSON.parse(raw) as Partial<FormData>;
+    return { ...INITIAL_FORM, ...parsed };
+  } catch {
+    return INITIAL_FORM;
+  }
+}
+
+function saveDraft(data: FormData) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  } catch {
+    // ignore storage errors (e.g. private browsing quota)
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 interface FileState {
   file: File | null;
   preview: string | null;
@@ -163,13 +192,17 @@ function FileUploadField({
 export function ApplicationScreen() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState<FormData>(INITIAL_FORM);
+  const [form, setForm] = useState<FormData>(loadDraft);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [licenseDoc, setLicenseDoc] = useState<FileState>(EMPTY_FILE);
   const [insuranceDoc, setInsuranceDoc] = useState<FileState>(EMPTY_FILE);
 
   const totalSteps = 3;
+
+  useEffect(() => {
+    saveDraft(form);
+  }, [form]);
 
   const update = (field: keyof FormData) => (value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -246,6 +279,7 @@ export function ApplicationScreen() {
 
     setLoading(false);
     if (result.success) {
+      clearDraft();
       navigate('/pending');
     } else {
       setError(result.error || 'Application failed');
