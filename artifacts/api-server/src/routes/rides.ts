@@ -1049,7 +1049,10 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
 
     const now = new Date();
 
-    await db
+    // Atomic transition guard: only one concurrent request can flip
+    // in_progress → completed. The losing request gets zero rows back
+    // and must short-circuit before inserting a duplicate payout.
+    const transitioned = await db
       .update(driverAssignmentsTable)
       .set({
         status: "completed",
@@ -1057,7 +1060,24 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
         driverPayoutAmount: driverPayout,
         payoutStatus: "pending",
       })
-      .where(eq(driverAssignmentsTable.id, assignmentId));
+      .where(
+        and(
+          eq(driverAssignmentsTable.id, assignmentId),
+          eq(driverAssignmentsTable.status, "in_progress"),
+        ),
+      )
+      .returning({ id: driverAssignmentsTable.id });
+
+    if (transitioned.length === 0) {
+      req.log.info(
+        { rideId, assignmentId, driverId: driver.id },
+        "rides.complete.race_lost — assignment no longer in_progress",
+      );
+      res.status(409).json({
+        error: "Ride is already completed",
+      });
+      return;
+    }
 
     await db
       .update(ridesTable)
