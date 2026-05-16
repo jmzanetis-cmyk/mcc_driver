@@ -412,9 +412,6 @@ importers:
         specifier: 'catalog:'
         version: 3.25.76
     devDependencies:
-      '@types/apn':
-        specifier: ^2.1.6
-        version: 2.1.6
       '@types/cookie-parser':
         specifier: ^1.4.10
         version: 1.4.10(@types/express@5.0.6)
@@ -2050,10 +2047,6 @@ packages:
 
   '@tsconfig/node16@1.0.4':
     resolution: {integrity: sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==}
-
-  '@types/apn@2.1.6':
-    resolution: {integrity: sha512-7Ylbu+6rhtH4hG3RQoSNioyNNEpuyMd1uPfoizzRbnS/HI6g/FlYk6vqtCEdEBjwLf8+aE4nxCg7IvoqGJ1jhA==}
-    deprecated: This is a stub types definition. apn provides its own type definitions, so you do not need this installed.
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -6512,12 +6505,6 @@ snapshots:
   '@tsconfig/node14@1.0.3': {}
 
   '@tsconfig/node16@1.0.4': {}
-
-  '@types/apn@2.1.6':
-    dependencies:
-      apn: 2.2.0
-    transitivePeerDependencies:
-      - supports-color
 
   '@types/babel__core@7.20.5':
     dependencies:
