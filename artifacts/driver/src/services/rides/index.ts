@@ -183,7 +183,7 @@ export const SCENARIO_CONFIG: Record<RideScenario, ScenarioConfig> = {
       { role: 'primary', drivesMemberVehicle: true, carriesPassenger: false, description: "Drive the member's vehicle to the destination" },
       { role: 'chase', drivesMemberVehicle: false, carriesPassenger: true, description: 'Drive the member in chase vehicle to the destination' },
     ],
-    description: "The premium: one driver takes the member's car, the other takes the member. Both go to the destination.",
+    description: "The premium: one driver takes the member's vehicle, the other takes the member. Both go to the destination.",
     shortDescription: 'Full concierge drop-off',
   },
   concierge_pickup: {
@@ -193,7 +193,7 @@ export const SCENARIO_CONFIG: Record<RideScenario, ScenarioConfig> = {
       { role: 'primary', drivesMemberVehicle: true, carriesPassenger: false, description: "Drive the member's vehicle from the pickup location" },
       { role: 'chase', drivesMemberVehicle: false, carriesPassenger: true, description: 'Drive the member from the pickup location' },
     ],
-    description: "One driver picks up the member's car, the other picks up the member. Both return.",
+    description: "One driver picks up the member's vehicle, the other picks up the member. Both return.",
     shortDescription: 'Full concierge pickup',
   },
   full_concierge_round_trip: {
@@ -203,7 +203,7 @@ export const SCENARIO_CONFIG: Record<RideScenario, ScenarioConfig> = {
       { role: 'primary', drivesMemberVehicle: true, carriesPassenger: false, description: "Drive the member's vehicle for the full round trip" },
       { role: 'chase', drivesMemberVehicle: false, carriesPassenger: true, description: 'Drive the member for the full round trip' },
     ],
-    description: "The ultimate: both drivers handle the full round trip — one with the car, one with the member.",
+    description: "The ultimate: both drivers handle the full round trip — one with the vehicle, one with the member.",
     shortDescription: 'Full concierge round trip',
   },
 };

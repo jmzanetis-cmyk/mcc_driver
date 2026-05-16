@@ -132,7 +132,7 @@ export function RideAlongPendingScreen() {
 
       <p style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', maxWidth: 320, marginBottom: 32 }}>
         {isApproved
-          ? "Your Ride-Along Driver account is verified. Job matching is coming soon in Phase 2."
+          ? "Your Ride-Along Driver account is verified. Jobs will appear here as soon as tandem matching opens in your area."
           : isRejected
             ? "Your application was not approved. Please contact MCC support for more information or resubmit with updated documents."
             : "We're reviewing your application. You'll be notified once your account is activated."}
@@ -151,7 +151,7 @@ export function RideAlongPendingScreen() {
             Ride-Along Driver — Verified
           </div>
           <div style={{ fontSize: 13, color: colors.textMuted }}>
-            Your profile is active. Jobs will be dispatched when Tandem matching goes live.
+            Your profile is active. Jobs will be dispatched as soon as tandem matching opens in your area.
           </div>
         </div>
       )}

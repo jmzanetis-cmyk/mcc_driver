@@ -167,7 +167,7 @@ export function HomeScreen() {
               🟢 You're online and accepting rides
             </div>
             <div style={{ fontSize: 12, color: colors.success, marginTop: 4 }}>
-              Ride requests will appear as a popup when available
+              Your next ride will appear here as soon as one is dispatched.
             </div>
           </div>
         )}
@@ -202,7 +202,7 @@ export function HomeScreen() {
               Ride Cancelled
             </div>
             <div style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginBottom: 24, lineHeight: 1.5 }}>
-              This ride was cancelled by the member or your dispatcher. You won't be penalised — you're back online and ready for new assignments.
+              This ride was cancelled by the member or your dispatcher. Your rating is unaffected — you're back online and ready for the next assignment.
             </div>
             <Button
               onClick={() => setServerCancelled(false)}

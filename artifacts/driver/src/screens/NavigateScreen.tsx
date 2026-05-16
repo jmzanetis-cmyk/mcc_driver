@@ -214,7 +214,7 @@ export function NavigateScreen() {
     navigating: {
       label: activeRide.serviceType === 'rideshare' ? 'Passenger On Board'
         : activeRide.serviceType === 'delivery' ? 'Parcel Collected'
-        : "I've Arrived at Pickup",
+        : 'Arrived at Pickup',
       action: () => markArrived(),
       variant: 'primary',
     },
@@ -237,7 +237,7 @@ export function NavigateScreen() {
       },
       variant: 'success',
     },
-    completing: { label: 'Processing...', action: () => {}, variant: 'secondary' },
+    completing: { label: 'Processing…', action: () => {}, variant: 'secondary' },
     completed: { label: 'Completed', action: () => {}, variant: 'secondary' },
   };
 

@@ -76,7 +76,7 @@ export function RideCompleteScreen() {
   if (!ride) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: colors.textMuted }}>Loading ride details...</div>
+        <div style={{ color: colors.textMuted }}>Loading ride details…</div>
       </div>
     );
   }
@@ -99,7 +99,7 @@ export function RideCompleteScreen() {
           ✓
         </div>
         <div style={{ fontSize: 22, fontWeight: 700, color: colors.textWhite, marginBottom: 4 }}>
-          Ride Complete!
+          Ride Complete
         </div>
         <div style={{ fontSize: 14, color: colors.gold }}>
           {getScenarioLabel(ride.scenario)}
