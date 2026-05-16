@@ -9,6 +9,7 @@ import { colors } from '@/theme';
 import './theme/global.css';
 
 import { ActiveRideWatcher } from '@/components/ActiveRideWatcher';
+import { LocationTracker } from '@/components/LocationTracker';
 import { SignInScreen } from '@/screens/SignInScreen';
 import { ApplicationScreen } from '@/screens/ApplicationScreen';
 import { PendingScreen } from '@/screens/PendingScreen';
@@ -90,6 +91,7 @@ export default function App() {
       <QueryProvider>
         <AuthProvider>
           <ActiveRideWatcher />
+          <LocationTracker />
           <Routes>
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/apply" element={<ApplicationScreen />} />
