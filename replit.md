@@ -136,7 +136,9 @@ Drivers can permanently delete their account from Settings → Delete Account
 
 - Endpoint: `DELETE /api/drivers/me` — Supabase Bearer auth. Implemented in
   `artifacts/api-server/src/routes/driverAccount.ts`.
-- **Preflight** (returns HTTP 409 with `reason: 'active_ride' | 'pending_payout'`):
+- **Preflight** (runs inside the anonymize transaction under a `SELECT … FOR UPDATE`
+  row lock on the driver, so concurrent dispatch/payout writers cannot race the
+  block policy; returns HTTP 409 with `reason: 'active_ride' | 'pending_payout' | 'unpaid_balance'`):
   - Active ride: any `driver_assignments` row with status in
     `accepted | en_route | arrived | in_progress` blocks deletion.
   - Pending payout: any `driver_payouts.status = 'pending'` row blocks
@@ -144,6 +146,11 @@ Drivers can permanently delete their account from Settings → Delete Account
     auto-pay so the Stripe webhook can still reconcile the in-flight
     transfer to the driver row. Driver must wait for the payout to settle
     (or cancel it) before retrying.
+  - Unpaid balance: any `driver_assignments` row with `status = 'completed'`
+    and `payout_status IS NULL OR = 'unpaid'` whose `driver_payout_amount`
+    sums above $0 blocks deletion. Driver must request a payout for the
+    balance first — auto-forfeit would erase earned money, and auto-pay
+    would create a transfer to a soon-to-be-anonymized account.
 - **Anonymize (don't hard-delete) strategy** — the `drivers` row is preserved
   so FKs from `rides`, `driver_assignments`, `driver_payouts`, and
   `driver_audit_log` keep resolving for historical / accounting integrity.
@@ -164,8 +171,10 @@ Drivers can permanently delete their account from Settings → Delete Account
   `driver_audit_log`.
 - **Audit trail** — a `driver_audit_log` row is inserted in the same
   transaction with `action = 'self_delete'`,
-  `admin_email = <driver's own pre-anon email lowercased>`,
-  `resulting_status = 'deleted'`.
+  `admin_email = 'self-delete@system'` (non-PII sentinel — the column is
+  notNull but we must not retain the driver's real email in the audit row),
+  `resulting_status = 'deleted'`. The `driver_id` column preserves the
+  link for support correlation.
 - **Supabase auth user** is hard-deleted via
   `supabaseAdmin.auth.admin.deleteUser(userId)` after the local anonymize
   transaction commits. This also revokes outstanding sessions, and frees
@@ -173,7 +182,9 @@ Drivers can permanently delete their account from Settings → Delete Account
   brand-new driver row.
 - **Client cleanup** on success: TanStack Query cache cleared, `mcc_*`
   localStorage keys removed, `supabase.auth.signOut()` invoked, and
-  navigation forced to `/` (welcome).
+  navigation forced to `/` (welcome). If the server returns HTTP 207
+  (local row anonymized but Supabase auth-user deletion failed), the
+  client surfaces the warning to the driver before bouncing.
 
 Out of scope (separate tasks if needed): admin-initiated soft-delete tooling
 and a GDPR / CCPA data-export endpoint.

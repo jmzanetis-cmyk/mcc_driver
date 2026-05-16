@@ -144,7 +144,8 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
 
   type DeletePreflightFailure =
     | { reason: "active_ride"; count: number }
-    | { reason: "pending_payout"; count: number; total: number };
+    | { reason: "pending_payout"; count: number; total: number }
+    | { reason: "unpaid_balance"; count: number; total: number };
 
   let preflightFailure: DeletePreflightFailure | null = null;
 
@@ -204,6 +205,41 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
         throw new Error("preflight_pending_payout");
       }
 
+      // Preflight #3 — unpaid earned balance (under lock).
+      // A driver may have completed rides whose payout has not yet been
+      // requested. We block deletion so the driver can request a payout
+      // first; auto-forfeiture would lose them earned money, and
+      // auto-payout would create a transfer to a soon-to-be-anonymized
+      // account that the Stripe webhook can't reconcile cleanly.
+      const unpaidRides = await tx
+        .select({
+          id: driverAssignmentsTable.id,
+          amount: driverAssignmentsTable.driverPayoutAmount,
+        })
+        .from(driverAssignmentsTable)
+        .where(
+          and(
+            eq(driverAssignmentsTable.driverId, driver.id),
+            eq(driverAssignmentsTable.status, "completed"),
+            // payout_status IS NULL or 'unpaid' — anything not yet attached
+            // to a payout row counts toward the unpaid balance.
+            sql`(${driverAssignmentsTable.payoutStatus} IS NULL OR ${driverAssignmentsTable.payoutStatus} = 'unpaid')`,
+          ),
+        );
+      if (unpaidRides.length > 0) {
+        const total = unpaidRides.reduce((sum, r) => sum + (r.amount ?? 0), 0);
+        // Only block when there's actual money at stake; if everything
+        // sums to $0 (data anomaly, zero-fare promo), allow deletion.
+        if (total > 0) {
+          preflightFailure = {
+            reason: "unpaid_balance",
+            count: unpaidRides.length,
+            total,
+          };
+          throw new Error("preflight_unpaid_balance");
+        }
+      }
+
       // All preflights passed under the lock — anonymize + audit.
       await tx
         .update(driversTable)
@@ -233,11 +269,12 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
       await tx.insert(driverAuditLogTable).values({
         driverId: driver.id,
         action: "self_delete",
-        // Audit log requires an actor email — use the driver's own
-        // pre-anonymization email (or a sentinel if missing) so the row
-        // is meaningful for support without re-introducing PII into the
-        // anonymized drivers row.
-        adminEmail: (driver.email || sentinelString).trim().toLowerCase(),
+        // Audit log's `admin_email` column is notNull, but we must NOT
+        // retain the driver's real email here — the entire point of this
+        // flow is to scrub PII. Use a non-PII sentinel that's clearly
+        // distinguishable from admin-initiated actions; `driverId` is
+        // preserved on the row for support correlation.
+        adminEmail: "self-delete@system",
         resultingStatus: "deleted",
         reason: "Driver-initiated self deletion from Settings",
       });
@@ -256,7 +293,7 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
             "You have an active ride in progress. Finish or cancel it before deleting your account.",
           activeAssignmentCount: failure.count,
         });
-      } else {
+      } else if (failure.reason === "pending_payout") {
         res.status(409).json({
           error: "pending_payout",
           reason: "pending_payout",
@@ -264,6 +301,15 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
             "You have a payout in progress. Wait for it to complete (or cancel it) before deleting your account.",
           pendingPayoutCount: failure.count,
           pendingPayoutAmount: failure.total,
+        });
+      } else {
+        res.status(409).json({
+          error: "unpaid_balance",
+          reason: "unpaid_balance",
+          message:
+            "You still have unpaid earnings. Request a payout for the balance before deleting your account.",
+          unpaidRideCount: failure.count,
+          unpaidBalance: failure.total,
         });
       }
       return;

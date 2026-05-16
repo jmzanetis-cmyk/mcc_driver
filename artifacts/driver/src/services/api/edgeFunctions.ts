@@ -399,11 +399,13 @@ export interface DeleteAccountSuccess {
 }
 
 export interface DeleteAccountBlocked {
-  reason: 'active_ride' | 'pending_payout';
+  reason: 'active_ride' | 'pending_payout' | 'unpaid_balance';
   message: string;
   activeAssignmentCount?: number;
   pendingPayoutCount?: number;
   pendingPayoutAmount?: number;
+  unpaidRideCount?: number;
+  unpaidBalance?: number;
 }
 
 /**
@@ -441,7 +443,7 @@ export async function deleteMyAccount(): Promise<
     }
 
     const reason = json['reason'];
-    if (reason === 'active_ride' || reason === 'pending_payout') {
+    if (reason === 'active_ride' || reason === 'pending_payout' || reason === 'unpaid_balance') {
       return {
         success: false,
         blocked: {
@@ -450,6 +452,8 @@ export async function deleteMyAccount(): Promise<
           activeAssignmentCount: typeof json['activeAssignmentCount'] === 'number' ? (json['activeAssignmentCount'] as number) : undefined,
           pendingPayoutCount: typeof json['pendingPayoutCount'] === 'number' ? (json['pendingPayoutCount'] as number) : undefined,
           pendingPayoutAmount: typeof json['pendingPayoutAmount'] === 'number' ? (json['pendingPayoutAmount'] as number) : undefined,
+          unpaidRideCount: typeof json['unpaidRideCount'] === 'number' ? (json['unpaidRideCount'] as number) : undefined,
+          unpaidBalance: typeof json['unpaidBalance'] === 'number' ? (json['unpaidBalance'] as number) : undefined,
         },
       };
     }

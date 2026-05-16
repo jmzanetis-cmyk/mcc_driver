@@ -583,7 +583,9 @@ export function SettingsScreen() {
                 <div style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
                   {deleteBlocked.reason === 'active_ride'
                     ? 'Finish your current ride first'
-                    : 'Pending payout in progress'}
+                    : deleteBlocked.reason === 'pending_payout'
+                      ? 'Pending payout in progress'
+                      : 'Cash out your earnings first'}
                 </div>
                 <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
                   {deleteBlocked.message}
@@ -591,6 +593,14 @@ export function SettingsScreen() {
                     deleteBlocked.pendingPayoutAmount !== undefined && (
                       <div style={{ marginTop: 8, color: colors.warning, fontWeight: 600 }}>
                         Pending amount: ${deleteBlocked.pendingPayoutAmount.toFixed(2)}
+                      </div>
+                    )}
+                  {deleteBlocked.reason === 'unpaid_balance' &&
+                    deleteBlocked.unpaidBalance !== undefined && (
+                      <div style={{ marginTop: 8, color: colors.warning, fontWeight: 600 }}>
+                        Unpaid balance: ${deleteBlocked.unpaidBalance.toFixed(2)}
+                        {deleteBlocked.unpaidRideCount !== undefined &&
+                          ` from ${deleteBlocked.unpaidRideCount} completed ride${deleteBlocked.unpaidRideCount === 1 ? '' : 's'}`}
                       </div>
                     )}
                 </div>
@@ -607,8 +617,8 @@ export function SettingsScreen() {
                   This permanently removes your profile from My Car Concierge.
                 </div>
                 <ul style={{ fontSize: 13, color: colors.textPrimary, paddingLeft: 18, margin: '0 0 16px' }}>
-                  <li style={{ marginBottom: 6 }}>You will stop receiving ride requests immediately.</li>
-                  <li style={{ marginBottom: 6 }}>Any pending payouts will stop.</li>
+                  <li style={{ marginBottom: 6 }}>You'll stop receiving ride requests immediately.</li>
+                  <li style={{ marginBottom: 6 }}>If you have an active ride or unpaid earnings, you'll be asked to finish those first.</li>
                   <li style={{ marginBottom: 6 }}>Your name, contact info, and documents are erased.</li>
                   <li>To drive again you'll have to reapply from scratch.</li>
                 </ul>
