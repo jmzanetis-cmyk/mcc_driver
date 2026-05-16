@@ -45,22 +45,29 @@ In Xcode:
 
 ## Branded icon & splash
 
-The repo ships with the default Capacitor placeholder icons. Source assets
-for the real ones live at:
+The committed `AppIcon.appiconset/AppIcon-512@2x.png` (1024×1024) and the
+three `Splash.imageset/splash-2732x2732*.png` images are the My Car
+Concierge brand logo on the dark brand background (`#0B1220`), generated
+via ImageMagick from `artifacts/driver/public/mcc-driver-logo.png`.
+
+Source assets for regeneration live at:
 
 - `artifacts/driver/assets/icon-only.png` — 1254×1254 brand logo
 - `artifacts/driver/assets/icon-foreground.png`
 - `artifacts/driver/assets/splash.png`
 - `artifacts/driver/assets/splash-dark.png`
 
-Regenerate the full iOS icon + splash set **on the Mac** (the `sharp`
-binary used by `@capacitor/assets` does not build on the Replit Linux
-container):
+If you want to regenerate the full iOS icon + splash set on a Mac (gives
+better adaptive variants than the simple ImageMagick compose used here):
 
 ```bash
 pnpm --filter @workspace/driver run ios:assets
 pnpm --filter @workspace/driver run ios:sync
 ```
+
+Note: `@capacitor/assets` depends on `sharp`, whose native binary does
+not load on the Replit Linux container. Use the Mac for richer asset
+regeneration; the committed images are sufficient for App Review.
 
 ## Day-to-day workflow
 
