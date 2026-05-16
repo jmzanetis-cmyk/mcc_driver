@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useEarnings, type RideEarning } from '@/hooks/useEarnings';
 import { PageHeader, Card, StatCard, Spinner } from '@/components';
+import { DailyEarningsChart } from '@/components/DailyEarningsChart';
 import { colors, borderRadius, shadows } from '@/theme';
 import {
   formatCurrency, formatDistance, formatDate, formatTime,
@@ -104,6 +105,11 @@ export function EarningsScreen() {
           <StatCard label="Avg / Ride" value={periodRides > 0 ? formatCurrency(periodEarnings / periodRides) : '--'} />
           <StatCard label="Rating" value={summary.averageRating.toFixed(1)} sublabel={getStarDisplay(summary.averageRating)} color={colors.gold} />
         </div>
+
+        {/* Daily earnings chart — week and all-time only */}
+        {period !== 'today' && (
+          <DailyEarningsChart rides={filteredRides} period={period} />
+        )}
 
         {/* Ride history */}
         <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>
