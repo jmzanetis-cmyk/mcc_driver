@@ -141,8 +141,8 @@ function FileUploadField({
       ) : state.file && !state.preview ? (
         <div style={{
           padding: 12,
-          background: '#FFF3E0',
-          border: `1px solid #FFB74D`,
+          background: colors.warningBg,
+          border: `1px solid ${colors.warning}`,
           borderRadius: borderRadius.sm,
           fontSize: 13, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 10,
         }}>
@@ -151,7 +151,7 @@ function FileUploadField({
             gap: 2, flexShrink: 0,
           }}>
             <span style={{ fontSize: 18 }}>📄</span>
-            <span style={{ fontSize: 8, fontWeight: 700, color: '#E65100', letterSpacing: '0.05em' }}>PDF</span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: colors.warning, letterSpacing: '0.05em' }}>PDF</span>
           </div>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {state.file.name}
@@ -326,7 +326,7 @@ export function ApplicationScreen() {
       <div style={{ padding: 24 }} className="scroll-container">
         {step === 1 && (
           <>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Personal Information
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
@@ -342,7 +342,7 @@ export function ApplicationScreen() {
 
         {step === 2 && (
           <>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Driver's License & Documents
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
@@ -384,7 +384,7 @@ export function ApplicationScreen() {
 
         {step === 3 && (
           <>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Almost Done
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>

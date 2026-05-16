@@ -108,8 +108,8 @@ function FileUploadRow({
         ) : (
           <div style={{
             width: 48, height: 48, borderRadius: borderRadius.md,
-            background: isPdf ? '#FFF3E0' : colors.bgCard,
-            border: `1px solid ${isPdf ? '#FFB74D' : colors.border}`,
+            background: isPdf ? colors.warningBg : colors.bgCard,
+            border: `1px solid ${isPdf ? colors.warning : colors.border}`,
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',
             fontSize: isPdf ? 18 : 20, flexShrink: 0,
@@ -118,7 +118,7 @@ function FileUploadRow({
             {isPdf ? (
               <>
                 <span>📄</span>
-                <span style={{ fontSize: 8, fontWeight: 700, color: '#E65100', letterSpacing: '0.05em' }}>PDF</span>
+                <span style={{ fontSize: 8, fontWeight: 700, color: colors.warning, letterSpacing: '0.05em' }}>PDF</span>
               </>
             ) : icon}
           </div>

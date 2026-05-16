@@ -87,7 +87,7 @@ function FileUploadField({
         </div>
       ) : state.file && !state.preview ? (
         <div style={{
-          padding: 12, background: '#FFF3E0', border: '1px solid #FFB74D',
+          padding: 12, background: colors.warningBg, border: `1px solid ${colors.warning}`,
           borderRadius: borderRadius.sm, fontSize: 13, color: colors.textPrimary,
           display: 'flex', alignItems: 'center', gap: 10,
         }}>

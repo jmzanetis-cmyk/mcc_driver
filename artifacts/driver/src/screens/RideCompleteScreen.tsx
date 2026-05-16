@@ -157,9 +157,9 @@ export function RideCompleteScreen() {
         }}>
           ✓
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: colors.textWhite, marginBottom: 4 }}>
+        <h1 className="heading-editorial heading-editorial-lg on-dark" style={{ marginBottom: 4 }}>
           Ride Complete
-        </div>
+        </h1>
         <div style={{ fontSize: 14, color: colors.gold }}>
           {getScenarioLabel(ride.scenario)}
         </div>

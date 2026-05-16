@@ -76,10 +76,8 @@ export function EarningsScreen() {
           background: colors.surfaceDark, borderRadius: borderRadius.lg,
           padding: 20, marginBottom: 20, textAlign: 'center',
         }}>
-          <div style={{ fontSize: 11, color: colors.gold, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Total Earnings
-          </div>
-          <div style={{ fontSize: 40, fontWeight: 700, color: colors.textWhite, margin: '8px 0' }}>
+          <span className="eyebrow on-dark">Total Earnings</span>
+          <div className="heading-editorial heading-editorial-xl on-dark" style={{ margin: '8px 0', fontSize: 'clamp(2rem, 8vw, 2.75rem)' }}>
             {formatCurrency(periodEarnings)}
           </div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>

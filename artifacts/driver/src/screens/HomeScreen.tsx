@@ -62,12 +62,12 @@ export function HomeScreen() {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 14, color: colors.gold, marginBottom: 2 }}>
+            <span className="eyebrow on-dark" style={{ marginBottom: 6 }}>
               Welcome back
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: colors.textWhite }}>
+            </span>
+            <h1 className="heading-editorial heading-editorial-lg on-dark" style={{ marginTop: 4 }}>
               {driver.firstName} {driver.lastName}
-            </div>
+            </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <ThemeToggle />

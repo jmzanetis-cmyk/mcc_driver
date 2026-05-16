@@ -215,12 +215,12 @@ export function MemberApprovalScreen() {
         borderRadius: `0 0 ${borderRadius.xl}px ${borderRadius.xl}px`,
         textAlign: 'center',
       }}>
-        <div style={{ fontSize: 12, color: colors.gold, marginBottom: 6, letterSpacing: 1, fontWeight: 600 }}>
-          MY CAR CONCIERGE
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: colors.textWhite, marginBottom: 6 }}>
+        <span className="eyebrow on-dark" style={{ marginBottom: 8 }}>
+          My Car Concierge
+        </span>
+        <h1 className="heading-editorial heading-editorial-xl on-dark" style={{ margin: '4px 0 8px' }}>
           Approve Your Drivers
-        </div>
+        </h1>
         <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
           Review your concierge driver and your ride-along driver below.
         </div>

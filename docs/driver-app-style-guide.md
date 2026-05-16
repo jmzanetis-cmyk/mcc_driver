@@ -297,7 +297,31 @@ canonical token values drift between the two files.
 
 ---
 
-## 10. What this guide does NOT cover
+## 10. Editorial helpers (added Task #90 — marketing-site match)
+
+Three convenience classes were added to `driver-tokens.css` so the
+Driver app can mirror the marketing site's editorial moments without
+re-deriving them per screen.
+
+- `.heading-editorial` + size modifier (`-xl` / `-lg` / `-md`) —
+  Playfair Display screen titles. Use on hero h1s, screen-level h2s,
+  and the big earnings number. Body text and labels stay in Outfit.
+  Pair with `.on-dark` when the heading sits on the brand navy hero
+  (`colors.surfaceDark`) so the color stays cream in light mode.
+- `.eyebrow` — small uppercase teal label above a section heading
+  (e.g. "Welcome back", "Total Earnings"). Use at most one per section.
+  `.on-dark` flips the color to brand gold for navy heroes.
+- `.badge-gold` — compact gold pill used for verified / highlight
+  badges (e.g. the "VERIFIED" tag on driver cards).
+
+Reach for these whenever you'd otherwise write a 22 px bold inline
+`<div>` for a screen title — the editorial serif is what makes the
+Driver app feel like part of the My Car Concierge brand rather than
+a generic rideshare app.
+
+---
+
+## 11. What this guide does NOT cover
 
 - Specific Driver-app screens (job card, shift map, earnings) — those
   are the Driver-app team's design surface.

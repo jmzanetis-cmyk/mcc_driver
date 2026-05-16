@@ -311,6 +311,61 @@ body {
    DRIVER-APP HELPERS (beyond the strict shared-styles.css extraction)
    ========================================================================== */
 
+/* ---------- Editorial typography (Playfair Display) ----------
+   Mirrors the marketing site's hero/section headings. Use for
+   screen titles and major section headers ONLY — body, labels,
+   and UI chrome stay in Outfit (set on <body>). The fluid clamp
+   keeps headings readable on small phones without overflowing.
+   -------------------------------------------------------------- */
+.heading-editorial {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--text-primary);
+  margin: 0;
+}
+.heading-editorial-xl { font-size: clamp(1.75rem, 5.5vw, 2.25rem); }
+.heading-editorial-lg { font-size: clamp(1.4rem, 4.5vw, 1.75rem); }
+.heading-editorial-md { font-size: clamp(1.15rem, 3.8vw, 1.35rem); }
+
+/* On the dark brand hero (colors.surfaceDark) we always want
+   editorial headings in cream/white regardless of theme. */
+.heading-editorial.on-dark { color: #F7F5F0; }
+
+/* ---------- Eyebrow label (teal, all-caps) ----------
+   Small uppercase label that sits above a hero/section title.
+   Mirrors the marketing site's section-intro pattern. Use sparingly
+   — one per section at most. */
+.eyebrow {
+  display: inline-block;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-teal);
+}
+.eyebrow.on-dark { color: var(--accent-gold); }
+
+/* ---------- Gold pill badge ----------
+   Compact verified / highlight badge in the brand gold. Pairs with
+   the editorial heading for an editorial card moment. */
+.badge-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-gold);
+  color: #12161c;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
 /* ---------- Form inputs (optional) ---------- */
 .form-label {
   display: block;

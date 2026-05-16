@@ -124,7 +124,7 @@ export function PendingScreen() {
         {hasRejection ? '📋' : '⏳'}
       </div>
 
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: colors.navy, marginBottom: 8, textAlign: 'center' }}>
+      <h1 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 8, textAlign: 'center' }}>
         {hasRejection ? 'Documents Need Updating' : 'Application Under Review'}
       </h1>
       <p style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', maxWidth: 320, marginBottom: 32 }}>

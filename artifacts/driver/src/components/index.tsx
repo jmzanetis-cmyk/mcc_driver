@@ -380,7 +380,7 @@ export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderP
         />
       )}
       <div style={{ flex: 1 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 600, color: colors.textWhite, margin: 0 }}>{title}</h1>
+        <h1 className="heading-editorial heading-editorial-md on-dark" style={{ fontWeight: 600 }}>{title}</h1>
         {subtitle && <div style={{ fontSize: 12, color: colors.gold, marginTop: 2 }}>{subtitle}</div>}
       </div>
       {rightAction}

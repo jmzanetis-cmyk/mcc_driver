@@ -93,7 +93,7 @@ export function SignInScreen() {
         <OfflineNotice style={{ marginBottom: 16 }} />
         {step === 'phone' ? (
           <>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Sign In
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
@@ -114,7 +114,7 @@ export function SignInScreen() {
           </>
         ) : (
           <>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+            <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Enter Code
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
