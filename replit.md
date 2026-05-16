@@ -121,7 +121,7 @@ Key files:
 - `artifacts/driver/ios/App/App/Info.plist` — bundle metadata + draft `NSLocation*UsageDescription`, `NSCamera*`, `NSPhotoLibrary*` strings
 - `artifacts/driver/ios/App/App/App.entitlements` — `aps-environment = development` for push (flip to `production` for App Store)
 - `artifacts/api-server/src/lib/apnsPush.ts` — APNs sender (HTTP/2 + JWT via the `apn` package), dispatched from `webPush.ts` for tokens with `platform = "apns"`
-- `artifacts/driver/src/services/push/registerNativePush.ts` — Capacitor PushNotifications registration; posts the APNs token to `/api/device-tokens` and listens for taps to deep-link via `data.url`
+- `artifacts/driver/src/services/push/registerNativePush.ts` — Capacitor PushNotifications registration; posts the APNs token to `/api/device-tokens` (canonical device-token endpoint — owner is resolved server-side from the Supabase Bearer token, so there is no separate `/api/drivers/me/device-tokens`) and listens for taps to deep-link via `data.url`
 - `scripts/src/send-test-push.ts` — smoke test (`pnpm --filter @workspace/scripts run send-test-push -- --driver <id>`) that hits `POST /api/dev/push-test`; use to verify delivery in foreground / background / killed states on a real device.
 - `artifacts/driver/ios/README.md` — Mac-side build, signing, and Xcode workflow
 
