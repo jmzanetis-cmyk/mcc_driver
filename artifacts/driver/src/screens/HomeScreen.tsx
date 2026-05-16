@@ -11,6 +11,7 @@ import { useRideRequests } from '@/hooks/useRideRequests';
 import { useEarnings } from '@/hooks/useEarnings';
 import { useDispatchStore } from '@/store/dispatchStore';
 import { OnlineToggle, Card, StatCard, Button } from '@/components';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { colors, borderRadius } from '@/theme';
 import { formatCurrency, getStarDisplay } from '@/utils/formatters';
 import { RideRequestModal } from './RideRequestScreen';
@@ -65,14 +66,17 @@ export function HomeScreen() {
               {driver.firstName} {driver.lastName}
             </div>
           </div>
-          <div style={{
-            width: 44, height: 44, borderRadius: '50%',
-            background: 'rgba(201,152,46,0.15)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, color: colors.gold,
-            cursor: 'pointer',
-          }} onClick={() => navigate('/settings')}>
-            {driver.firstName[0]}{driver.lastName[0]}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ThemeToggle />
+            <div style={{
+              width: 44, height: 44, borderRadius: '50%',
+              background: 'rgba(201,152,46,0.15)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontWeight: 700, color: colors.gold,
+              cursor: 'pointer',
+            }} onClick={() => navigate('/settings')}>
+              {driver.firstName[0]}{driver.lastName[0]}
+            </div>
           </div>
         </div>
 

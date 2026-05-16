@@ -13,9 +13,27 @@
     <meta name="twitter:title" content="MCC Driver" />
     <meta name="twitter:description" content="MCC Driver — built on Replit. Update this description to reflect the app." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- MCC platform fonts: Outfit (body/UI) + Playfair Display (editorial headlines).
+         See docs/driver-app-style-guide.md §1. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+    <!-- MCC platform design tokens — drop-in stylesheet mirrored from
+         www/shared-styles.css. See docs/driver-app-style-guide.md §2-5. -->
+    <link href="%BASE_URL%css/driver-tokens.css" rel="stylesheet">
+    <!-- Pre-paint theme application so the toggle's sun/moon and the
+         themed background render correctly on first frame (no flash).
+         localStorage key is `theme` to match the main platform. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+        } catch (_) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
