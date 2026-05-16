@@ -158,8 +158,13 @@ Most of this content already lives in `docs/app-store/`:
 - **EULA** → use Apple's default OR paste `terms-of-service.md` into
   the Custom EULA field.
 - **Screenshots** → `screenshots/README.md` for required sizes. The
-  upload **must** be done from a Mac simulator since App Store Connect
-  validates exact pixel dimensions.
+  ten in-repo `.jpg` files (sign-in, privacy, terms, support, apply
+  × 6.7" + 6.5") are pre-sized to spec and ready to upload for the
+  first submission. The post-login hero captures (home, ride-request,
+  navigate, earnings, settings) **must** be captured from a Mac
+  simulator with the seeded reviewer driver before the marketing
+  submission and dropped into `docs/app-store/screenshots/` as
+  `06-…` through `10-…`.
 
 ---
 

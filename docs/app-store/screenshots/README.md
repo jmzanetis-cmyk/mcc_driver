@@ -9,39 +9,50 @@ Minimum 3 screenshots per size, up to 10 allowed.
 
 ## What's in this directory
 
-Eight numbered captures of the public Driver App flows at the required
-device sizes (4 flows × 2 sizes):
+Ten numbered captures of the public Driver App flows at the required
+device sizes (5 flows × 2 sizes):
 
 - `01-signin-67.jpg` / `01-signin-65.jpg` — Welcome / sign-in screen
 - `02-privacy-67.jpg` / `02-privacy-65.jpg` — Privacy Policy screen
 - `03-terms-67.jpg` / `03-terms-65.jpg` — Terms of Service screen
 - `04-support-67.jpg` / `04-support-65.jpg` — Driver Support screen
+- `05-apply-67.jpg` / `05-apply-65.jpg` — Driver Application (Step 1 of 3)
 
 These meet the **minimum 3 per device size** requirement and can be
 uploaded to App Store Connect as-is for first submission. They cover
-the public-facing onboarding surface and the legal screens App Review
-will inspect.
+the public-facing onboarding surface (sign-in + application) and the
+legal screens App Review will inspect. Files are numbered in the
+intended App Store Connect display order.
 
-## Recommended additional captures (require Mac + test driver account)
+## Recommended additional captures (Mac + reviewer driver account required)
 
 The remaining hero screenshots showcase the post-login product surface
-and can only be captured from a Mac because they require:
+and **cannot be captured from Replit** — the auth-gated routes all
+redirect to `/signin` without a valid Supabase session, and the
+Capacitor PushNotifications / native map UI only render inside the
+iOS Simulator or a TestFlight device. They require:
 
 - The native iOS Simulator (or a TestFlight device) running the
-  Capacitor binary
-- An authenticated test driver in the `active` state with at least one
-  completed ride and a non-zero earnings balance
+  Capacitor binary built from `pnpm --filter @workspace/driver run build:ios`
+- The seeded App Review test driver signed in via the Supabase
+  "Test OTP" phone number (see `replit.md` → "Reviewer demo account"
+  and run `pnpm --filter @workspace/scripts run seed-reviewer-driver`)
+- The driver row in the `active` state with at least one completed
+  ride and a non-zero earnings balance for the Earnings screen
 
 Capture these and drop them into this directory before the marketing
-submission:
+submission (drop existing `05-apply-*` to slot 09 if you'd rather lead
+with the post-login flow):
 
-- `05-home-67.jpg` / `05-home-65.jpg` — `/home` route, driver online
-- `06-ride-request-67.jpg` / `06-ride-request-65.jpg` — `/home` with
+- `06-home-67.jpg` / `06-home-65.jpg` — `/home` route, driver online
+- `07-ride-request-67.jpg` / `07-ride-request-65.jpg` — `/home` with
   ride-request modal open
-- `07-navigate-67.jpg` / `07-navigate-65.jpg` — `/ride/:id/navigate`
+- `08-navigate-67.jpg` / `08-navigate-65.jpg` — `/ride/:id/navigate`
   mid-ride
-- `08-earnings-67.jpg` / `08-earnings-65.jpg` — `/earnings` with weekly
+- `09-earnings-67.jpg` / `09-earnings-65.jpg` — `/earnings` with weekly
   chart and Instant Pay
+- `10-settings-67.jpg` / `10-settings-65.jpg` — `/settings` Account &
+  Legal cards
 
 ## How to capture (Mac required for the additional shots)
 
