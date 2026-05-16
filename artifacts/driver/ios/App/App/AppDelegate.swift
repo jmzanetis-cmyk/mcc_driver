@@ -7,7 +7,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Force-reference our custom AlwaysLocation Capacitor plugin so the
+        // Swift linker keeps the class in the binary and Capacitor's runtime
+        // plugin scanner (which walks the Objective-C class list looking for
+        // `CAPBridgedPlugin` conformers) can discover and register it.
+        // Without this reference, dead-code stripping could elide the class
+        // and `registerPlugin('AlwaysLocation')` on the JS side would no-op.
+        _ = AlwaysLocationPlugin.self
         return true
     }
 
