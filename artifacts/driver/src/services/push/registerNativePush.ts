@@ -10,6 +10,7 @@
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/services/supabase/client";
 import { logger } from "@/services/telemetry/logger";
+import { apiUrl } from "@/services/api/baseUrl";
 
 let registered = false;
 let lastToken: string | null = null;
@@ -83,7 +84,7 @@ async function postToken(token: string): Promise<void> {
     return;
   }
   try {
-    const res = await fetch("/api/device-tokens", {
+    const res = await fetch(apiUrl("/device-tokens"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -117,7 +118,7 @@ async function deleteToken(token: string): Promise<void> {
   const accessToken = data.session?.access_token;
   if (!accessToken) return;
   try {
-    await fetch("/api/device-tokens", {
+    await fetch(apiUrl("/device-tokens"), {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

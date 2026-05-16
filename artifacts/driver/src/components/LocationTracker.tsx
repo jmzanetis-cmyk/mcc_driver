@@ -18,6 +18,7 @@
 
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/services/supabase/client';
+import { apiUrl } from '@/services/api/baseUrl';
 import { useAuth } from '@/hooks/useAuth';
 import { useDriverStatusStore } from '@/store/driverStatusStore';
 import { useDispatchStore } from '@/store/dispatchStore';
@@ -204,7 +205,7 @@ async function postLocation(driverId: string, loc: LocationFix) {
   const accessToken = data.session?.access_token;
   if (!accessToken) return;
   try {
-    const res = await fetch('/api/drivers/me/location', {
+    const res = await fetch(apiUrl('/drivers/me/location'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

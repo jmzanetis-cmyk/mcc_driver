@@ -11,6 +11,7 @@
 
 import { supabase } from '@/services/supabase/client';
 import { logger } from '@/services/telemetry/logger';
+import { apiUrl } from '@/services/api/baseUrl';
 
 interface ApiResult<T = unknown> {
   success: boolean;
@@ -39,7 +40,7 @@ async function callApi<T = unknown>(
   }
 
   try {
-    const res = await fetch(`/api${path}`, {
+    const res = await fetch(apiUrl(path), {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -433,7 +434,7 @@ export async function deleteMyAccount(): Promise<
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   try {
-    const res = await fetch(`/api/drivers/me`, { method: 'DELETE', headers });
+    const res = await fetch(apiUrl('/drivers/me'), { method: 'DELETE', headers });
     const json = (await res.json()) as Record<string, unknown>;
 
     // 200 = full success, 207 = local row anonymized but auth-user delete

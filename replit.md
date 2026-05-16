@@ -19,6 +19,7 @@ A real-time driver portal for My Car Concierge — a premium vehicle concierge s
 - Optional env: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — Web Push (native browser push) credentials. When unset, `webPush.ts` logs `skipped` and the API server falls back to Supabase Realtime broadcasts only. Generate a pair with `npx web-push generate-vapid-keys`. `VAPID_SUBJECT` defaults to `mailto:support@mycarconcierge.com`.
 - Optional env: `SENTRY_DSN`, `SENTRY_ENV`, `SENTRY_RELEASE` — API-server Sentry credentials. When `SENTRY_DSN` is unset, `lib/sentry.ts` no-ops cleanly and the server runs without telemetry (dev default). `SENTRY_ENV` defaults to `NODE_ENV`.
 - Optional env: `VITE_SENTRY_DSN`, `VITE_SENTRY_ENV`, `VITE_SENTRY_RELEASE` — Driver-app Sentry credentials, embedded at build time. When `VITE_SENTRY_DSN` is unset, `services/telemetry/sentry.ts` no-ops cleanly. The native iOS layer uses `@sentry/capacitor`; native crash symbolication still requires uploading dSYMs from the Mac build (see `artifacts/driver/ios/README.md`).
+- Optional env (driver, build-time): `VITE_API_BASE_URL` — absolute API origin (e.g. `https://api.mycarconcierge.com`). Leave unset for web/dev preview so the app uses relative `/api/*` URLs through the shared proxy. **MUST be set** for native iOS Capacitor builds — the webview has no implicit origin. Resolved by `artifacts/driver/src/services/api/baseUrl.ts::apiUrl()`. Paired with `VITE_APP_ENV` (`production` | `staging` | `development`) which drives a corner badge in non-prod builds so QA can never ship the wrong target. See `artifacts/driver/.env.example` and `docs/deployment.md`.
 - Optional env: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_AUTH_KEY`, `APNS_BUNDLE_ID`, `APNS_PRODUCTION` — Apple Push Notification service credentials for the Capacitor iOS build. `APNS_AUTH_KEY` is the full PEM contents of the .p8 file from the Apple Developer console; `APNS_BUNDLE_ID` defaults to `com.mycarconcierge.driver` and **must match** the signed build's bundle id + `App.entitlements` `aps-environment` (a mismatch returns APNs `DeviceTokenNotForTopic`, which `apnsPush.ts` treats as a revoke signal — misconfigured creds will silently purge valid tokens). Set `APNS_PRODUCTION=true` for the App Store / TestFlight build (sandbox otherwise). When unset, `apnsPush.ts` logs a skip and Web Push / Realtime continue to work. **Ops:** set `DISPATCH_API_KEY` in any non-local environment so `/api/dev/push-test` is locked down (open only when no key is configured outside production).
 
 ## Stack
@@ -265,6 +266,15 @@ Links are wired from `SignInScreen` (footer), `ApplicationScreen`
   `routes/rides.ts` calls it inside `requireUserAuth` (Supabase user) and
   `resolveCallerDriver` (driver row) so any error captured later in the
   request lifecycle is grouped against the right account — ids only, no PII.
+
+## Production deployment
+
+End-to-end runbook lives in `docs/deployment.md` (managed Postgres provisioning + schema push, API server deploy + required secrets, iOS prod/staging build env vars, smoke-test loop, rollback, secret rotation). Quick pointers:
+
+- **API base URL** is resolved at build time via `VITE_API_BASE_URL` in `artifacts/driver/src/services/api/baseUrl.ts`. All driver-app `fetch('/api/...')` calls go through `apiUrl()` so a single code path serves web (relative URLs) and native iOS (absolute prod/staging origin).
+- **Env separation**: `VITE_APP_ENV` (`production` | `staging` | `development`) drives `EnvBadge.tsx`, a fixed corner badge rendered in any non-production build. Prevents QA from confusing a staging device for a prod one.
+- **Split-write strategy stays intact in prod** — Drizzle ORM against managed Postgres for transactional writes, Supabase HTTPS admin client for realtime mirroring. Do NOT collapse to a single DB — direct Postgres from Replit to Supabase is blocked.
+- **One-time Supabase prod setup**: `ALTER PUBLICATION supabase_realtime ADD TABLE driver_assignments;` and `ADD TABLE rides;` (script: `scripts/sql/enable-rides-realtime.sql`).
 
 ## Pointers
 

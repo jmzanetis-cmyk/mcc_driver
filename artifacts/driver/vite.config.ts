@@ -57,6 +57,10 @@ export default defineConfig({
   base: basePath,
   define: {
     __SENTRY_RELEASE__: JSON.stringify(release),
+    // Expose VITE_API_BASE_URL + VITE_APP_ENV through import.meta.env so
+    // `services/api/baseUrl.ts` can pick the right API origin per build
+    // (web preview vs native iOS prod/staging). Both are deliberately
+    // left undefined in dev so the app falls back to relative `/api/*`.
   },
   plugins: [
     react(),

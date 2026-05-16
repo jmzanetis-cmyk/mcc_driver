@@ -12,6 +12,7 @@
 
 import { supabase } from '@/services/supabase/client';
 import { logger } from '@/services/telemetry/logger';
+import { apiUrl } from '@/services/api/baseUrl';
 
 const SW_URL = `${import.meta.env.BASE_URL}push-sw.js`;
 const SW_SCOPE = import.meta.env.BASE_URL;
@@ -45,7 +46,7 @@ function pushSupported(): boolean {
 
 async function fetchVapidPublicKey(): Promise<string | null> {
   try {
-    const res = await fetch('/api/device-tokens/vapid-key');
+    const res = await fetch(apiUrl('/device-tokens/vapid-key'));
     if (!res.ok) return null;
     const json = (await res.json()) as { publicKey?: string };
     return json.publicKey ?? null;
@@ -61,7 +62,7 @@ async function postSubscription(sub: PushSubscription): Promise<void> {
   const json = sub.toJSON() as { keys?: { p256dh?: string; auth?: string } };
   const p256dh = json.keys?.p256dh ?? bufferToBase64(sub.getKey('p256dh'));
   const authKey = json.keys?.auth ?? bufferToBase64(sub.getKey('auth'));
-  const res = await fetch('/api/device-tokens', {
+  const res = await fetch(apiUrl('/device-tokens'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -136,7 +137,7 @@ export async function unregisterPushSubscription(): Promise<void> {
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
     if (accessToken) {
-      await fetch('/api/device-tokens', {
+      await fetch(apiUrl('/device-tokens'), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

@@ -28,6 +28,7 @@ import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
 import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
 import { SupportScreen as LegalSupportScreen } from '@/screens/legal/SupportScreen';
+import { EnvBadge } from '@/components/EnvBadge';
 
 function AuthRedirect() {
   const { isLoading, isAuthenticated, driver } = useAuth();
@@ -95,6 +96,7 @@ export default function App() {
         <AuthProvider>
           <ActiveRideWatcher />
           <LocationTracker />
+          <EnvBadge />
           <Routes>
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/apply" element={<ApplicationScreen />} />

@@ -1,4 +1,5 @@
 import { supabase } from '@/services/supabase/client';
+import { apiUrl } from '@/services/api/baseUrl';
 import type {
   DriverRow, PartnerRow, VehicleRow, AssignmentRow, RideRow,
   PayoutRow, SupportIssueRow, AIConversationRow, AIMessageRow,
@@ -591,7 +592,7 @@ export async function sendDriverMessage(
   const authToken = session?.access_token;
 
   // Call Claude via the API server proxy (keeps API key server-side)
-  const response = await fetch('/api/ai/chat', {
+  const response = await fetch(apiUrl('/ai/chat'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
