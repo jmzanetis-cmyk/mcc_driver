@@ -40,6 +40,33 @@ interface TandemMatchDetail {
   rideAlongDriver: DriverSummary | null;
 }
 
+function DriverPhoto({ driver }: { driver: DriverSummary }) {
+  const initials = `${driver.firstName[0] ?? ''}${driver.lastName[0] ?? ''}`;
+  if (driver.profilePhotoPath) {
+    return (
+      <img
+        src={driver.profilePhotoPath}
+        alt={`${driver.firstName} ${driver.lastName}`}
+        style={{
+          width: 72, height: 72, borderRadius: '50%',
+          margin: '0 auto 12px', objectFit: 'cover',
+          display: 'block', background: colors.bgSecondary,
+        }}
+      />
+    );
+  }
+  return (
+    <div style={{
+      width: 72, height: 72, borderRadius: '50%',
+      margin: '0 auto 12px', background: colors.bgSecondary,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 24, fontWeight: 700, color: colors.navy,
+    }}>
+      {initials}
+    </div>
+  );
+}
+
 function DriverCard({
   title,
   driver,
@@ -65,16 +92,18 @@ function DriverCard({
       <div style={{ fontSize: 11, fontWeight: 700, color: accent, marginBottom: 10, letterSpacing: 0.5 }}>
         {title.toUpperCase()}
       </div>
-      <div style={{
-        width: 64, height: 64, borderRadius: '50%',
-        margin: '0 auto 12px', background: colors.bgSecondary,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 22, fontWeight: 700, color: colors.navy,
-      }}>
-        {driver.firstName[0]}{driver.lastName[0]}
-      </div>
+      <DriverPhoto driver={driver} />
       <div style={{ fontSize: 16, fontWeight: 700, color: colors.navy, textAlign: 'center' }}>
         {driver.firstName} {driver.lastName.charAt(0)}.
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700, color: colors.navy,
+          background: colors.gold, padding: '2px 6px',
+          borderRadius: borderRadius.full, letterSpacing: 0.5,
+        }}>
+          MCC VERIFIED
+        </span>
       </div>
       <div style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 6 }}>
         ⭐ {Number(driver.rating ?? 0).toFixed(1)} · {driver.totalJobs ?? 0} jobs

@@ -99,6 +99,24 @@ export function HomeScreen() {
           </Card>
         </div>
 
+        {/* Ride-Along Driver Dashboard entry — visible to all drivers; the
+            dashboard screen itself gates access by checking the
+            ride_along_drivers profile and redirects if not verified. */}
+        <Card
+          onClick={() => navigate('/ride-along')}
+          style={{ marginTop: 12, cursor: 'pointer', border: `1px solid ${colors.gold}` }}
+          padding={14}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: 24 }}>🚖</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>Ride-Along Jobs</div>
+              <div style={{ fontSize: 12, color: colors.textMuted }}>Tandem dashboard — live broadcasts & matches</div>
+            </div>
+            <div style={{ fontSize: 18, color: colors.gold }}>→</div>
+          </div>
+        </Card>
+
         {/* AI Support button */}
         <Card onClick={() => navigate('/support')} style={{ marginTop: 12, cursor: 'pointer', border: `1px solid ${colors.gold}` }} padding={14}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

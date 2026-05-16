@@ -228,6 +228,39 @@ export function RideAlongDashboardScreen() {
           </div>
         </div>
 
+        {/* Recent rating history */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+            Rating History
+          </div>
+          <Card padding={14}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: colors.gold }}>
+                  ⭐ {Number(profile.rating ?? 0).toFixed(2)}
+                </div>
+                <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                  Across {profile.totalJobs ?? 0} completed jobs
+                </div>
+              </div>
+              <div style={{
+                padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                background: `${colors.success}15`, color: colors.success,
+              }}>
+                MCC VERIFIED
+              </div>
+            </div>
+            {(profile.totalJobs ?? 0) === 0 && (
+              <div style={{
+                marginTop: 10, padding: 10, borderRadius: borderRadius.md,
+                background: colors.bgSecondary, fontSize: 12, color: colors.textMuted,
+              }}>
+                Your first rated job will appear here.
+              </div>
+            )}
+          </Card>
+        </div>
+
         {/* Active matched job */}
         {activeJob && (
           <div style={{ marginBottom: 20 }}>

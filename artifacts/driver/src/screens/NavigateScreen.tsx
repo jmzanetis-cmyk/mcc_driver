@@ -20,6 +20,7 @@ import {
   getRoleDescription, shortenAddress, formatElapsed,
 } from '@/utils/formatters';
 import { createTandemJob, updateTandemJobMode, setKnownPartner, type PartnerLookupResult } from '@/services/api/edgeFunctions';
+import { ProviderTandemMatchPanel } from '@/components/ProviderTandemMatchPanel';
 
 const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 type TandemMode = 'A' | 'B' | 'C';
@@ -310,7 +311,7 @@ export function NavigateScreen() {
   if (tandemRequired && !tandemModeConfirmed) {
     const modeCards: { mode: TandemMode; icon: string; label: string; subtitle: string; comingSoon?: boolean }[] = [
       { mode: 'A', icon: '🤝', label: 'Known Partner', subtitle: 'A pre-approved MCC ride-along driver you designate' },
-      { mode: 'B', icon: '🔍', label: 'Platform Match', subtitle: 'MCC finds a verified co-driver for you', comingSoon: true },
+      { mode: 'B', icon: '🔍', label: 'Platform Match', subtitle: 'MCC finds a verified co-driver for you' },
       { mode: 'C', icon: '🚘', label: 'Self-Sufficient', subtitle: 'You handle both vehicles and accept liability' },
     ];
 
@@ -522,6 +523,11 @@ export function NavigateScreen() {
             </div>
           ))}
         </div>
+
+        {/* Mode B platform match: show match card / waiting state */}
+        {existingTandemJobId && tandemModeConfirmed && (
+          <ProviderTandemMatchPanel tandemJobId={existingTandemJobId} />
+        )}
 
         {/* Scenario & role */}
         <div style={{ marginBottom: 16 }}>
