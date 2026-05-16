@@ -104,35 +104,60 @@ export function SettingsScreen() {
     setDeleteTyped('');
   };
 
+  // Tear down EVERY scrap of on-device state. Called on full success
+  // (HTTP 200), on retry success after a 207, and when the driver picks
+  // "Leave anyway" from the partial-success modal. We deliberately do NOT
+  // run this on a raw 207 — keeping the session alive is what makes the
+  // in-app retry path work (otherwise the bearer token is gone and the
+  // retry DELETE would 401).
+  const performFullCleanupAndExit = async () => {
+    try { queryClient.clear(); } catch (err) { logger.warn('account.delete.cleanup.query_clear_failed', err); }
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('mcc_'))
+        .forEach((k) => localStorage.removeItem(k));
+    } catch (err) { logger.warn('account.delete.cleanup.localstorage_failed', err); }
+    try { sessionStorage.clear(); } catch (err) { logger.warn('account.delete.cleanup.sessionstorage_failed', err); }
+    try { await purgeAllOfflineData(); } catch (err) { logger.warn('account.delete.cleanup.indexeddb_failed', err); }
+    try { await supabase.auth.signOut(); } catch (err) { logger.warn('account.delete.cleanup.supabase_signout_failed', err); }
+    try { await signOut(); } catch (err) { logger.warn('account.delete.cleanup.useauth_signout_failed', err); }
+    navigate('/', { replace: true });
+  };
+
   // After a 207 (anonymized OK but Supabase auth-user delete failed), the
   // driver row is already gone — retrying hits the no-driver branch, which
   // only attempts the auth-user delete. That's exactly the retry semantics
-  // we want here.
+  // we want.
   const retryAuthDelete = async () => {
-    setDeletePartialWarning(null);
+    setDeleteError(null);
     setDeleting(true);
     const result = await deleteMyAccount();
     setDeleting(false);
     if (result.success) {
       if (result.data.warning) {
+        // Still failing — keep the warning UI so the driver can retry again.
         setDeletePartialWarning(result.data.warning);
         return;
       }
-      // Fully clean now — close the modal and bounce.
-      try { await supabase.auth.signOut(); } catch { /* ignore */ }
-      try { await signOut(); } catch { /* ignore */ }
-      navigate('/', { replace: true });
+      setDeletePartialWarning(null);
+      await performFullCleanupAndExit();
       return;
     }
-    setDeleteError('success' in result ? '' : (result as { error?: string }).error ?? 'Retry failed.');
+    if ('blocked' in result) {
+      // Shouldn't happen on the no-driver retry path, but handle defensively.
+      setDeleteBlocked(result.blocked);
+      setDeletePartialWarning(null);
+      return;
+    }
+    setDeleteError(result.error || 'Retry failed. Please try again or contact support.');
   };
 
   const acceptPartialAndExit = async () => {
     // Driver chose to leave even though server-side auth-user deletion is
-    // still hanging. Local session has already been torn down in
-    // handleConfirmDelete; just bounce to welcome.
+    // still hanging. Tear down the local session now so the device is
+    // clean and bounce to welcome.
     setDeletePartialWarning(null);
-    navigate('/', { replace: true });
+    await performFullCleanupAndExit();
   };
 
   const handleConfirmDelete = async () => {
@@ -142,38 +167,20 @@ export function SettingsScreen() {
     setDeleting(false);
 
     if (result.success) {
-      // Clear ALL on-device state before bouncing to welcome — a deleted
-      // driver must leave no recoverable residue on the device:
-      //  - TanStack Query cache (driver + payout queries)
-      //  - SessionStorage (any transient flow state)
-      //  - LocalStorage keys we own (preferred partner cache, nav prefs)
-      //  - IndexedDB `mcc-driver` (offline active-ride snapshot,
-      //    pending-actions queue, cached driver-state)
-      //  - Supabase auth session (revokes locally cached tokens; the
-      //    server already deleted the auth user, but signOut() also tears
-      //    down the Zustand auth store via the AuthProvider listener)
-      // Best-effort cleanup steps — each is wrapped because we MUST still
-      // bounce the user to welcome even if one step fails, but we log
-      // failures so residual on-device data risk is observable.
-      try { queryClient.clear(); } catch (err) { logger.warn('account.delete.cleanup.query_clear_failed', err); }
-      try {
-        Object.keys(localStorage)
-          .filter((k) => k.startsWith('mcc_'))
-          .forEach((k) => localStorage.removeItem(k));
-      } catch (err) { logger.warn('account.delete.cleanup.localstorage_failed', err); }
-      try { sessionStorage.clear(); } catch (err) { logger.warn('account.delete.cleanup.sessionstorage_failed', err); }
-      try { await purgeAllOfflineData(); } catch (err) { logger.warn('account.delete.cleanup.indexeddb_failed', err); }
-      try { await supabase.auth.signOut(); } catch (err) { logger.warn('account.delete.cleanup.supabase_signout_failed', err); }
-      try { await signOut(); } catch (err) { logger.warn('account.delete.cleanup.useauth_signout_failed', err); }
       // Partial-success (HTTP 207): the local row is anonymized but the
       // Supabase auth-user delete failed. Surface a dedicated retry UI
-      // instead of silently navigating — the driver deserves an explicit
-      // path to finish the deletion contract.
+      // BEFORE tearing down the local session — if we sign out first,
+      // the bearer token is gone and the retry DELETE would 401, breaking
+      // the in-app completion path.
       if (result.data.warning) {
         setDeletePartialWarning(result.data.warning);
         return;
       }
-      navigate('/', { replace: true });
+      // Full success (HTTP 200) — tear down all on-device state:
+      //  - TanStack Query cache, sessionStorage, mcc_* localStorage
+      //  - IndexedDB `mcc-driver` (active-ride / pending-actions / driver-state)
+      //  - Supabase + useAuth sign-out (also unregisters push)
+      await performFullCleanupAndExit();
       return;
     }
 
