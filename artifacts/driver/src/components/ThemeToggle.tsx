@@ -4,6 +4,19 @@ type Theme = 'dark' | 'light';
 
 function readInitialTheme(): Theme {
   if (typeof document === 'undefined') return 'dark';
+  // ?theme=light|dark deep-link override (also persists via the
+  // `applyTheme` localStorage write). Lets QA / reviewers preview
+  // either theme on any URL without clicking the toggle.
+  if (typeof window !== 'undefined') {
+    const param = new URLSearchParams(window.location.search).get('theme');
+    if (param === 'light' || param === 'dark') return param;
+    try {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch {
+      /* localStorage blocked — fall through */
+    }
+  }
   const attr = document.documentElement.getAttribute('data-theme');
   return attr === 'light' ? 'light' : 'dark';
 }

@@ -29,6 +29,7 @@ import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
 import { SupportScreen as LegalSupportScreen } from '@/screens/legal/SupportScreen';
 import { EnvBadge } from '@/components/EnvBadge';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NetworkResyncBridge } from '@/components/NetworkResyncBridge';
 import { AppStatusBridge } from '@/components/AppStatusBridge';
@@ -102,6 +103,16 @@ export default function App() {
           <NetworkResyncBridge />
           <OfflineBanner />
           <EnvBadge />
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+              right: 16,
+              zIndex: 80,
+            }}
+          >
+            <ThemeToggle />
+          </div>
           <AppStatusBridge>
           <Routes>
             <Route path="/signin" element={<SignInScreen />} />

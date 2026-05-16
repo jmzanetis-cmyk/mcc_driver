@@ -11,7 +11,6 @@ import { useRideRequests } from '@/hooks/useRideRequests';
 import { useEarnings } from '@/hooks/useEarnings';
 import { useDispatchStore } from '@/store/dispatchStore';
 import { OnlineToggle, Card, StatCard, Button, Spinner } from '@/components';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { colors, borderRadius } from '@/theme';
 import { formatCurrency, getStarDisplay } from '@/utils/formatters';
 import { RideRequestModal } from './RideRequestScreen';
@@ -70,7 +69,6 @@ export function HomeScreen() {
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <ThemeToggle />
             <button
               type="button"
               onClick={() => navigate('/settings')}
