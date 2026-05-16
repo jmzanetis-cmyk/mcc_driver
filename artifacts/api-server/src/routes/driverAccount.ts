@@ -350,9 +350,13 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
   // scrubbed row immediately. A Supabase outage must not unwind the local
   // anonymization, so we only log failures.
   try {
+    // Mirror the full anonymization set (not just visible PII) so the
+    // Supabase mirror cannot diverge from local Drizzle state after a
+    // 207 partial-success or a transient Supabase outage.
     const { error: mirrorErr } = await supabaseAdmin
       .from("drivers")
       .update({
+        user_id: sentinelUserId,
         first_name: sentinelString,
         last_name: sentinelString,
         email: sentinelString,
@@ -360,12 +364,17 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
         profile_photo_url: null,
         license_document_path: null,
         insurance_document_path: null,
+        document_rejection_reason: null,
         stripe_account_id: null,
         current_lat: null,
         current_lng: null,
         location_updated_at: null,
+        preferred_partner_id: null,
         status: "deleted",
         is_online: false,
+        can_drive_member_vehicle: false,
+        can_do_rideshare: false,
+        can_do_delivery: false,
       })
       .eq("id", driver.id);
     if (mirrorErr) {

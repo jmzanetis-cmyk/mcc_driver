@@ -22,6 +22,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { purgeAllOfflineData } from '@/services/offline/storage';
+import { logger } from '@/services/telemetry/logger';
 
 const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 
@@ -117,21 +118,19 @@ export function SettingsScreen() {
       //  - Supabase auth session (revokes locally cached tokens; the
       //    server already deleted the auth user, but signOut() also tears
       //    down the Zustand auth store via the AuthProvider listener)
-      try { queryClient.clear(); } catch { /* ignore */ }
+      // Best-effort cleanup steps — each is wrapped because we MUST still
+      // bounce the user to welcome even if one step fails, but we log
+      // failures so residual on-device data risk is observable.
+      try { queryClient.clear(); } catch (err) { logger.warn('account.delete.cleanup.query_clear_failed', err); }
       try {
-        // Strip any keys we wrote so the next phone-number sign-in starts fresh.
         Object.keys(localStorage)
           .filter((k) => k.startsWith('mcc_'))
           .forEach((k) => localStorage.removeItem(k));
-      } catch { /* ignore */ }
-      try { sessionStorage.clear(); } catch { /* ignore */ }
-      // Hard-delete the entire offline IndexedDB so cached ride/driver
-      // data cannot be recovered by re-opening the app.
-      try { await purgeAllOfflineData(); } catch { /* ignore */ }
-      try { await supabase.auth.signOut(); } catch { /* ignore */ }
-      // signOut() above also fires onAuthStateChange → clear() in AuthProvider,
-      // but call signOut from useAuth as well for safety (it unregisters push).
-      try { await signOut(); } catch { /* ignore */ }
+      } catch (err) { logger.warn('account.delete.cleanup.localstorage_failed', err); }
+      try { sessionStorage.clear(); } catch (err) { logger.warn('account.delete.cleanup.sessionstorage_failed', err); }
+      try { await purgeAllOfflineData(); } catch (err) { logger.warn('account.delete.cleanup.indexeddb_failed', err); }
+      try { await supabase.auth.signOut(); } catch (err) { logger.warn('account.delete.cleanup.supabase_signout_failed', err); }
+      try { await signOut(); } catch (err) { logger.warn('account.delete.cleanup.useauth_signout_failed', err); }
       // Partial-success (HTTP 207): server anonymized the row but couldn't
       // delete the Supabase auth user. Surface the warning before bouncing —
       // the local sign-out above should still tear down the session, but the
