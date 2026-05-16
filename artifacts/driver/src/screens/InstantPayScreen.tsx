@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useInstantPay } from '@/hooks/useInstantPay';
 import { INSTANT_PAY_FEE, MINIMUM_CASHOUT, MAX_DAILY_CASHOUTS } from '@/services/payments/instantPayService';
 import { PageHeader, Card, Button, Spinner, InfoRow } from '@/components';
-import { colors, borderRadius } from '@/theme';
+import { colors, borderRadius, withAlpha } from '@/theme';
 import { formatCurrency, formatDate, formatTime } from '@/utils/formatters';
 
 export function InstantPayScreen() {
@@ -302,7 +302,7 @@ export function InstantPayScreen() {
                       fontSize: 10, fontWeight: 600, padding: '2px 6px',
                       borderRadius: borderRadius.full,
                       color: statusColors[payout.status] || colors.textMuted,
-                      background: `${statusColors[payout.status] || colors.textMuted}15`,
+                      background: withAlpha(statusColors[payout.status] || colors.textMuted, '15'),
                     }}>
                       {payout.status.toUpperCase()}
                     </span>

@@ -11,7 +11,7 @@
 
 import React, { useState } from 'react';
 import { Button, Card } from '@/components';
-import { colors, borderRadius } from '@/theme';
+import { colors, borderRadius, withAlpha } from '@/theme';
 import { requestTandemRematch, providerAcceptTandemMatch } from '@/services/api/edgeFunctions';
 
 export interface MatchedDriverInfo {
@@ -135,7 +135,7 @@ export function TandemMatchCard({
           </div>
           <div style={{
             fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 999,
-            background: `${statusColor}20`, color: statusColor, whiteSpace: 'nowrap',
+            background: withAlpha(statusColor, '20'), color: statusColor, whiteSpace: 'nowrap',
           }}>
             {statusLabel.toUpperCase()}
           </div>
