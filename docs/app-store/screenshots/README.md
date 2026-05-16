@@ -57,9 +57,37 @@ pnpm --filter @workspace/driver run ios:open
 
 ## How the in-repo captures were produced
 
-The eight `.jpg` files in this directory were captured against the
-Replit dev preview at the listed iPhone-15-Pro-Max (430 × 932 logical)
-and iPhone-11-Pro-Max (414 × 896 logical) viewport sizes. Because the
-public flows render identically on web and on the Capacitor binary
-(same React bundle, same theme), they are submission-quality for the
-sign-in and legal surfaces.
+The eight `.jpg` files were produced in two steps:
+
+1. Captured against the Replit dev preview at iPhone-15-Pro-Max
+   (430 × 932 logical) and iPhone-11-Pro-Max (414 × 896 logical)
+   viewport sizes — the React layout that ships in the Capacitor
+   binary is the same React bundle and theme, so the composition
+   matches what App Review will see in TestFlight.
+2. Upscaled to the exact App Store Connect pixel dimensions with
+   ImageMagick so the files pass the upload size check:
+
+   ```sh
+   cd docs/app-store/screenshots
+   for f in *-67.jpg; do magick "$f" -resize 1290x2796\! -quality 92 "$f.tmp" && mv "$f.tmp" "$f"; done
+   for f in *-65.jpg; do magick "$f" -resize 1284x2778\! -quality 92 "$f.tmp" && mv "$f.tmp" "$f"; done
+   identify *.jpg   # sanity check: every file should be 1290x2796 or 1284x2778
+   ```
+
+Native simulator captures from a Mac (procedure below) are preferred
+for the marketing submission because they are crisp at native pixel
+density rather than bilinearly upscaled — re-run that procedure for
+the final marketing build and overwrite these files. The current
+files are valid for the initial App Store Connect upload (they pass
+the dimension check) but should be replaced before the public
+listing goes live.
+
+## Pre-upload dimension check
+
+Before uploading, confirm every file is at the required pixel size:
+
+```sh
+cd docs/app-store/screenshots
+for f in *-67.jpg; do identify -format "%w %h %f\n" "$f" | awk '$1!=1290 || $2!=2796 {print "BAD: "$0; exit 1}'; done
+for f in *-65.jpg; do identify -format "%w %h %f\n" "$f" | awk '$1!=1284 || $2!=2778 {print "BAD: "$0; exit 1}'; done
+```
