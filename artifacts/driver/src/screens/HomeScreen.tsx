@@ -145,12 +145,7 @@ export function HomeScreen() {
             <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Earnings</div>
             <div style={{ fontSize: 11, color: colors.textMuted }}>View details</div>
           </Card>
-          <Card onClick={() => navigate('/scheduled')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
-            <div style={{ fontSize: 20, marginBottom: 6 }}>📅</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Scheduled</div>
-            <div style={{ fontSize: 11, color: colors.textMuted }}>Upcoming rides</div>
-          </Card>
-          <Card onClick={() => navigate('/settings')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
+<Card onClick={() => navigate('/settings')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
             <div style={{ fontSize: 20, marginBottom: 6 }}>⚙️</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Settings</div>
             <div style={{ fontSize: 11, color: colors.textMuted }}>Profile & prefs</div>

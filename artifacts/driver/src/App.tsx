@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryProvider } from '@/app/providers/QueryProvider';
 import { AuthProvider } from '@/features/auth/provider/AuthProvider';
 import { ProtectedRoute } from '@/features/auth/guards/ProtectedRoute';
@@ -78,20 +78,6 @@ function AuthRedirect() {
   return <Navigate to="/home" replace />;
 }
 
-function ScheduledPlaceholder() {
-  return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', padding: 32,
-      background: colors.bgPrimary,
-    }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>📅</div>
-      <div style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>Scheduled Rides</div>
-      <div style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginBottom: 24 }}>Coming in Phase 2.</div>
-      <Link to="/home" style={{ fontSize: 14, color: colors.gold, fontWeight: 600 }}>← Back to Home</Link>
-    </div>
-  );
-}
 
 export default function App() {
   return (
@@ -130,7 +116,7 @@ export default function App() {
             <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />
             <Route path="/instant-pay" element={<ProtectedRoute><InstantPayScreen /></ProtectedRoute>} />
             <Route path="/settings/payments" element={<ProtectedRoute><SetupPaymentsScreen /></ProtectedRoute>} />
-            <Route path="/scheduled" element={<ProtectedRoute><ScheduledPlaceholder /></ProtectedRoute>} />
+            <Route path="/scheduled" element={<Navigate to="/home" replace />} />
             {/* Public legal routes — required by App Store Connect for the
                 Privacy Policy URL, Terms of Use URL, and Support URL fields.
                 These resolve over HTTPS via the deployed driver app domain
