@@ -9,6 +9,7 @@ import {
 } from '@/utils/formatters';
 import type { RideRow } from '@/services/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
+import { apiUrl } from '@/services/api/baseUrl';
 
 interface CompletedRideData {
   scenario: string;
@@ -102,11 +103,21 @@ export function RideCompleteScreen() {
     }
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('rides').update({
-        driver_rating: rating,
-        driver_feedback: feedback || null,
-      }).eq('id', rideId);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Session expired');
+
+      const res = await fetch(apiUrl('/ratings'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ rideId, stars: rating, comment: feedback || null }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `Failed (${res.status})`);
+      }
       setSubmitted(true);
       navigate(`/ride/${rideId}/tip`);
     } catch (err) {

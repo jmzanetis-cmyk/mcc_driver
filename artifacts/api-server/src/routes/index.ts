@@ -18,6 +18,7 @@ import debugThrowRouter from "./debugThrow";
 import appStatusRouter from "./appStatus";
 import tipsRouter from "./tips";
 import rideMessagesRouter from "./rideMessages";
+import ratingsRouter from "./ratings";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(debugThrowRouter);
 router.use(appStatusRouter);
 router.use(tipsRouter);
 router.use(rideMessagesRouter);
+router.use(ratingsRouter);
 
 export default router;

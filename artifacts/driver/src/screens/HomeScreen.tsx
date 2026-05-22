@@ -68,6 +68,14 @@ export function HomeScreen() {
             <h1 className="heading-editorial heading-editorial-lg on-dark" style={{ marginTop: 4 }}>
               {driver.firstName} {driver.lastName}
             </h1>
+            {!earningsLoading && summary.averageRating > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                <span style={{ color: colors.gold, fontSize: 13 }}>★</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>
+                  {summary.averageRating.toFixed(1)}
+                </span>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
