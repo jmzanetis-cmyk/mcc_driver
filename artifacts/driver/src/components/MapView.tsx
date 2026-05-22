@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { getMapsLoader } from '@/services/maps/mapsLoader';
 
 export interface LatLng {
   lat: number;
@@ -38,14 +38,6 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3d5a7a' }] },
 ];
 
-// Module-level singleton — Loader throws if instantiated twice with the same key
-let _loader: Loader | null = null;
-function getLoader(apiKey: string): Loader {
-  if (!_loader) {
-    _loader = new Loader({ apiKey, version: 'weekly', libraries: [] });
-  }
-  return _loader;
-}
 
 function readDocTheme(): 'dark' | 'light' {
   if (typeof document === 'undefined') return 'dark';
@@ -95,8 +87,8 @@ export function MapView({
   // Initialize map once
   useEffect(() => {
     if (!containerRef.current) return;
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
+    const loader = getMapsLoader();
+    if (!loader) {
       setLoadError('Google Maps API key is not configured.');
       return;
     }
@@ -105,7 +97,7 @@ export function MapView({
 
     void (async () => {
       try {
-        await getLoader(apiKey).load();
+        await loader.load();
         if (cancelled || !containerRef.current) return;
 
         const map = new google.maps.Map(containerRef.current, {

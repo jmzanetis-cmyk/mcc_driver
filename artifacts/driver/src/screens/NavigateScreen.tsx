@@ -12,10 +12,11 @@ import { useNavigate } from 'react-router-dom';
 import { useActiveRide, type ActiveRideStage } from '@/hooks/useActiveRide';
 import { useAuth } from '@/hooks/useAuth';
 import { useDispatchStore } from '@/store/dispatchStore';
-import { openNavigation, getNavAppName, type NavApp } from '@/services/navigation/navService';
+import { openNavigation, getNavAppName, getDefaultNavApp, type NavApp } from '@/services/navigation/navService';
+import { fetchRoute, type RouteResult } from '@/services/navigation/routeService';
 import { Button, Card, InfoRow, PageHeader, Spinner, MapView } from '@/components';
 import { useDriverStatusStore } from '@/store/driverStatusStore';
-import { colors, borderRadius } from '@/theme';
+import { colors, borderRadius, withAlpha } from '@/theme';
 import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
   getRoleDescription, shortenAddress, formatElapsed,
@@ -37,8 +38,16 @@ export function NavigateScreen() {
   // Used by the cancelled overlay to clear dispatch and show cancellation reason
   const dispatch = useDispatchStore();
 
-  const [preferredNav, setPreferredNav] = useState<NavApp>('google_maps');
+  const [preferredNav, setPreferredNav] = useState<NavApp>(() => {
+    try {
+      const saved = localStorage.getItem('mcc_preferred_nav') as NavApp | null;
+      return saved ?? getDefaultNavApp();
+    } catch {
+      return getDefaultNavApp();
+    }
+  });
   const [elapsed, setElapsed] = useState('0:00');
+  const [route, setRoute] = useState<RouteResult | null>(null);
   const [showCancel, setShowCancel] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
@@ -63,11 +72,18 @@ export function NavigateScreen() {
     ? { lat: currentLat, lng: currentLng }
     : null;
 
-  // Load preferred nav and saved tandem partner from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('mcc_preferred_nav') as NavApp | null;
-    if (saved) setPreferredNav(saved);
+  // Computed before early returns so they're available in effects
+  const isNavigatingToPickup = dispatch.stage === 'accepted' || dispatch.stage === 'navigating';
+  const routeDest: { lat: number; lng: number } | null = isNavigatingToPickup
+    ? (dispatch.pickupLat != null && dispatch.pickupLng != null
+        ? { lat: dispatch.pickupLat, lng: dispatch.pickupLng }
+        : null)
+    : (dispatch.dropoffLat != null && dispatch.dropoffLng != null
+        ? { lat: dispatch.dropoffLat, lng: dispatch.dropoffLng }
+        : null);
 
+  // Load saved tandem partner from localStorage (nav pref is lazy-initialized above)
+  useEffect(() => {
     const partnerJson = localStorage.getItem(KNOWN_PARTNER_KEY);
     if (partnerJson) {
       try { setSavedPartner(JSON.parse(partnerJson) as PartnerLookupResult); } catch { /* ignore */ }
@@ -103,6 +119,31 @@ export function NavigateScreen() {
 
     return () => clearInterval(tick);
   }, [activeRide?.stage]);
+
+  // Fetch route + ETA when destination is known. Refreshes every 30s so ETA
+  // stays accurate as the driver moves. Uses the latest driver position at
+  // interval fire time via the store directly (avoids stale closure).
+  useEffect(() => {
+    if (!routeDest) return;
+    let cancelled = false;
+
+    const doFetch = () => {
+      const s = useDriverStatusStore.getState();
+      const pos = s.currentLat != null && s.currentLng != null
+        ? { lat: s.currentLat, lng: s.currentLng }
+        : null;
+      if (!pos) return;
+      void fetchRoute(pos, routeDest).then((r) => {
+        if (!cancelled && r) setRoute(r);
+      });
+    };
+
+    doFetch();
+    const id = setInterval(doFetch, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+    // Re-run only when destination changes, not on every position tick
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeDest?.lat, routeDest?.lng]);
 
   // ── Cancelled overlay ──────────────────────────────────────────────────────
   if (activeRide?.stage === 'cancelled') {
@@ -202,7 +243,7 @@ export function NavigateScreen() {
     );
   }
 
-  const isNavigatingToPickup = activeRide.stage === 'accepted' || activeRide.stage === 'navigating';
+  // isNavigatingToPickup is computed from dispatch store above (before early returns)
   const destination = isNavigatingToPickup
     ? { lat: activeRide.pickupLat, lng: activeRide.pickupLng, label: activeRide.pickupAddress }
     : { lat: activeRide.dropoffLat, lng: activeRide.dropoffLng, label: activeRide.dropoffAddress };
@@ -456,6 +497,7 @@ export function NavigateScreen() {
           center={driverPosition ?? { lat: destination.lat, lng: destination.lng }}
           driverPosition={driverPosition}
           destinations={[{ lat: destination.lat, lng: destination.lng, label: destination.label }]}
+          routePolyline={route?.polyline}
           zoom={15}
           style={{ height: '100%' }}
         />
@@ -496,6 +538,32 @@ export function NavigateScreen() {
         marginTop: -16, background: colors.bgPrimary,
         position: 'relative',
       }}>
+        {/* ETA / distance strip */}
+        {route && (
+          <div style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'stretch',
+            gap: 0, marginBottom: 16,
+            padding: '10px 0 14px',
+            borderBottom: `1px solid ${colors.border}`,
+          }}>
+            <div style={{ textAlign: 'center', flex: 1 }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: colors.navy, lineHeight: 1 }}>
+                {route.etaMinutes}
+                <span style={{ fontSize: 13, fontWeight: 500 }}> min</span>
+              </div>
+              <div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 3 }}>ETA</div>
+            </div>
+            <div style={{ width: 1, background: colors.border, margin: '2px 0' }} />
+            <div style={{ textAlign: 'center', flex: 1 }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: colors.navy, lineHeight: 1 }}>
+                {(route.distanceMeters / 1609.34).toFixed(1)}
+                <span style={{ fontSize: 13, fontWeight: 500 }}> mi</span>
+              </div>
+              <div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 3 }}>Away</div>
+            </div>
+          </div>
+        )}
+
         {/* Progress steps */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 20 }}>
           {stageSteps.map((s, i) => (
@@ -603,6 +671,9 @@ export function NavigateScreen() {
             size="lg"
             loading={activeRide.stage === 'completing'}
             disabled={activeRide.stage === 'completing'}
+            style={activeRide.stage === 'in_progress' ? {
+              boxShadow: `0 6px 28px ${withAlpha(colors.success, '55')}`,
+            } : undefined}
           >
             {currentAction.label}
           </Button>

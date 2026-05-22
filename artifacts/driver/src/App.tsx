@@ -30,6 +30,7 @@ import { TermsScreen } from '@/screens/legal/TermsScreen';
 import { SupportScreen as LegalSupportScreen } from '@/screens/legal/SupportScreen';
 import { EnvBadge } from '@/components/EnvBadge';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NetworkResyncBridge } from '@/components/NetworkResyncBridge';
 import { AppStatusBridge } from '@/components/AppStatusBridge';
@@ -80,6 +81,7 @@ function AuthRedirect() {
 
 
 export default function App() {
+  useColorScheme();
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <QueryProvider>

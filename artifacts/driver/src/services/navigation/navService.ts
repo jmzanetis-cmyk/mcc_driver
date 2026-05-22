@@ -106,6 +106,17 @@ export function getNavAppName(app: NavApp): string {
 }
 
 /**
+ * Default nav app for the current platform.
+ * iOS drivers typically prefer Apple Maps; Android defaults to Google Maps.
+ */
+export function getDefaultNavApp(): NavApp {
+  if (typeof navigator !== 'undefined' && /iPhone|iPad/i.test(navigator.userAgent)) {
+    return 'apple_maps';
+  }
+  return 'google_maps';
+}
+
+/**
  * Get available nav apps for the current platform
  */
 export function getAvailableNavApps(): NavApp[] {
