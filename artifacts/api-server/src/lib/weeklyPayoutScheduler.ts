@@ -7,7 +7,7 @@
 // ============================================================
 
 import { logger } from "./logger";
-import { runWeeklyPayouts } from "../routes/payouts";
+import { runWeeklyPayouts } from "../services/weeklyPayoutService";
 
 const WEDNESDAY = 3; // getDay() value for Wednesday
 const PAYOUT_HOUR_UTC = 6; // 06:00 UTC
@@ -44,10 +44,10 @@ async function runAndReschedule(): Promise<void> {
     const summary = await runWeeklyPayouts();
     logger.info(
       {
-        processedDrivers: summary.processedDrivers,
-        skippedDrivers: summary.skippedDrivers,
-        totalAmount: summary.totalAmount,
-        errorCount: summary.errors.length,
+        processed: summary.processed,
+        succeeded: summary.succeeded,
+        failed: summary.failed,
+        skipped: summary.skipped,
       },
       "Weekly payout scheduler: run complete",
     );
