@@ -1,15 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import type { AssignmentRow, RideRow } from '@/services/supabase/types';
+import type { AssignmentRow, PayoutRow, RideRow } from '@/services/supabase/types';
 
 export interface EarningsSummary {
   today: number;
   thisWeek: number;
+  thisMonth: number;
   allTime: number;
   ridesToday: number;
   ridesThisWeek: number;
+  ridesThisMonth: number;
   ridesAllTime: number;
   averageRating: number;
+  totalTips: number;
+  totalFares: number;
 }
 
 export interface RideEarning {
@@ -27,6 +31,22 @@ export interface RideEarning {
   distanceMiles: number;
 }
 
+export interface PayoutRecord {
+  id: string;
+  amount: number;
+  netPayout: number | null;
+  platformFee: number | null;
+  method: 'instant' | 'standard';
+  status: string;
+  requestedAt: string | null;
+  completedAt: string | null;
+  scheduledDate: string | null;
+  cardLast4: string | null;
+  bankLast4: string | null;
+  failedReason: string | null;
+  createdAt: string;
+}
+
 interface AssignmentWithRide extends AssignmentRow {
   rides: RideRow | null;
 }
@@ -36,46 +56,59 @@ interface DriverStats {
   total_rides_completed: number;
 }
 
-async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSummary; recentRides: RideEarning[] }> {
+async function fetchEarnings(driverId: string): Promise<{
+  summary: EarningsSummary;
+  recentRides: RideEarning[];
+  payouts: PayoutRecord[];
+}> {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const weekStart = new Date(now.getTime() - now.getDay() * 86400000);
   weekStart.setHours(0, 0, 0, 0);
   const weekStartISO = weekStart.toISOString();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  // NOTE: Both Supabase calls surface their `error` so React Query
-  // can flip `isError` and the EarningsScreen's retry UI actually
-  // fires on network drops / RLS failures. Swallowing the error
-  // here would resolve the query with an empty fallback and leave
-  // drivers staring at $0 earnings while offline.
-  const { data: assignments, error: assignmentsError } = await supabase
-    .from('driver_assignments')
-    .select(`
-      ride_id, driver_payout_amount, completed_at,
-      rides (
-        id, scenario, tier, service_type, pickup_address, dropoff_address,
-        actual_fare, tip_amount, member_rating, actual_distance_miles,
-        completed_at
-      )
-    `)
-    .eq('driver_id', driverId)
-    .eq('status', 'completed')
-    .order('completed_at', { ascending: false })
-    .limit(100);
+  const [
+    { data: assignments, error: assignmentsError },
+    { data: driverData, error: driverError },
+    { data: payoutData },
+  ] = await Promise.all([
+    supabase
+      .from('driver_assignments')
+      .select(`
+        ride_id, driver_payout_amount, completed_at,
+        rides (
+          id, scenario, tier, service_type, pickup_address, dropoff_address,
+          actual_fare, tip_amount, member_rating, actual_distance_miles,
+          completed_at
+        )
+      `)
+      .eq('driver_id', driverId)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('drivers')
+      .select('average_rating, total_rides_completed')
+      .eq('id', driverId)
+      .single(),
+    supabase
+      .from('driver_payouts')
+      .select('*')
+      .eq('driver_id', driverId)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ]);
+
   if (assignmentsError) throw assignmentsError;
-
-  const { data: driverData, error: driverError } = await supabase
-    .from('drivers')
-    .select('average_rating, total_rides_completed')
-    .eq('id', driverId)
-    .single();
   if (driverError) throw driverError;
 
   const driver = driverData as unknown as DriverStats | null;
   const rows = (assignments ?? []) as unknown as AssignmentWithRide[];
 
-  let today = 0, thisWeek = 0, allTime = 0;
-  let ridesToday = 0, ridesThisWeek = 0;
+  let today = 0, thisWeek = 0, thisMonth = 0, allTime = 0;
+  let ridesToday = 0, ridesThisWeek = 0, ridesThisMonth = 0;
+  let totalTips = 0, totalFares = 0;
   const rides: RideEarning[] = [];
 
   for (const a of rows) {
@@ -88,8 +121,11 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
     const completedAt = ride.completed_at ?? a.completed_at ?? '';
 
     allTime += total;
+    totalTips += tip;
+    totalFares += payout;
     if (completedAt >= todayStart) { today += total; ridesToday++; }
     if (completedAt >= weekStartISO) { thisWeek += total; ridesThisWeek++; }
+    if (completedAt >= monthStart) { thisMonth += total; ridesThisMonth++; }
 
     rides.push({
       rideId: ride.id,
@@ -107,17 +143,38 @@ async function fetchEarnings(driverId: string): Promise<{ summary: EarningsSumma
     });
   }
 
+  const payouts: PayoutRecord[] = ((payoutData ?? []) as unknown as PayoutRow[]).map((p) => ({
+    id: p.id,
+    amount: p.amount,
+    netPayout: p.net_payout,
+    platformFee: p.platform_fee,
+    method: p.method,
+    status: p.status,
+    requestedAt: p.requested_at,
+    completedAt: p.completed_at,
+    scheduledDate: p.scheduled_date,
+    cardLast4: p.card_last4,
+    bankLast4: p.bank_last4,
+    failedReason: p.failed_reason,
+    createdAt: p.created_at,
+  }));
+
   return {
     summary: {
       today: Math.round(today * 100) / 100,
       thisWeek: Math.round(thisWeek * 100) / 100,
+      thisMonth: Math.round(thisMonth * 100) / 100,
       allTime: Math.round(allTime * 100) / 100,
       ridesToday,
       ridesThisWeek,
+      ridesThisMonth,
       ridesAllTime: driver?.total_rides_completed ?? (assignments?.length ?? 0),
       averageRating: driver?.average_rating ?? 5.0,
+      totalTips: Math.round(totalTips * 100) / 100,
+      totalFares: Math.round(totalFares * 100) / 100,
     },
     recentRides: rides,
+    payouts,
   };
 }
 
@@ -132,11 +189,13 @@ export function useEarnings(driverId: string | null) {
 
   return {
     summary: query.data?.summary ?? {
-      today: 0, thisWeek: 0, allTime: 0,
-      ridesToday: 0, ridesThisWeek: 0, ridesAllTime: 0,
+      today: 0, thisWeek: 0, thisMonth: 0, allTime: 0,
+      ridesToday: 0, ridesThisWeek: 0, ridesThisMonth: 0, ridesAllTime: 0,
       averageRating: 5.0,
+      totalTips: 0, totalFares: 0,
     },
     recentRides: query.data?.recentRides ?? [],
+    payouts: query.data?.payouts ?? [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
