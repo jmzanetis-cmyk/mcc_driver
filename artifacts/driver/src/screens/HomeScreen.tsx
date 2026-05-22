@@ -10,7 +10,7 @@ import { useDriverStatus } from '@/hooks/useDriverStatus';
 import { useRideRequests } from '@/hooks/useRideRequests';
 import { useEarnings } from '@/hooks/useEarnings';
 import { useDispatchStore } from '@/store/dispatchStore';
-import { OnlineToggle, Card, StatCard, Button, Spinner } from '@/components';
+import { OnlineToggle, Card, StatCard, Button, Spinner, MapView } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import { formatCurrency, getStarDisplay } from '@/utils/formatters';
 import { RideRequestModal } from './RideRequestScreen';
@@ -90,6 +90,14 @@ export function HomeScreen() {
         {/* Online toggle */}
         <OnlineToggle isOnline={isOnline} isToggling={isToggling} onToggle={toggleOnline} />
       </div>
+
+      {/* Live location map — 40% viewport height */}
+      <MapView
+        center={currentLat != null && currentLng != null ? { lat: currentLat, lng: currentLng } : null}
+        driverPosition={isOnline && currentLat != null && currentLng != null ? { lat: currentLat, lng: currentLng } : null}
+        zoom={15}
+        style={{ height: '40vh' }}
+      />
 
       <div style={{ padding: 20 }}>
         {earningsError && (

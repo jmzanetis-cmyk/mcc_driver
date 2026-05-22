@@ -10,6 +10,9 @@
 import React, { useState, useEffect } from 'react';
 import { colors, borderRadius, shadows } from '@/theme';
 
+export { MapView } from './MapView';
+export type { MapViewProps, LatLng } from './MapView';
+
 // ============================================================
 // BUTTON — wraps `.btn` + variant class from platform tokens
 // ============================================================
