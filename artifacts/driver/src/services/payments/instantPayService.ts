@@ -216,63 +216,55 @@ export async function executeInstantPayout(
   };
 }
 
-export async function executeStandardPayout(driverId: string): Promise<PayoutResult> {
-  const balance = await getInstantPayBalance(driverId);
-
-  if (balance.isPartnerDriver) {
-    return { success: false, error: 'Partner drivers are paid through their partner company.', errorCode: 'PARTNER_DRIVER' };
+export async function executeStandardPayout(
+  _driverId: string,
+): Promise<PayoutResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    return { success: false, error: 'Not authenticated. Please sign in again.', errorCode: 'UNAUTHENTICATED' };
   }
 
-  if (balance.available < MINIMUM_CASHOUT) {
-    return { success: false, error: `Minimum payout is $${MINIMUM_CASHOUT.toFixed(2)}.`, errorCode: 'BELOW_MINIMUM' };
-  }
-
-  const payoutId = crypto.randomUUID();
-
-  const { error: dbError } = await supabase.from('driver_payouts').insert({
-    id: payoutId,
-    driver_id: driverId,
-    amount: balance.available,
-    net_payout: balance.available,
-    platform_fee: 0,
-    method: 'standard',
-    status: 'scheduled',
-    scheduled_date: getNextPayoutDate(),
-    requested_at: new Date().toISOString(),
-  });
-
-  if (dbError) {
-    return { success: false, error: 'Failed to schedule payout. Please try again.', errorCode: 'DB_ERROR' };
-  }
-
-  const { error: updateError } = await supabase
-    .from('driver_assignments')
-    .update({ payout_status: 'paid', payout_id: payoutId })
-    .eq('driver_id', driverId)
-    .eq('status', 'completed')
-    .eq('payout_status', 'unpaid');
-
-  if (updateError) {
-    // Payout record was written; return success: true so the driver does not
-    // retry and create a duplicate. Surface a warning for support reconciliation.
+  let res: Response;
+  try {
+    res = await fetch(apiUrl('/payouts/standard'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
     return {
-      success: true,
-      amount: balance.available,
-      fee: 0,
-      netAmount: balance.available,
-      arrivalTime: '2-3 business days',
-      payoutId,
-      warning: 'Payout scheduled. Your earnings records could not be updated automatically — please contact support to reconcile.',
+      success: false,
+      error: 'Network error. Check your connection and try again.',
+      errorCode: 'NETWORK_ERROR',
     };
   }
 
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    return { success: false, error: 'Unexpected server response.', errorCode: 'PARSE_ERROR' };
+  }
+
+  if (!res.ok) {
+    const err = data as { error?: string; code?: string };
+    return {
+      success: false,
+      error: err.error ?? 'Payout failed. Please try again.',
+      errorCode: err.code,
+    };
+  }
+
+  const { payout } = data as {
+    payout: { id: string; amount: number; arrivalDate: string };
+  };
   return {
     success: true,
-    amount: balance.available,
+    amount: payout.amount,
     fee: 0,
-    netAmount: balance.available,
+    netAmount: payout.amount,
     arrivalTime: '2-3 business days',
-    payoutId,
+    payoutId: payout.id,
   };
 }
 
@@ -298,12 +290,4 @@ export async function getPayoutHistory(driverId: string, limit = 20): Promise<Pa
     bankLast4: p.bank_last4 ?? undefined,
     failureReason: p.failed_reason ?? undefined,
   }));
-}
-
-function getNextPayoutDate(): string {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const daysUntilWednesday = (3 - dayOfWeek + 7) % 7 || 7;
-  const nextWed = new Date(now.getTime() + daysUntilWednesday * 86400000);
-  return nextWed.toISOString().split('T')[0];
 }
