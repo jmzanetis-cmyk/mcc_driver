@@ -8,6 +8,7 @@ import {
   formatCurrency, formatDistance, formatDuration, getScenarioLabel, getTierLabel,
 } from '@/utils/formatters';
 import type { RideRow } from '@/services/supabase/types';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CompletedRideData {
   scenario: string;
@@ -24,6 +25,7 @@ interface CompletedRideData {
 export function RideCompleteScreen() {
   const navigate = useNavigate();
   const { rideId } = useParams<{ rideId: string }>();
+  const { driver } = useAuth();
   const [ride, setRide] = useState<CompletedRideData | null>(null);
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('');
@@ -38,23 +40,30 @@ export function RideCompleteScreen() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data, error } = await supabase
-        .from('rides')
-        .select('*')
-        .eq('id', rideId)
-        .single();
+      const [{ data: rideData, error: rideError }, { data: assignmentData }] = await Promise.all([
+        supabase.from('rides').select('*').eq('id', rideId).single(),
+        driver?.id
+          ? supabase
+              .from('driver_assignments')
+              .select('driver_payout_amount')
+              .eq('ride_id', rideId)
+              .eq('driver_id', driver.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
 
-      if (error) throw error;
-      if (!data) {
+      if (rideError) throw rideError;
+      if (!rideData) {
         setLoadError("We couldn't find that ride. It may have been removed.");
         return;
       }
 
-      const row = data as unknown as RideRow;
+      const row = rideData as unknown as RideRow;
       const started = row.started_at ? new Date(row.started_at).getTime() : 0;
       const completed = row.completed_at ? new Date(row.completed_at).getTime() : Date.now();
       const durationMs = completed - started;
       const fare = row.actual_fare ?? row.estimated_fare;
+      const payout = (assignmentData as { driver_payout_amount: number | null } | null)?.driver_payout_amount ?? fare * 0.85;
 
       setRide({
         scenario: row.scenario,
@@ -62,7 +71,7 @@ export function RideCompleteScreen() {
         pickupAddress: row.pickup_address,
         dropoffAddress: row.dropoff_address,
         actualFare: fare,
-        driverPayout: fare * 0.85,
+        driverPayout: payout,
         distanceMiles: row.actual_distance_miles ?? row.estimated_distance_miles,
         durationMinutes: durationMs / 60000,
         tipAmount: row.tip_amount ?? 0,
@@ -78,7 +87,7 @@ export function RideCompleteScreen() {
     } finally {
       setLoading(false);
     }
-  }, [rideId]);
+  }, [rideId, driver?.id]);
 
   useEffect(() => {
     void fetchRide();
@@ -99,6 +108,7 @@ export function RideCompleteScreen() {
       }).eq('id', rideId);
       if (error) throw error;
       setSubmitted(true);
+      navigate(`/ride/${rideId}/tip`);
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "Couldn't submit rating. Try again.",
@@ -178,7 +188,7 @@ export function RideCompleteScreen() {
 
           <div style={{ borderTop: `1px solid ${colors.borderLight}`, paddingTop: 12 }}>
             <InfoRow icon="🧾" label="Ride fare" value={formatCurrency(ride.actualFare)} />
-            <InfoRow icon="👨‍✈️" label="Your share (85%)" value={formatCurrency(ride.driverPayout)} valueColor={colors.navy} />
+            <InfoRow icon="👨‍✈️" label="Your payout" value={formatCurrency(ride.driverPayout)} valueColor={colors.navy} />
             {ride.tipAmount > 0 && (
               <InfoRow icon="💝" label="Tip" value={formatCurrency(ride.tipAmount)} valueColor={colors.success} />
             )}
@@ -212,6 +222,8 @@ export function RideCompleteScreen() {
                     fontSize: 36, color: star <= rating ? colors.gold : colors.border,
                     transition: 'color 0.15s, transform 0.1s',
                     transform: star <= rating ? 'scale(1.1)' : 'scale(1)',
+                    minWidth: 48, minHeight: 48,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >
                   ★
@@ -255,8 +267,8 @@ export function RideCompleteScreen() {
           </Card>
         )}
 
-        <Button onClick={() => navigate('/home')} variant="secondary" fullWidth size="lg">
-          Back to Home
+        <Button onClick={() => navigate(`/ride/${rideId}/tip`)} variant="secondary" fullWidth size="lg">
+          Leave a Tip
         </Button>
       </div>
     </div>

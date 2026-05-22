@@ -16,6 +16,8 @@ import driverLocationRouter from "./driverLocation";
 import driverAccountRouter from "./driverAccount";
 import debugThrowRouter from "./debugThrow";
 import appStatusRouter from "./appStatus";
+import tipsRouter from "./tips";
+import rideMessagesRouter from "./rideMessages";
 
 const router: IRouter = Router();
 
@@ -36,5 +38,7 @@ router.use(driverLocationRouter);
 router.use(driverAccountRouter);
 router.use(debugThrowRouter);
 router.use(appStatusRouter);
+router.use(tipsRouter);
+router.use(rideMessagesRouter);
 
 export default router;

@@ -66,7 +66,7 @@ export function Button({
         // primary CTAs. `btn-sm` opts out — used for inline
         // ghost actions next to text where 44pt would dominate
         // the layout.
-        minHeight: size === 'sm' ? undefined : 44,
+        minHeight: size === 'sm' ? undefined : size === 'lg' ? 56 : 44,
         ...style,
       }}
     >

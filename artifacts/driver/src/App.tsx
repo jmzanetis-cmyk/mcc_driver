@@ -24,6 +24,7 @@ import { EarningsScreen } from '@/screens/EarningsScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { AIChatScreen } from '@/screens/AIChatScreen';
 import { InstantPayScreen } from '@/screens/InstantPayScreen';
+import { TipScreen } from '@/screens/TipScreen';
 import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
 import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
@@ -113,6 +114,7 @@ export default function App() {
             <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/navigate" element={<ProtectedRoute><NavigateScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/complete" element={<ProtectedRoute><RideCompleteScreen /></ProtectedRoute>} />
+            <Route path="/ride/:rideId/tip" element={<ProtectedRoute><TipScreen /></ProtectedRoute>} />
             <Route path="/earnings" element={<ProtectedRoute><EarningsScreen /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
             <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />

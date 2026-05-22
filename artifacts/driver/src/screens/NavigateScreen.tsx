@@ -23,6 +23,7 @@ import {
 } from '@/utils/formatters';
 import { createTandemJob, updateTandemJobMode, setKnownPartner, type PartnerLookupResult } from '@/services/api/edgeFunctions';
 import { ProviderTandemMatchPanel } from '@/components/ProviderTandemMatchPanel';
+import { TripChat } from '@/components/TripChat';
 
 const KNOWN_PARTNER_KEY = 'mcc_known_partner';
 type TandemMode = 'A' | 'B' | 'C';
@@ -49,6 +50,7 @@ export function NavigateScreen() {
   const [elapsed, setElapsed] = useState('0:00');
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [showCancel, setShowCancel] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
   // Tandem mode selector state
@@ -491,6 +493,9 @@ export function NavigateScreen() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
+      {/* Trip chat panel */}
+      {showChat && rideId && <TripChat rideId={rideId} onClose={() => setShowChat(false)} />}
+
       {/* Live map — driver position + current destination */}
       <div style={{ height: '35vh', position: 'relative' }}>
         <MapView
@@ -508,7 +513,7 @@ export function NavigateScreen() {
           aria-label="Go back to home"
           style={{
             position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', left: 16,
-            width: 40, height: 40, borderRadius: '50%',
+            width: 44, height: 44, borderRadius: '50%',
             background: 'rgba(0,0,0,0.6)', border: 'none',
             color: '#fff', fontSize: 20, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -520,15 +525,30 @@ export function NavigateScreen() {
         {/* Elapsed timer when ride is in progress */}
         {activeRide.stage === 'in_progress' && (
           <div style={{
-            position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: 16,
+            position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: 64,
             background: colors.success, color: '#fff',
             padding: '6px 14px', borderRadius: borderRadius.full,
-            fontSize: 16, fontWeight: 700, fontFamily: 'monospace',
+            fontSize: 18, fontWeight: 700, fontFamily: 'monospace',
             pointerEvents: 'none',
           }}>
             {elapsed}
           </div>
         )}
+
+        {/* Chat button */}
+        <button
+          onClick={() => setShowChat(true)}
+          aria-label="Open trip chat"
+          style={{
+            position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: 16,
+            width: 44, height: 44, borderRadius: '50%',
+            background: 'rgba(0,0,0,0.6)', border: 'none',
+            color: '#fff', fontSize: 20, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          💬
+        </button>
       </div>
 
       {/* Content panel */}
@@ -624,7 +644,7 @@ export function NavigateScreen() {
           <div style={{ fontSize: 11, fontWeight: 600, color: isNavigatingToPickup ? colors.info : colors.success, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
             {isNavigatingToPickup ? '📍 Navigating to Pickup' : '🏁 Navigating to Drop-off'}
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: colors.textPrimary }}>
+          <div style={{ fontSize: 18, fontWeight: 600, color: colors.textPrimary }}>
             {isNavigatingToPickup ? activeRide.pickupAddress : activeRide.dropoffAddress}
           </div>
         </Card>
@@ -644,7 +664,7 @@ export function NavigateScreen() {
             onClick={handleOpenNav}
             variant="secondary"
             fullWidth
-            size="sm"
+            size="md"
             style={{ marginBottom: 12 }}
           >
             Open in {getNavAppName(preferredNav)} →
