@@ -13,7 +13,8 @@ import { useActiveRide, type ActiveRideStage } from '@/hooks/useActiveRide';
 import { useAuth } from '@/hooks/useAuth';
 import { useDispatchStore } from '@/store/dispatchStore';
 import { openNavigation, getNavAppName, type NavApp } from '@/services/navigation/navService';
-import { Button, Card, InfoRow, PageHeader, Spinner } from '@/components';
+import { Button, Card, InfoRow, PageHeader, Spinner, MapView } from '@/components';
+import { useDriverStatusStore } from '@/store/driverStatusStore';
 import { colors, borderRadius } from '@/theme';
 import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
@@ -55,6 +56,12 @@ export function NavigateScreen() {
   const existingTandemJobId = useDispatchStore((s) => s.tandemJobId);
   const setTandemJob = useDispatchStore((s) => s.setTandemJob);
   const rideId = useDispatchStore((s) => s.rideId);
+
+  const currentLat = useDriverStatusStore((s) => s.currentLat);
+  const currentLng = useDriverStatusStore((s) => s.currentLng);
+  const driverPosition = currentLat != null && currentLng != null
+    ? { lat: currentLat, lng: currentLng }
+    : null;
 
   // Load preferred nav and saved tandem partner from localStorage
   useEffect(() => {
@@ -443,25 +450,24 @@ export function NavigateScreen() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
-      {/* Map placeholder */}
-      <div style={{
-        height: '35vh', background: colors.surfaceDark,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        position: 'relative',
-      }}>
-        <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🗺️</div>
-          <div style={{ fontSize: 13 }}>Map view — Google Maps SDK</div>
-          <div style={{ fontSize: 11, marginTop: 4 }}>Will render here in production</div>
-        </div>
+      {/* Live map — driver position + current destination */}
+      <div style={{ height: '35vh', position: 'relative' }}>
+        <MapView
+          center={driverPosition ?? { lat: destination.lat, lng: destination.lng }}
+          driverPosition={driverPosition}
+          destinations={[{ lat: destination.lat, lng: destination.lng, label: destination.label }]}
+          zoom={15}
+          style={{ height: '100%' }}
+        />
 
-        {/* Back button overlay */}
+        {/* Back button */}
         <button
           onClick={() => navigate('/home')}
+          aria-label="Go back to home"
           style={{
             position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', left: 16,
             width: 40, height: 40, borderRadius: '50%',
-            background: 'rgba(0,0,0,0.5)', border: 'none',
+            background: 'rgba(0,0,0,0.6)', border: 'none',
             color: '#fff', fontSize: 20, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
@@ -469,13 +475,14 @@ export function NavigateScreen() {
           ←
         </button>
 
-        {/* In-progress timer overlay */}
+        {/* Elapsed timer when ride is in progress */}
         {activeRide.stage === 'in_progress' && (
           <div style={{
             position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: 16,
             background: colors.success, color: '#fff',
             padding: '6px 14px', borderRadius: borderRadius.full,
             fontSize: 16, fontWeight: 700, fontFamily: 'monospace',
+            pointerEvents: 'none',
           }}>
             {elapsed}
           </div>
