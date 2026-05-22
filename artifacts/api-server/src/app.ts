@@ -7,6 +7,7 @@ import express, {
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
+import { stripeWebhookHandler } from "./routes/stripeWebhook";
 import { logger } from "./lib/logger";
 import { isSentryEnabled, Sentry } from "./lib/sentry";
 
@@ -32,6 +33,16 @@ app.use(
   }),
 );
 app.use(cors());
+
+// Stripe requires the raw unparsed body for webhook signature verification.
+// This route must be registered before express.json() so that body-parser's
+// req._body flag prevents express.json() from re-reading the consumed stream.
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookHandler,
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
