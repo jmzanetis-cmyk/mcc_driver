@@ -152,6 +152,7 @@ Declared variables:
 | `VITE_SUPABASE_ANON_KEY` | same |
 | `VITE_API_BASE_URL` | `src/services/api/baseUrl.ts` |
 | `VITE_APP_ENV` | `src/components/EnvBadge.tsx` |
+| `VITE_GOOGLE_MAPS_API_KEY` | `src/components/MapView.tsx` — optional; maps degrade gracefully when unset |
 | `VITE_SENTRY_DSN` | `src/services/telemetry/sentry.ts` |
 | `VITE_SENTRY_RELEASE` | `src/services/telemetry/sentry.ts` |
 | `VITE_SENTRY_ENV` | `src/services/telemetry/sentry.ts` |
