@@ -17,6 +17,7 @@ import { Router, type Request, type Response } from "express";
 import Stripe from "stripe";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 import { logger } from "../lib/logger";
+import { createDriverNotification } from "./notifications";
 
 function getStripeClient(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -157,6 +158,14 @@ router.post("/tips", async (req: Request, res: Response) => {
       .eq("id", rideId);
 
     logger.info({ rideId, driverId: driver.id, amount: tipAmount, transferId: transfer.id }, "Tip processed");
+
+    void createDriverNotification(
+      driver.id,
+      "tip_received",
+      "Tip Received",
+      `You received a $${tipAmount.toFixed(2)} tip for ride ${rideId.slice(0, 8)}…`,
+      { rideId, amount: tipAmount },
+    );
 
     res.status(200).json({ success: true, amount: tipAmount, transferId: transfer.id });
   } catch (err) {

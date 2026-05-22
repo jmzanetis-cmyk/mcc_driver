@@ -19,6 +19,7 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 import { getDriverPayoutCapabilities } from "../lib/stripeCapabilities";
 import { logger } from "../lib/logger";
+import { createDriverNotification } from "./notifications";
 
 function getStripeClient(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -261,6 +262,14 @@ router.post("/payouts/standard", async (req: Request, res: Response) => {
         assignmentCount: assignmentIds.length,
       },
       "Standard payout initiated successfully",
+    );
+
+    void createDriverNotification(
+      driver.id,
+      "payout_success",
+      "Standard Payout Scheduled",
+      `$${totalDollars.toFixed(2)} will arrive in your bank account by ${arrivalDate ?? "2 business days"}.`,
+      { payoutId: payoutRow.id, amount: totalDollars, method: "standard", arrivalDate },
     );
 
     res.status(200).json({

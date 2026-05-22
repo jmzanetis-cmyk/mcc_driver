@@ -19,6 +19,7 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 import { getDriverPayoutCapabilities } from "../lib/stripeCapabilities";
 import { logger } from "../lib/logger";
+import { createDriverNotification } from "./notifications";
 
 function getStripeClient(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -260,6 +261,14 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
         driverId: driver.id,
       },
       "Instant payout initiated successfully",
+    );
+
+    void createDriverNotification(
+      driver.id,
+      "payout_success",
+      "Instant Payout Initiated",
+      `$${netDollars.toFixed(2)} is on its way to your debit card (typically within 30 min).`,
+      { payoutId: payoutRow.id, net: netDollars, method: "instant" },
     );
 
     res.status(200).json({

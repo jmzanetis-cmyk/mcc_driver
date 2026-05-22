@@ -19,6 +19,7 @@ import appStatusRouter from "./appStatus";
 import tipsRouter from "./tips";
 import rideMessagesRouter from "./rideMessages";
 import ratingsRouter from "./ratings";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(appStatusRouter);
 router.use(tipsRouter);
 router.use(rideMessagesRouter);
 router.use(ratingsRouter);
+router.use(notificationsRouter);
 
 export default router;

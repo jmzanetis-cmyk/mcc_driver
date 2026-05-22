@@ -9,6 +9,7 @@
 import { Router, type Request, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 import { logger } from "../lib/logger";
+import { createDriverNotification } from "./notifications";
 
 const router = Router();
 
@@ -147,6 +148,15 @@ router.post("/ratings", async (req: Request, res: Response) => {
     }
 
     logger.info({ rideId, driverId: driver.id, stars: starsNum }, "Rating submitted");
+
+    void createDriverNotification(
+      driver.id,
+      "rating_received",
+      "Member Rating Recorded",
+      `You rated your member ${"★".repeat(starsNum)}${"☆".repeat(5 - starsNum)} for ride ${rideId.slice(0, 8)}…`,
+      { rideId, stars: starsNum },
+    );
+
     res.status(200).json({ success: true });
   } catch (err) {
     logger.error({ err }, "Unhandled error in ratings route");

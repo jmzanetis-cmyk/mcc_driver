@@ -15,6 +15,7 @@ import { colors, borderRadius } from '@/theme';
 import { formatCurrency, getStarDisplay } from '@/utils/formatters';
 import { RideRequestModal } from './RideRequestScreen';
 import { RELOCATION_SCENARIOS } from './RelocationScreen';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export function HomeScreen() {
 
   const serverCancelled = useDispatchStore((s) => s.serverCancelled);
   const setServerCancelled = useDispatchStore((s) => s.setServerCancelled);
+  const { unreadCount } = useNotifications();
 
   // Gate the Ride-Along Dashboard entry by checking the caller's
   // ride_along_drivers profile. Only drivers with a record see the card.
@@ -78,6 +80,33 @@ export function HomeScreen() {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Bell icon with unread badge */}
+            <button
+              type="button"
+              onClick={() => navigate('/notifications')}
+              aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+              style={{
+                width: 44, height: 44, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.08)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', border: 'none', padding: 0,
+                position: 'relative',
+              }}
+            >
+              <span aria-hidden="true" style={{ fontSize: 18 }}>🔔</span>
+              {unreadCount > 0 && (
+                <div style={{
+                  position: 'absolute', top: 4, right: 4,
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: colors.error, color: '#fff',
+                  fontSize: 9, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: `2px solid ${colors.surfaceDark}`,
+                }}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </div>
+              )}
+            </button>
             <button
               type="button"
               onClick={() => navigate('/settings')}
