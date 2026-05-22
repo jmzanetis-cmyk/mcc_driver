@@ -142,7 +142,7 @@ Declared variables:
 | `VITE_SENTRY_ENV` | No | Sentry environment label |
 | `VITE_SENTRY_RELEASE` | No | Auto-computed; override only if needed |
 
-**No `.env.example` exists** for `artifacts/api-server`, `artifacts/admin`, `lib/db`, or `scripts`.
+**No `.env.example` exists** for `artifacts/admin`, `lib/db`, or `scripts`. `artifacts/api-server/.env.example` now documents all 29 server-side variables.
 
 ### Driver app — vars referenced in code (`import.meta.env.*`)
 
