@@ -9,6 +9,8 @@ export interface LatLng {
 export interface MapViewProps {
   center: LatLng | null;
   driverPosition?: LatLng | null;
+  /** Secondary vehicle position shown as a gold dot (chase driver in tandem rides). */
+  partnerPosition?: LatLng | null;
   destinations?: Array<LatLng & { label?: string }>;
   routePolyline?: LatLng[];
   zoom?: number;
@@ -50,6 +52,7 @@ const FALLBACK_CENTER: LatLng = { lat: 39.5, lng: -98.35 };
 export function MapView({
   center,
   driverPosition,
+  partnerPosition,
   destinations,
   routePolyline,
   zoom = 14,
@@ -59,6 +62,7 @@ export function MapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
+  const partnerMarkerRef = useRef<google.maps.Marker | null>(null);
   const destMarkersRef = useRef<google.maps.Marker[]>([]);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
 
@@ -173,6 +177,39 @@ export function MapView({
     }
   }, [ready, driverPosition]);
 
+  // Partner position — gold dot (chase driver)
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+
+    if (!partnerPosition) {
+      partnerMarkerRef.current?.setMap(null);
+      partnerMarkerRef.current = null;
+      return;
+    }
+
+    const icon: google.maps.Symbol = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 9,
+      fillColor: '#C9982E',
+      fillOpacity: 1,
+      strokeColor: '#FFFFFF',
+      strokeWeight: 2.5,
+    };
+
+    if (partnerMarkerRef.current) {
+      partnerMarkerRef.current.setPosition(partnerPosition);
+    } else {
+      partnerMarkerRef.current = new google.maps.Marker({
+        position: partnerPosition,
+        map: mapRef.current,
+        icon,
+        title: 'Chase vehicle',
+        zIndex: 9,
+        optimized: false,
+      });
+    }
+  }, [ready, partnerPosition]);
+
   // Destination pin(s)
   useEffect(() => {
     if (!ready || !mapRef.current) return;
@@ -215,6 +252,7 @@ export function MapView({
   useEffect(() => {
     return () => {
       driverMarkerRef.current?.setMap(null);
+      partnerMarkerRef.current?.setMap(null);
       destMarkersRef.current.forEach((m) => m.setMap(null));
       polylineRef.current?.setMap(null);
     };

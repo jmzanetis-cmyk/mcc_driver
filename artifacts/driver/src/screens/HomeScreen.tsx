@@ -14,6 +14,7 @@ import { OnlineToggle, Card, StatCard, Button, Spinner, MapView } from '@/compon
 import { colors, borderRadius } from '@/theme';
 import { formatCurrency, getStarDisplay } from '@/utils/formatters';
 import { RideRequestModal } from './RideRequestScreen';
+import { RELOCATION_SCENARIOS } from './RelocationScreen';
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -214,7 +215,8 @@ export function HomeScreen() {
           onAccept={async () => {
             const result = await acceptRide();
             if (result.success) {
-              navigate(`/ride/${incomingRequest.rideId}/navigate`);
+              const isRelocation = RELOCATION_SCENARIOS.has(incomingRequest.scenario ?? '');
+              navigate(`/ride/${incomingRequest.rideId}/${isRelocation ? 'relocation' : 'navigate'}`);
             } else {
               // Surface the failure to RideRequestModal so it can show
               // the inline acceptError banner instead of silently
