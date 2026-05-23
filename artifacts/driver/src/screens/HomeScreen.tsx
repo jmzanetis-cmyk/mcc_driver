@@ -34,6 +34,7 @@ export function HomeScreen() {
   const [activePromo, setActivePromo] = useState<{ title: string; current: number; target: number } | null>(null);
   const [upcomingRide, setUpcomingRide] = useState<{ id: string; scheduledAt: string; pickup: string } | null>(null);
   const [trainingBanner, setTrainingBanner] = useState<{ title: string; subtitle: string } | null>(null);
+  const [pendingEvalRideId, setPendingEvalRideId] = useState<string | null>(null);
   useEffect(() => {
     if (!driver) return;
     void (async () => {
@@ -89,6 +90,21 @@ export function HomeScreen() {
         } else if (nextUp) {
           setTrainingBanner({ title: 'Training available', subtitle: `Start: ${nextUp.slug.replace(/-/g, ' ')}` });
         }
+      } catch { /* ignore */ }
+    })();
+  }, [driver?.id]);
+
+  useEffect(() => {
+    if (!driver) return;
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(apiUrl('/evaluations/pending-codriver'), {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (!res.ok) return;
+        const j = await res.json() as { rides: Array<{ id: string }> };
+        if (j.rides.length > 0) setPendingEvalRideId(j.rides[0].id);
       } catch { /* ignore */ }
     })();
   }, [driver?.id]);
@@ -247,6 +263,30 @@ export function HomeScreen() {
                 <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{trainingBanner.subtitle}</div>
               </div>
               <span style={{ color: colors.gold }}>›</span>
+            </div>
+          </Card>
+        )}
+
+        {/* Pending co-driver evaluation banner */}
+        {pendingEvalRideId && (
+          <Card
+            onClick={() => navigate(`/ride/${pendingEvalRideId}/eval-codriver`)}
+            padding={14}
+            style={{
+              marginBottom: 16, cursor: 'pointer',
+              border: `1px solid ${colors.info}`,
+              background: `rgba(59,130,246,0.06)`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🤝</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>Rate your co-driver</div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  You have a tandem job evaluation waiting
+                </div>
+              </div>
+              <span style={{ color: colors.textMuted }}>›</span>
             </div>
           </Card>
         )}

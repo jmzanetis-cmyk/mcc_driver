@@ -37,6 +37,7 @@ import { HelpScreen } from '@/screens/HelpScreen';
 import { TrainingHubScreen } from '@/screens/TrainingHubScreen';
 import { TrainingModuleScreen } from '@/screens/TrainingModuleScreen';
 import { TrainingLessonScreen } from '@/screens/TrainingLessonScreen';
+import { CoDriverEvalScreen } from '@/screens/CoDriverEvalScreen';
 import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
 import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
@@ -139,6 +140,7 @@ export default function App() {
             <Route path="/training" element={<ProtectedRoute><TrainingHubScreen /></ProtectedRoute>} />
             <Route path="/training/module/:slug" element={<ProtectedRoute><TrainingModuleScreen /></ProtectedRoute>} />
             <Route path="/training/lesson/:lessonId" element={<ProtectedRoute><TrainingLessonScreen /></ProtectedRoute>} />
+            <Route path="/ride/:rideId/eval-codriver" element={<ProtectedRoute><CoDriverEvalScreen /></ProtectedRoute>} />
             <Route path="/earnings" element={<ProtectedRoute><EarningsScreen /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
             <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />

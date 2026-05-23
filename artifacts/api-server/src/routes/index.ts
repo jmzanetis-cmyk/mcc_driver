@@ -27,6 +27,7 @@ import promotionsRouter from "./promotions";
 import scheduleRouter from "./schedule";
 import supportTicketsRouter from "./supportTickets";
 import trainingRouter from "./training";
+import evaluationsRouter from "./evaluations";
 
 const router: IRouter = Router();
 
@@ -58,5 +59,6 @@ router.use(promotionsRouter);
 router.use(scheduleRouter);
 router.use(supportTicketsRouter);
 router.use(trainingRouter);
+router.use(evaluationsRouter);
 
 export default router;

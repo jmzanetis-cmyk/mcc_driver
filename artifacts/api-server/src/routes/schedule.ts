@@ -121,7 +121,7 @@ router.post("/schedule/reminders", async (req: Request, res: Response) => {
       .gte("scheduled_at", windowStart)
       .lte("scheduled_at", windowEnd);
 
-    const rows = (data ?? []) as Array<{
+    const rows = (data ?? []) as unknown as Array<{
       id: string;
       driver_id: string;
       scheduled_at: string;

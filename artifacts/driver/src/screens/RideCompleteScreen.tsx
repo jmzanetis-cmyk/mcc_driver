@@ -21,6 +21,7 @@ interface CompletedRideData {
   distanceMiles: number;
   durationMinutes: number;
   tipAmount: number;
+  tandemRequired: boolean;
 }
 
 export function RideCompleteScreen() {
@@ -76,6 +77,7 @@ export function RideCompleteScreen() {
         distanceMiles: row.actual_distance_miles ?? row.estimated_distance_miles,
         durationMinutes: durationMs / 60000,
         tipAmount: row.tip_amount ?? 0,
+        tandemRequired: (row as unknown as { tandem_required?: boolean }).tandem_required ?? false,
       });
     } catch (err) {
       setLoadError(
@@ -119,7 +121,7 @@ export function RideCompleteScreen() {
         throw new Error(body.error ?? `Failed (${res.status})`);
       }
       setSubmitted(true);
-      navigate(`/ride/${rideId}/tip`);
+      navigate(ride?.tandemRequired ? `/ride/${rideId}/eval-codriver` : `/ride/${rideId}/tip`);
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "Couldn't submit rating. Try again.",
@@ -278,8 +280,11 @@ export function RideCompleteScreen() {
           </Card>
         )}
 
-        <Button onClick={() => navigate(`/ride/${rideId}/tip`)} variant="secondary" fullWidth size="lg">
-          Leave a Tip
+        <Button
+          onClick={() => navigate(ride.tandemRequired ? `/ride/${rideId}/eval-codriver` : `/ride/${rideId}/tip`)}
+          variant="secondary" fullWidth size="lg"
+        >
+          {ride.tandemRequired ? 'Rate Co-Driver →' : 'Leave a Tip'}
         </Button>
       </div>
     </div>

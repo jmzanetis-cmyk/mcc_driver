@@ -200,7 +200,7 @@ router.post("/training/lessons/:id/complete", async (req: Request, res: Response
     const driver = await getDriver(req.headers.authorization);
     if (!driver) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-    const { id } = req.params;
+    const id = req.params["id"] as string;
     const { answers } = req.body as { answers?: Record<string, string> };
     if (!answers || typeof answers !== "object") {
       res.status(400).json({ error: "answers object is required" }); return;
