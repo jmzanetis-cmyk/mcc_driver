@@ -24,6 +24,7 @@ import safetyRouter from "./safety";
 import driverProfileRouter from "./driverProfile";
 import driverStatsRouter from "./driverStats";
 import promotionsRouter from "./promotions";
+import scheduleRouter from "./schedule";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use(safetyRouter);
 router.use(driverProfileRouter);
 router.use(driverStatsRouter);
 router.use(promotionsRouter);
+router.use(scheduleRouter);
 
 export default router;

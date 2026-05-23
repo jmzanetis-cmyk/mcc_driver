@@ -12,7 +12,7 @@ import { useEarnings } from '@/hooks/useEarnings';
 import { useDispatchStore } from '@/store/dispatchStore';
 import { OnlineToggle, Card, StatCard, Button, Spinner, MapView } from '@/components';
 import { colors, borderRadius } from '@/theme';
-import { formatCurrency, getStarDisplay } from '@/utils/formatters';
+import { formatCurrency, getStarDisplay, formatDate, formatTime } from '@/utils/formatters';
 import { RideRequestModal } from './RideRequestScreen';
 import { RELOCATION_SCENARIOS } from './RelocationScreen';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -32,6 +32,7 @@ export function HomeScreen() {
   const compliance = useDocumentCompliance();
 
   const [activePromo, setActivePromo] = useState<{ title: string; current: number; target: number } | null>(null);
+  const [upcomingRide, setUpcomingRide] = useState<{ id: string; scheduledAt: string; pickup: string } | null>(null);
   useEffect(() => {
     if (!driver) return;
     void (async () => {
@@ -44,6 +45,23 @@ export function HomeScreen() {
           const j = await res.json() as { promotions: Array<{ status: string; title: string; current_count: number; target_count: number }> };
           const first = j.promotions.find((p) => p.status === 'active');
           if (first) setActivePromo({ title: first.title, current: first.current_count, target: first.target_count });
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [driver?.id]);
+
+  useEffect(() => {
+    if (!driver) return;
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(apiUrl('/schedule'), {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (res.ok) {
+          const j = await res.json() as { schedule: Array<{ id: string; scheduled_at: string; status: string; rides: { pickup_address: string } | null }> };
+          const first = j.schedule.find((s) => s.status === 'accepted' && s.rides);
+          if (first?.rides) setUpcomingRide({ id: first.id, scheduledAt: first.scheduled_at, pickup: first.rides.pickup_address.split(',')[0] ?? '' });
         }
       } catch { /* ignore */ }
     })();
@@ -280,6 +298,28 @@ export function HomeScreen() {
                 <div style={{ fontSize: 12, color: colors.textMuted }}>Tandem dashboard — live broadcasts & matches</div>
               </div>
               <div style={{ fontSize: 18, color: colors.gold }}>→</div>
+            </div>
+          </Card>
+        )}
+
+        {/* Upcoming scheduled ride */}
+        {upcomingRide && (
+          <Card
+            onClick={() => navigate('/schedule')}
+            style={{ marginBottom: 12, cursor: 'pointer', border: `1px solid ${colors.info}` }}
+            padding={14}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>📅</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>
+                  Upcoming: {formatDate(upcomingRide.scheduledAt)} at {formatTime(upcomingRide.scheduledAt)}
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted }}>
+                  Pickup: {upcomingRide.pickup}
+                </div>
+              </div>
+              <span style={{ color: colors.textMuted }}>›</span>
             </div>
           </Card>
         )}
