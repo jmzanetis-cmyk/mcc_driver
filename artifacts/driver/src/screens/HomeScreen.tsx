@@ -16,6 +16,7 @@ import { formatCurrency, getStarDisplay } from '@/utils/formatters';
 import { RideRequestModal } from './RideRequestScreen';
 import { RELOCATION_SCENARIOS } from './RelocationScreen';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useDocumentCompliance } from '@/hooks/useDocumentCompliance';
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export function HomeScreen() {
   const serverCancelled = useDispatchStore((s) => s.serverCancelled);
   const setServerCancelled = useDispatchStore((s) => s.setServerCancelled);
   const { unreadCount } = useNotifications();
+  const compliance = useDocumentCompliance();
 
   // Gate the Ride-Along Dashboard entry by checking the caller's
   // ride_along_drivers profile. Only drivers with a record see the card.
@@ -138,6 +140,32 @@ export function HomeScreen() {
       />
 
       <div style={{ padding: 20 }}>
+        {/* Document compliance banner */}
+        {!compliance.isLoading && (compliance.isBlocked || compliance.hasWarnings) && (
+          <Card
+            onClick={() => navigate('/documents')}
+            padding={14}
+            style={{
+              marginBottom: 16, cursor: 'pointer',
+              border: `1px solid ${compliance.isBlocked ? colors.error : colors.warning}`,
+              background: compliance.isBlocked ? colors.errorBg : colors.warningBg,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>{compliance.isBlocked ? '🚫' : '⚠️'}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: compliance.isBlocked ? colors.error : colors.warning }}>
+                  {compliance.isBlocked ? 'Document Expired — Cannot Go Online' : 'Document Expiring Soon'}
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  Tap to review your documents
+                </div>
+              </div>
+              <span style={{ color: colors.textMuted }}>›</span>
+            </div>
+          </Card>
+        )}
+
         {earningsError && (
           <Card padding={14} style={{ marginBottom: 16, border: `1px solid ${colors.error}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
