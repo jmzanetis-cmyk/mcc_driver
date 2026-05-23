@@ -32,7 +32,7 @@ interface Expense {
   category: ExpenseCategory;
   amount_cents: number;
   expense_date: string;
-  notes: string | null;
+  description: string | null;
   receipt_url: string | null;
 }
 
@@ -63,7 +63,7 @@ export function ExpensesScreen() {
   const [category, setCategory] = useState<ExpenseCategory>('gas');
   const [amount, setAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split('T')[0]!);
-  const [notes, setNotes] = useState('');
+  const [description, setDescription] = useState('');
   const [filterCategory, setFilterCategory] = useState<ExpenseCategory | 'all'>('all');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -113,7 +113,7 @@ export function ExpensesScreen() {
       category,
       amountCents: Math.round(dollars * 100),
       expenseDate,
-      notes: notes || undefined,
+      description: description || undefined,
     });
   }
 
@@ -219,8 +219,8 @@ export function ExpensesScreen() {
                 <input
                   type="text"
                   placeholder="e.g. Shell on Oak St"
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
                   className="form-input"
                   style={{ width: '100%', boxSizing: 'border-box' }}
                 />
@@ -288,8 +288,8 @@ export function ExpensesScreen() {
                       <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
                         {formatDate(exp.expense_date)}
                       </div>
-                      {exp.notes && (
-                        <div style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>{exp.notes}</div>
+                      {exp.description && (
+                        <div style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>{exp.description}</div>
                       )}
                     </div>
                     <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>

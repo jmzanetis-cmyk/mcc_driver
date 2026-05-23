@@ -462,7 +462,7 @@ export const driverExpensesTable = pgTable("driver_expenses", {
   category:     text("category").notNull(),
   amountCents:  integer("amount_cents").notNull(),
   expenseDate:  timestamp("expense_date", { withTimezone: true }).notNull(),
-  notes:        text("notes"),
+  description:  text("description"),
   receiptUrl:   text("receipt_url"),
   createdAt:    timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -53,7 +53,7 @@ router.get("/expenses", async (req: Request, res: Response) => {
 
     const { data: expenses, error } = await supabaseAdmin
       .from("driver_expenses")
-      .select("id, category, amount_cents, expense_date, notes, receipt_url, created_at")
+      .select("id, category, amount_cents, expense_date, description, receipt_url, created_at")
       .eq("driver_id", driverId)
       .gte("expense_date", yearStart)
       .lt("expense_date", yearEnd)
@@ -96,11 +96,11 @@ router.post("/expenses", async (req: Request, res: Response) => {
     const driverId = await resolveDriver(req, res);
     if (!driverId) return;
 
-    const { category, amountCents, expenseDate, notes, receiptUrl } = req.body as {
+    const { category, amountCents, expenseDate, description, receiptUrl } = req.body as {
       category: string;
       amountCents: number;
       expenseDate: string;
-      notes?: string;
+      description?: string;
       receiptUrl?: string;
     };
 
@@ -124,10 +124,10 @@ router.post("/expenses", async (req: Request, res: Response) => {
         category,
         amount_cents: amountCents,
         expense_date: expenseDate,
-        notes: notes ?? null,
+        description: description ?? null,
         receipt_url: receiptUrl ?? null,
       })
-      .select("id, category, amount_cents, expense_date, notes, receipt_url, created_at")
+      .select("id, category, amount_cents, expense_date, description, receipt_url, created_at")
       .single();
 
     if (error) {
