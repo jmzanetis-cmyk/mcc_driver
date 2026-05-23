@@ -5,20 +5,18 @@
 // so Stripe's signature verification gets the unparsed buffer.
 //
 // Matching strategy:
-//   transfer.created  → looks up driver_payouts by stripe_transfer_id
-//   payout.*          → looks up driver_payouts.id via metadata.mcc_payout_id
+//   transfer.created  → looks up driver_cashouts by stripe_transfer_id
+//   payout.*          → looks up driver_cashouts.id via metadata.mcc_cashout_id
 //
 // Both metadata keys are written by the payout execution routes
-// (payouts.ts / instantPayService). Until those routes are updated
-// to call Stripe, these handlers will receive events but find no
-// matching DB row and skip gracefully.
+// (instantPayout.ts / standardPayout.ts / weeklyPayoutService.ts).
 // ============================================================
 
 import type { Request, Response } from "express";
 import Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { driverPayoutsTable } from "@workspace/db/schema";
+import { driverCashoutsTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 
 function getStripeClient(): Stripe | null {
@@ -111,14 +109,14 @@ async function dispatch(event: Stripe.Event): Promise<void> {
 
 async function onTransferCreated(transfer: Stripe.Transfer): Promise<void> {
   const [row] = await db
-    .update(driverPayoutsTable)
+    .update(driverCashoutsTable)
     .set({ status: "in_transit" })
-    .where(eq(driverPayoutsTable.stripeTransferId, transfer.id))
-    .returning({ id: driverPayoutsTable.id });
+    .where(eq(driverCashoutsTable.stripeTransferId, transfer.id))
+    .returning({ id: driverCashoutsTable.id });
 
   if (row) {
     logger.info(
-      { payoutId: row.id, transferId: transfer.id },
+      { cashoutId: row.id, transferId: transfer.id },
       "stripe.webhook.transfer_created",
     );
   } else {
@@ -130,8 +128,8 @@ async function onTransferCreated(transfer: Stripe.Transfer): Promise<void> {
 }
 
 async function onPayoutPaid(payout: Stripe.Payout): Promise<void> {
-  const payoutId = payout.metadata?.mcc_payout_id;
-  if (!payoutId) {
+  const cashoutId = payout.metadata?.mcc_cashout_id;
+  if (!cashoutId) {
     logger.info(
       { stripePayoutId: payout.id },
       "stripe.webhook.payout_paid.no_mcc_id",
@@ -140,24 +138,24 @@ async function onPayoutPaid(payout: Stripe.Payout): Promise<void> {
   }
 
   await db
-    .update(driverPayoutsTable)
+    .update(driverCashoutsTable)
     .set({
       status: "paid",
       completedAt: payout.arrival_date
         ? new Date(payout.arrival_date * 1000)
         : new Date(),
     })
-    .where(eq(driverPayoutsTable.id, payoutId));
+    .where(eq(driverCashoutsTable.id, cashoutId));
 
   logger.info(
-    { payoutId, stripePayoutId: payout.id },
+    { cashoutId, stripePayoutId: payout.id },
     "stripe.webhook.payout_paid",
   );
 }
 
 async function onPayoutFailed(payout: Stripe.Payout): Promise<void> {
-  const payoutId = payout.metadata?.mcc_payout_id;
-  if (!payoutId) {
+  const cashoutId = payout.metadata?.mcc_cashout_id;
+  if (!cashoutId) {
     logger.info(
       { stripePayoutId: payout.id },
       "stripe.webhook.payout_failed.no_mcc_id",
@@ -166,22 +164,22 @@ async function onPayoutFailed(payout: Stripe.Payout): Promise<void> {
   }
 
   await db
-    .update(driverPayoutsTable)
+    .update(driverCashoutsTable)
     .set({
       status: "failed",
-      failedReason: payout.failure_message ?? "Unknown failure",
+      error: payout.failure_message ?? "Unknown failure",
     })
-    .where(eq(driverPayoutsTable.id, payoutId));
+    .where(eq(driverCashoutsTable.id, cashoutId));
 
   logger.info(
-    { payoutId, stripePayoutId: payout.id, reason: payout.failure_message },
+    { cashoutId, stripePayoutId: payout.id, reason: payout.failure_message },
     "stripe.webhook.payout_failed",
   );
 }
 
 async function onPayoutCanceled(payout: Stripe.Payout): Promise<void> {
-  const payoutId = payout.metadata?.mcc_payout_id;
-  if (!payoutId) {
+  const cashoutId = payout.metadata?.mcc_cashout_id;
+  if (!cashoutId) {
     logger.info(
       { stripePayoutId: payout.id },
       "stripe.webhook.payout_canceled.no_mcc_id",
@@ -190,12 +188,12 @@ async function onPayoutCanceled(payout: Stripe.Payout): Promise<void> {
   }
 
   await db
-    .update(driverPayoutsTable)
+    .update(driverCashoutsTable)
     .set({ status: "canceled" })
-    .where(eq(driverPayoutsTable.id, payoutId));
+    .where(eq(driverCashoutsTable.id, cashoutId));
 
   logger.info(
-    { payoutId, stripePayoutId: payout.id },
+    { cashoutId, stripePayoutId: payout.id },
     "stripe.webhook.payout_canceled",
   );
 }
