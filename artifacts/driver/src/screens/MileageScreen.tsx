@@ -20,9 +20,9 @@ const IRS_RATE = 0.70;
 interface MileageLog {
   id: string;
   trip_date: string;
-  start_odometer: number;
-  end_odometer: number;
-  miles: number;
+  start_miles: number;
+  end_miles: number;
+  total_miles: number;
   notes: string | null;
 }
 
@@ -101,7 +101,7 @@ export function MileageScreen() {
     const end = Number(endOdometer);
     if (!start || !end) { setFormError('Both odometer readings are required'); return; }
     if (end <= start) { setFormError('End odometer must be greater than start'); return; }
-    addMutation.mutate({ tripDate, startOdometer: start, endOdometer: end, notes: notes || undefined });
+    addMutation.mutate({ tripDate, startMiles: start, endMiles: end, notes: notes || undefined });
   }
 
   const logs = data?.logs ?? [];
@@ -114,9 +114,9 @@ export function MileageScreen() {
   weekStart.setHours(0, 0, 0, 0);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const todayMiles = logs.filter(l => l.trip_date.startsWith(todayStr!)).reduce((s, l) => s + l.miles, 0);
-  const weekMiles = logs.filter(l => new Date(l.trip_date) >= weekStart).reduce((s, l) => s + l.miles, 0);
-  const monthMiles = logs.filter(l => new Date(l.trip_date) >= monthStart).reduce((s, l) => s + l.miles, 0);
+  const todayMiles = logs.filter(l => l.trip_date.startsWith(todayStr!)).reduce((s, l) => s + l.total_miles, 0);
+  const weekMiles = logs.filter(l => new Date(l.trip_date) >= weekStart).reduce((s, l) => s + l.total_miles, 0);
+  const monthMiles = logs.filter(l => new Date(l.trip_date) >= monthStart).reduce((s, l) => s + l.total_miles, 0);
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>
@@ -251,10 +251,10 @@ export function MileageScreen() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: colors.navy }}>
-                      {log.miles.toFixed(1)} mi
+                      {log.total_miles.toFixed(1)} mi
                     </div>
                     <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
-                      {formatDate(log.trip_date)} · {log.start_odometer.toLocaleString()} → {log.end_odometer.toLocaleString()}
+                      {formatDate(log.trip_date)} · {log.start_miles.toLocaleString()} → {log.end_miles.toLocaleString()}
                     </div>
                     {log.notes && (
                       <div style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>{log.notes}</div>
@@ -262,7 +262,7 @@ export function MileageScreen() {
                   </div>
                   <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: colors.success }}>
-                      {formatCurrency(log.miles * IRS_RATE)}
+                      {formatCurrency(log.total_miles * IRS_RATE)}
                     </div>
                     <button
                       onClick={() => deleteMutation.mutate(log.id)}

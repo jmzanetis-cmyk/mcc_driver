@@ -52,7 +52,7 @@ router.get("/mileage", async (req: Request, res: Response) => {
 
     const { data: logs, error } = await supabaseAdmin
       .from("driver_mileage_logs")
-      .select("id, trip_date, start_odometer, end_odometer, miles, notes, created_at")
+      .select("id, trip_date, start_miles, end_miles, total_miles, notes, created_at")
       .eq("driver_id", driverId)
       .gte("trip_date", yearStart)
       .lt("trip_date", yearEnd)
@@ -64,7 +64,7 @@ router.get("/mileage", async (req: Request, res: Response) => {
       return;
     }
 
-    const totalMiles = (logs ?? []).reduce((sum, l) => sum + (l.miles ?? 0), 0);
+    const totalMiles = (logs ?? []).reduce((sum, l) => sum + (l.total_miles ?? 0), 0);
     const deductionDollars = totalMiles * IRS_RATE_2026;
 
     res.json({
@@ -89,35 +89,33 @@ router.post("/mileage", async (req: Request, res: Response) => {
     const driverId = await resolveDriver(req, res);
     if (!driverId) return;
 
-    const { tripDate, startOdometer, endOdometer, notes } = req.body as {
+    const { tripDate, startMiles, endMiles, notes } = req.body as {
       tripDate: string;
-      startOdometer: number;
-      endOdometer: number;
+      startMiles: number;
+      endMiles: number;
       notes?: string;
     };
 
-    if (!tripDate || startOdometer == null || endOdometer == null) {
-      res.status(400).json({ error: "tripDate, startOdometer, and endOdometer are required" });
+    if (!tripDate || startMiles == null || endMiles == null) {
+      res.status(400).json({ error: "tripDate, startMiles, and endMiles are required" });
       return;
     }
-    if (endOdometer <= startOdometer) {
-      res.status(400).json({ error: "endOdometer must be greater than startOdometer" });
+    if (endMiles <= startMiles) {
+      res.status(400).json({ error: "endMiles must be greater than startMiles" });
       return;
     }
-
-    const miles = Math.round((endOdometer - startOdometer) * 10) / 10;
 
     const { data, error } = await supabaseAdmin
       .from("driver_mileage_logs")
       .insert({
         driver_id: driverId,
         trip_date: tripDate,
-        start_odometer: startOdometer,
-        end_odometer: endOdometer,
-        miles,
+        start_miles: startMiles,
+        end_miles: endMiles,
+        // total_miles is GENERATED ALWAYS — do not insert
         notes: notes ?? null,
       })
-      .select("id, trip_date, start_odometer, end_odometer, miles, notes, created_at")
+      .select("id, trip_date, start_miles, end_miles, total_miles, notes, created_at")
       .single();
 
     if (error) {

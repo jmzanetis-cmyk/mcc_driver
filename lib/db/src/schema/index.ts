@@ -441,14 +441,14 @@ export type DriverWalletBalance = typeof driverWalletBalancesTable.$inferSelect;
 // Per-trip odometer entries for IRS mileage deduction tracking.
 
 export const driverMileageLogsTable = pgTable("driver_mileage_logs", {
-  id:             uuid("id").primaryKey().defaultRandom(),
-  driverId:       uuid("driver_id").notNull(),
-  tripDate:       timestamp("trip_date", { withTimezone: true }).notNull(),
-  startOdometer:  integer("start_odometer").notNull(),
-  endOdometer:    integer("end_odometer").notNull(),
-  miles:          real("miles").notNull(),
-  notes:          text("notes"),
-  createdAt:      timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  id:         uuid("id").primaryKey().defaultRandom(),
+  driverId:   uuid("driver_id").notNull(),
+  tripDate:   timestamp("trip_date", { withTimezone: true }).notNull(),
+  startMiles: real("start_miles").notNull(),
+  endMiles:   real("end_miles").notNull(),
+  totalMiles: real("total_miles"),  // GENERATED ALWAYS AS (end_miles - start_miles) STORED
+  notes:      text("notes"),
+  createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 export type DriverMileageLog = typeof driverMileageLogsTable.$inferSelect;
 

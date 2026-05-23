@@ -78,7 +78,7 @@ router.get("/tax-estimate", async (req: Request, res: Response) => {
         .lt("recorded_at", yearEnd),
       supabaseAdmin
         .from("driver_mileage_logs")
-        .select("miles")
+        .select("total_miles")
         .eq("driver_id", driverId)
         .gte("trip_date", yearStart)
         .lt("trip_date", yearEnd),
@@ -97,7 +97,7 @@ router.get("/tax-estimate", async (req: Request, res: Response) => {
     }
 
     const grossEarnings = (earnings ?? []).reduce((s, e) => s + (e.amount_cents ?? 0), 0) / 100;
-    const totalMiles = (mileageLogs ?? []).reduce((s, m) => s + (m.miles ?? 0), 0);
+    const totalMiles = (mileageLogs ?? []).reduce((s, m) => s + (m.total_miles ?? 0), 0);
     const mileageDeduction = totalMiles * IRS_RATE_2026;
     const expenseDeduction = (expenses ?? []).reduce((s, e) => s + (e.amount_cents ?? 0), 0) / 100;
 
