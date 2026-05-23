@@ -90,7 +90,7 @@ export function ExpensesScreen() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['expenses'] });
       setAmount('');
-      setNotes('');
+      setDescription('');
       setFormError(null);
     },
     onError: (err: Error) => setFormError(err.message),
