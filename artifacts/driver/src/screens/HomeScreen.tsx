@@ -212,6 +212,26 @@ export function HomeScreen() {
           </div>
         </div>
 
+        {/* Performance summary */}
+        {!earningsLoading && (
+          <Card
+            onClick={() => navigate('/performance')}
+            style={{ marginBottom: 20, cursor: 'pointer' }}
+            padding={14}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Performance
+              </div>
+              <span style={{ fontSize: 12, color: colors.gold, fontWeight: 600 }}>View Details ›</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <StatCard label="Completion" value={`${((driver?.completionRate ?? 1) * 100).toFixed(0)}%`} />
+              <StatCard label="Rating" value={summary.averageRating.toFixed(1)} sublabel={'★'.repeat(Math.round(summary.averageRating))} color={colors.gold} />
+            </div>
+          </Card>
+        )}
+
         {/* Quick actions */}
         <div style={{ display: 'flex', gap: 10 }}>
           <Card onClick={() => navigate('/earnings')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>

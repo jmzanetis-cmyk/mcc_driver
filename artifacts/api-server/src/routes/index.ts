@@ -22,6 +22,7 @@ import ratingsRouter from "./ratings";
 import notificationsRouter from "./notifications";
 import safetyRouter from "./safety";
 import driverProfileRouter from "./driverProfile";
+import driverStatsRouter from "./driverStats";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(ratingsRouter);
 router.use(notificationsRouter);
 router.use(safetyRouter);
 router.use(driverProfileRouter);
+router.use(driverStatsRouter);
 
 export default router;
