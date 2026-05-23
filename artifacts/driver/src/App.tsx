@@ -28,6 +28,7 @@ import { TipScreen } from '@/screens/TipScreen';
 import { RelocationScreen } from '@/screens/RelocationScreen';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
 import { SafetyScreen } from '@/screens/SafetyScreen';
+import { DriverProfileScreen } from '@/screens/DriverProfileScreen';
 import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
 import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
@@ -121,6 +122,7 @@ export default function App() {
             <Route path="/ride/:rideId/relocation" element={<ProtectedRoute><RelocationScreen /></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><NotificationsScreen /></ProtectedRoute>} />
             <Route path="/safety" element={<ProtectedRoute><SafetyScreen /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><DriverProfileScreen /></ProtectedRoute>} />
             <Route path="/earnings" element={<ProtectedRoute><EarningsScreen /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
             <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />

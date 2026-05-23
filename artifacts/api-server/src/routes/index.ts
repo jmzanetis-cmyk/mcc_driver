@@ -21,6 +21,7 @@ import rideMessagesRouter from "./rideMessages";
 import ratingsRouter from "./ratings";
 import notificationsRouter from "./notifications";
 import safetyRouter from "./safety";
+import driverProfileRouter from "./driverProfile";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(rideMessagesRouter);
 router.use(ratingsRouter);
 router.use(notificationsRouter);
 router.use(safetyRouter);
+router.use(driverProfileRouter);
 
 export default router;

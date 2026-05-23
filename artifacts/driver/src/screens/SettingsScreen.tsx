@@ -579,6 +579,37 @@ export function SettingsScreen() {
           )}
         </Card>
 
+        {/* Driver Tools */}
+        <SectionLabel>Driver Tools</SectionLabel>
+        <Card style={{ marginBottom: 16 }} padding={0}>
+          {[
+            { label: 'View Profile', icon: '👤', path: '/profile' },
+            { label: 'Safety', icon: '🆘', path: '/safety' },
+            { label: 'Documents', icon: '📄', path: '/documents' },
+            { label: 'Performance', icon: '📊', path: '/performance' },
+            { label: 'Promotions', icon: '🎯', path: '/promotions' },
+            { label: 'Schedule', icon: '📅', path: '/schedule' },
+            { label: 'Help', icon: '❓', path: '/help' },
+          ].map(({ label, icon, path }, i, arr) => (
+            <button
+              key={path}
+              onClick={() => navigate(path)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '14px 14px', background: 'transparent', border: 'none',
+                borderBottom: i < arr.length - 1 ? `1px solid ${colors.border}` : 'none',
+                cursor: 'pointer', fontSize: 14, color: colors.textPrimary, textAlign: 'left',
+                fontFamily: 'inherit',
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span>{icon}</span>{label}
+              </span>
+              <span style={{ color: colors.textMuted }}>›</span>
+            </button>
+          ))}
+        </Card>
+
         {/* Legal / About */}
         <SectionLabel>Legal & About</SectionLabel>
         <Card style={{ marginBottom: 24 }} padding={0}>
