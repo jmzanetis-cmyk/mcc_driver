@@ -88,6 +88,12 @@ async function dispatch(event: Stripe.Event): Promise<void> {
     case "transfer.created":
       await onTransferCreated(event.data.object as Stripe.Transfer);
       break;
+    case "transfer.paid":
+      await onTransferPaid(event.data.object as Stripe.Transfer);
+      break;
+    case "transfer.failed":
+      await onTransferFailed(event.data.object as Stripe.Transfer);
+      break;
     case "payout.paid":
       await onPayoutPaid(event.data.object as Stripe.Payout);
       break;
@@ -125,6 +131,28 @@ async function onTransferCreated(transfer: Stripe.Transfer): Promise<void> {
       "stripe.webhook.transfer_created.no_match",
     );
   }
+}
+
+async function onTransferPaid(transfer: Stripe.Transfer): Promise<void> {
+  // Transfer settled to the connected account — funds are available.
+  // payout.paid is the true terminal event; just log this one.
+  logger.info(
+    { transferId: transfer.id, amount: transfer.amount },
+    "stripe.webhook.transfer_paid",
+  );
+}
+
+async function onTransferFailed(transfer: Stripe.Transfer): Promise<void> {
+  const [row] = await db
+    .update(driverCashoutsTable)
+    .set({ status: "failed", error: "Stripe transfer failed" })
+    .where(eq(driverCashoutsTable.stripeTransferId, transfer.id))
+    .returning({ id: driverCashoutsTable.id });
+
+  logger.info(
+    { transferId: transfer.id, cashoutId: row?.id ?? null },
+    "stripe.webhook.transfer_failed",
+  );
 }
 
 async function onPayoutPaid(payout: Stripe.Payout): Promise<void> {
