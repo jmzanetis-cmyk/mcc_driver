@@ -2,7 +2,7 @@
 // MCC Driver — Home Dashboard Screen
 // ============================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +17,7 @@ import { RideRequestModal } from './RideRequestScreen';
 import { RELOCATION_SCENARIOS } from './RelocationScreen';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useDocumentCompliance } from '@/hooks/useDocumentCompliance';
+import { apiUrl } from '@/services/api/baseUrl';
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -29,6 +30,24 @@ export function HomeScreen() {
   const setServerCancelled = useDispatchStore((s) => s.setServerCancelled);
   const { unreadCount } = useNotifications();
   const compliance = useDocumentCompliance();
+
+  const [activePromo, setActivePromo] = useState<{ title: string; current: number; target: number } | null>(null);
+  useEffect(() => {
+    if (!driver) return;
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(apiUrl('/promotions'), {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (res.ok) {
+          const j = await res.json() as { promotions: Array<{ status: string; title: string; current_count: number; target_count: number }> };
+          const first = j.promotions.find((p) => p.status === 'active');
+          if (first) setActivePromo({ title: first.title, current: first.current_count, target: first.target_count });
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [driver?.id]);
 
   // Gate the Ride-Along Dashboard entry by checking the caller's
   // ride_along_drivers profile. Only drivers with a record see the card.
@@ -261,6 +280,35 @@ export function HomeScreen() {
                 <div style={{ fontSize: 12, color: colors.textMuted }}>Tandem dashboard — live broadcasts & matches</div>
               </div>
               <div style={{ fontSize: 18, color: colors.gold }}>→</div>
+            </div>
+          </Card>
+        )}
+
+        {/* Active promotion progress */}
+        {activePromo && (
+          <Card
+            onClick={() => navigate('/promotions')}
+            style={{ marginTop: 12, cursor: 'pointer', border: `1px solid ${colors.gold}` }}
+            padding={14}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 18 }}>🎯</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>{activePromo.title}</div>
+                <div style={{ fontSize: 11, color: colors.textMuted }}>
+                  {activePromo.current} / {activePromo.target} rides
+                </div>
+              </div>
+              <span style={{ fontSize: 12, color: colors.gold, fontWeight: 600 }}>
+                {Math.round((activePromo.current / activePromo.target) * 100)}%
+              </span>
+            </div>
+            <div style={{ height: 6, background: colors.bgSecondary, borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${Math.round(Math.min(1, activePromo.current / activePromo.target) * 100)}%`,
+                background: colors.gold, borderRadius: 3,
+              }} />
             </div>
           </Card>
         )}

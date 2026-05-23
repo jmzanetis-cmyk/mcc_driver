@@ -31,6 +31,7 @@ import { SafetyScreen } from '@/screens/SafetyScreen';
 import { DriverProfileScreen } from '@/screens/DriverProfileScreen';
 import { DocumentsScreen } from '@/screens/DocumentsScreen';
 import { PerformanceScreen } from '@/screens/PerformanceScreen';
+import { PromotionsScreen } from '@/screens/PromotionsScreen';
 import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
 import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
@@ -127,6 +128,7 @@ export default function App() {
             <Route path="/profile" element={<ProtectedRoute><DriverProfileScreen /></ProtectedRoute>} />
             <Route path="/documents" element={<ProtectedRoute><DocumentsScreen /></ProtectedRoute>} />
             <Route path="/performance" element={<ProtectedRoute><PerformanceScreen /></ProtectedRoute>} />
+            <Route path="/promotions" element={<ProtectedRoute><PromotionsScreen /></ProtectedRoute>} />
             <Route path="/earnings" element={<ProtectedRoute><EarningsScreen /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
             <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />
