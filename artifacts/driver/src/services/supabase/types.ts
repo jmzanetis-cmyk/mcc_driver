@@ -106,6 +106,22 @@ export interface PayoutRow {
   created_at: string;
 }
 
+export interface CashoutRow {
+  id: string;
+  driver_id: string;
+  amount_cents: number;
+  fee_cents: number;
+  method: 'instant' | 'standard';
+  status: string;
+  stripe_transfer_id: string | null;
+  stripe_payout_id: string | null;
+  error: string | null;
+  requested_at: string;
+  completed_at: string | null;
+  initiated_by_kind: string;
+  initiated_by_id: string | null;
+}
+
 export interface SupportIssueRow {
   id: string;
   driver_id: string;

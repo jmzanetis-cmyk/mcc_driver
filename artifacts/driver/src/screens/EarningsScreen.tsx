@@ -26,7 +26,7 @@ const PERIOD_LABELS: Record<Period, string> = {
 export function EarningsScreen() {
   const navigate = useNavigate();
   const { driver } = useAuth();
-  const { summary, recentRides, payouts, isLoading, isError, refreshEarnings } = useEarnings(driver?.id || null);
+  const { summary, recentRides, payouts, availableCents, isLoading, isError, refreshEarnings } = useEarnings(driver?.id || null);
   const [period, setPeriod] = useState<Period>('week');
 
   const filteredRides = recentRides.filter(ride => {
@@ -56,9 +56,7 @@ export function EarningsScreen() {
     : period === 'month' ? summary.ridesThisMonth
     : summary.ridesAllTime;
 
-  const unpaidBalance = summary.totalFares + summary.totalTips - payouts
-    .filter((p) => p.status === 'paid' || p.status === 'in_transit')
-    .reduce((s, p) => s + (p.netPayout ?? p.amount), 0);
+  const unpaidBalance = availableCents / 100;
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>

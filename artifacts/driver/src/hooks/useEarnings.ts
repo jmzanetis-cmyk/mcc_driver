@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import type { AssignmentRow, PayoutRow, RideRow } from '@/services/supabase/types';
+import type { AssignmentRow, CashoutRow, RideRow } from '@/services/supabase/types';
 
 export interface EarningsSummary {
   today: number;
@@ -60,6 +60,7 @@ async function fetchEarnings(driverId: string): Promise<{
   summary: EarningsSummary;
   recentRides: RideEarning[];
   payouts: PayoutRecord[];
+  availableCents: number;
 }> {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -71,7 +72,8 @@ async function fetchEarnings(driverId: string): Promise<{
   const [
     { data: assignments, error: assignmentsError },
     { data: driverData, error: driverError },
-    { data: payoutData },
+    { data: cashoutData },
+    { data: walletData },
   ] = await Promise.all([
     supabase
       .from('driver_assignments')
@@ -93,11 +95,16 @@ async function fetchEarnings(driverId: string): Promise<{
       .eq('id', driverId)
       .single(),
     supabase
-      .from('driver_payouts')
-      .select('*')
+      .from('driver_cashouts')
+      .select('id, amount_cents, fee_cents, method, status, error, requested_at, completed_at')
       .eq('driver_id', driverId)
-      .order('created_at', { ascending: false })
+      .order('requested_at', { ascending: false })
       .limit(20),
+    supabase
+      .from('driver_wallet_balances')
+      .select('available_cents')
+      .eq('driver_id', driverId)
+      .maybeSingle(),
   ]);
 
   if (assignmentsError) throw assignmentsError;
@@ -143,20 +150,20 @@ async function fetchEarnings(driverId: string): Promise<{
     });
   }
 
-  const payouts: PayoutRecord[] = ((payoutData ?? []) as unknown as PayoutRow[]).map((p) => ({
-    id: p.id,
-    amount: p.amount,
-    netPayout: p.net_payout,
-    platformFee: p.platform_fee,
-    method: p.method,
-    status: p.status,
-    requestedAt: p.requested_at,
-    completedAt: p.completed_at,
-    scheduledDate: p.scheduled_date,
-    cardLast4: p.card_last4,
-    bankLast4: p.bank_last4,
-    failedReason: p.failed_reason,
-    createdAt: p.created_at,
+  const payouts: PayoutRecord[] = ((cashoutData ?? []) as unknown as CashoutRow[]).map((c) => ({
+    id: c.id,
+    amount: c.amount_cents / 100,
+    netPayout: (c.amount_cents - c.fee_cents) / 100,
+    platformFee: c.fee_cents / 100,
+    method: c.method,
+    status: c.status,
+    requestedAt: c.requested_at,
+    completedAt: c.completed_at,
+    scheduledDate: null,
+    cardLast4: null,
+    bankLast4: null,
+    failedReason: c.error,
+    createdAt: c.requested_at,
   }));
 
   return {
@@ -175,6 +182,7 @@ async function fetchEarnings(driverId: string): Promise<{
     },
     recentRides: rides,
     payouts,
+    availableCents: (walletData as { available_cents: number | null } | null)?.available_cents ?? 0,
   };
 }
 
@@ -196,6 +204,7 @@ export function useEarnings(driverId: string | null) {
     },
     recentRides: query.data?.recentRides ?? [],
     payouts: query.data?.payouts ?? [],
+    availableCents: query.data?.availableCents ?? 0,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

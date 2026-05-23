@@ -11,7 +11,7 @@
 // Prerequisites:
 //   - Driver has completed Stripe Connect onboarding
 //   - Driver has a debit card on file (not just a bank account)
-//   - Driver has unpaid completed assignments
+//   - Driver has earnings with payout_status = 'available'
 // ============================================================
 
 import { Router, type Request, type Response } from "express";
@@ -31,9 +31,9 @@ const router = Router();
 
 const INSTANT_PAYOUT_FEE_PERCENT = 1.5;
 
-interface UnpaidAssignment {
+interface AvailableEarning {
   id: string;
-  driver_payout_amount: number;
+  amount_cents: number;
 }
 
 router.post("/payouts/instant", async (req: Request, res: Response) => {
@@ -100,72 +100,68 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
       return;
     }
 
-    // ── 4. Fetch unpaid completed assignments ────────────────
-    const { data: unpaidAssignments, error: assignmentError } =
+    // ── 4. Fetch available earnings ──────────────────────────
+    const { data: availableEarnings, error: earningsError } =
       await supabaseAdmin
-        .from("driver_assignments")
-        .select("id, driver_payout_amount")
+        .from("driver_earnings")
+        .select("id, amount_cents")
         .eq("driver_id", driver.id)
-        .eq("status", "completed")
-        .eq("payout_status", "unpaid")
-        .returns<UnpaidAssignment[]>();
+        .eq("payout_status", "available")
+        .returns<AvailableEarning[]>();
 
-    if (assignmentError) {
-      logger.error({ err: assignmentError }, "Failed to fetch assignments");
-      res.status(500).json({ error: "Failed to fetch unpaid earnings" });
+    if (earningsError) {
+      logger.error({ err: earningsError }, "Failed to fetch available earnings");
+      res.status(500).json({ error: "Failed to fetch available earnings" });
       return;
     }
 
-    if (!unpaidAssignments || unpaidAssignments.length === 0) {
+    if (!availableEarnings || availableEarnings.length === 0) {
       res.status(400).json({
-        error: "No unpaid earnings available for payout",
+        error: "No available earnings for payout",
         code: "NO_UNPAID_EARNINGS",
       });
       return;
     }
 
-    // ── 5. Calculate amounts ─────────────────────────────────
-    const grossDollars = unpaidAssignments.reduce(
-      (sum, a) => sum + (a.driver_payout_amount || 0),
+    // ── 5. Calculate amounts (all in cents) ──────────────────
+    const grossCents = availableEarnings.reduce(
+      (sum, e) => sum + (e.amount_cents || 0),
       0,
     );
-
-    const feeDollars = Number(
-      ((grossDollars * INSTANT_PAYOUT_FEE_PERCENT) / 100).toFixed(2),
-    );
-    const netDollars = Number((grossDollars - feeDollars).toFixed(2));
-    const netCents = Math.round(netDollars * 100);
+    const feeCents = Math.round((grossCents * INSTANT_PAYOUT_FEE_PERCENT) / 100);
+    const netCents = grossCents - feeCents;
 
     if (netCents < 100) {
       res.status(400).json({
         error: "Minimum payout amount is $1.00 after fees",
         code: "BELOW_MINIMUM",
-        gross: grossDollars,
-        fee: feeDollars,
-        net: netDollars,
+        gross: grossCents / 100,
+        fee: feeCents / 100,
+        net: netCents / 100,
       });
       return;
     }
 
-    // ── 6. Create driver_payouts DB row ──────────────────────
-    const assignmentIds = unpaidAssignments.map((a) => a.id);
+    // ── 6. Create driver_cashouts DB row ─────────────────────
+    const earningIds = availableEarnings.map((e) => e.id);
 
-    const { data: payoutRow, error: insertError } = await supabaseAdmin
-      .from("driver_payouts")
+    const { data: cashoutRow, error: insertError } = await supabaseAdmin
+      .from("driver_cashouts")
       .insert({
         driver_id: driver.id,
-        amount: grossDollars,
-        net_payout: netDollars,
-        platform_fee: feeDollars,
+        amount_cents: grossCents,
+        fee_cents: feeCents,
         method: "instant",
         status: "processing",
+        initiated_by_kind: "driver",
+        initiated_by_id: driver.id,
         requested_at: new Date().toISOString(),
       })
       .select("id")
       .single();
 
-    if (insertError || !payoutRow) {
-      logger.error({ err: insertError }, "Failed to create payout record");
+    if (insertError || !cashoutRow) {
+      logger.error({ err: insertError }, "Failed to create cashout record");
       res.status(500).json({ error: "Failed to initiate payout" });
       return;
     }
@@ -177,9 +173,9 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
         amount: netCents,
         currency: "usd",
         destination: driver.stripe_account_id,
-        description: `MCC instant payout – ${assignmentIds.length} assignment(s)`,
+        description: `MCC instant payout – ${earningIds.length} earning(s)`,
         metadata: {
-          mcc_payout_id: payoutRow.id,
+          mcc_cashout_id: cashoutRow.id,
           driver_id: driver.id,
           method: "instant",
         },
@@ -187,12 +183,12 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
     } catch (stripeErr: unknown) {
       const msg =
         stripeErr instanceof Error ? stripeErr.message : "Transfer creation failed";
-      logger.error({ err: stripeErr, payoutId: payoutRow.id }, "Stripe transfer.create failed");
+      logger.error({ err: stripeErr, cashoutId: cashoutRow.id }, "Stripe transfer.create failed");
 
       await supabaseAdmin
-        .from("driver_payouts")
-        .update({ status: "failed", failed_reason: msg })
-        .eq("id", payoutRow.id);
+        .from("driver_cashouts")
+        .update({ status: "failed", error: msg })
+        .eq("id", cashoutRow.id);
 
       res.status(502).json({
         error: "Payment transfer failed. Please try again.",
@@ -210,7 +206,7 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
           currency: "usd",
           method: "instant",
           description: "MCC Instant Payout",
-          metadata: { mcc_payout_id: payoutRow.id, driver_id: driver.id },
+          metadata: { mcc_cashout_id: cashoutRow.id, driver_id: driver.id },
         },
         { stripeAccount: driver.stripe_account_id },
       );
@@ -218,17 +214,17 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
       const msg =
         stripeErr instanceof Error ? stripeErr.message : "Instant payout creation failed";
       logger.error(
-        { err: stripeErr, payoutId: payoutRow.id, transferId: transfer.id },
+        { err: stripeErr, cashoutId: cashoutRow.id, transferId: transfer.id },
         "Stripe payout.create (instant) failed",
       );
 
-      // Transfer succeeded but payout failed — funds are in the connected
-      // account balance. Webhook cannot fire (no payout ID). Mark as failed
-      // so ops can investigate and retry.
+      // Transfer succeeded but instant payout failed — funds are sitting in
+      // the connected account balance. Mark failed so ops can investigate;
+      // the driver will receive the balance via the next standard payout.
       await supabaseAdmin
-        .from("driver_payouts")
-        .update({ status: "failed", stripe_transfer_id: transfer.id, failed_reason: msg })
-        .eq("id", payoutRow.id);
+        .from("driver_cashouts")
+        .update({ status: "failed", stripe_transfer_id: transfer.id, error: msg })
+        .eq("id", cashoutRow.id);
 
       res.status(502).json({
         error: "Funds transferred but instant payout failed. They will arrive via standard payout.",
@@ -237,28 +233,36 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
       return;
     }
 
-    // ── 9. Update DB with Stripe IDs ─────────────────────────
+    // ── 9. Update cashout row with Stripe IDs ────────────────
     await supabaseAdmin
-      .from("driver_payouts")
+      .from("driver_cashouts")
       .update({
         stripe_transfer_id: transfer.id,
-        status: "in_transit",
+        stripe_payout_id: payout.id,
       })
-      .eq("id", payoutRow.id);
+      .eq("id", cashoutRow.id);
 
-    // ── 10. Mark assignments as paid ─────────────────────────
+    // ── 10. Mark swept earnings as paid ──────────────────────
     await supabaseAdmin
-      .from("driver_assignments")
-      .update({ payout_status: "paid", payout_id: payoutRow.id })
-      .in("id", assignmentIds);
+      .from("driver_earnings")
+      .update({
+        payout_status: "paid",
+        cashout_id: cashoutRow.id,
+        paid_at: new Date().toISOString(),
+        stripe_transfer_id: transfer.id,
+      })
+      .in("id", earningIds);
+
+    const netDollars = netCents / 100;
 
     logger.info(
       {
-        payoutId: payoutRow.id,
+        cashoutId: cashoutRow.id,
         transferId: transfer.id,
         stripePayoutId: payout.id,
-        amount: netDollars,
+        netDollars,
         driverId: driver.id,
+        earningCount: earningIds.length,
       },
       "Instant payout initiated successfully",
     );
@@ -268,19 +272,19 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
       "payout_success",
       "Instant Payout Initiated",
       `$${netDollars.toFixed(2)} is on its way to your debit card (typically within 30 min).`,
-      { payoutId: payoutRow.id, net: netDollars, method: "instant" },
+      { payoutId: cashoutRow.id, net: netDollars, method: "instant" },
     );
 
     res.status(200).json({
       success: true,
       payout: {
-        id: payoutRow.id,
-        gross: grossDollars,
-        fee: feeDollars,
+        id: cashoutRow.id,
+        gross: grossCents / 100,
+        fee: feeCents / 100,
         net: netDollars,
         method: "instant",
-        status: "in_transit",
-        assignmentCount: assignmentIds.length,
+        status: "processing",
+        earningCount: earningIds.length,
       },
     });
   } catch (err) {

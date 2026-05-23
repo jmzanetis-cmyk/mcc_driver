@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, integer, real, timestamp, uuid, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, integer, real, timestamp, uuid, uniqueIndex, jsonb, bigint } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -378,6 +378,65 @@ export const appConfigTable = pgTable("app_config", {
 });
 
 export type AppConfig = typeof appConfigTable.$inferSelect;
+
+// ── Driver Earnings ───────────────────────────────────────────────────────────
+// Append-only ledger of money owed to a driver.
+// kind: 'base' | 'tip' | 'bonus' | 'adjustment'
+// payout_status: 'pending' → 'available' → 'paid' (or 'failed')
+
+export const driverEarningsTable = pgTable("driver_earnings", {
+  id:               uuid("id").primaryKey().defaultRandom(),
+  driverId:         uuid("driver_id").notNull(),
+  jobId:            uuid("job_id"),
+  legId:            uuid("leg_id"),
+  amountCents:      integer("amount_cents").notNull(),
+  kind:             text("kind").notNull().default("base"),
+  notes:            text("notes"),
+  recordedAt:       timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
+  payoutStatus:     text("payout_status").notNull().default("pending"),
+  stripeTransferId: text("stripe_transfer_id"),
+  paidAt:           timestamp("paid_at", { withTimezone: true }),
+  payoutError:      text("payout_error"),
+  cashoutId:        uuid("cashout_id"),
+});
+export type DriverEarning = typeof driverEarningsTable.$inferSelect;
+
+// ── Driver Cashouts ───────────────────────────────────────────────────────────
+// One row per cashout request; links back to the earnings swept into it.
+// status: 'processing' → 'paid' | 'failed' | 'cancelled'
+// method: 'standard' | 'instant'
+
+export const driverCashoutsTable = pgTable("driver_cashouts", {
+  id:               uuid("id").primaryKey().defaultRandom(),
+  driverId:         uuid("driver_id").notNull(),
+  amountCents:      integer("amount_cents").notNull(),
+  feeCents:         integer("fee_cents").notNull().default(0),
+  method:           text("method").notNull(),
+  status:           text("status").notNull().default("processing"),
+  stripeTransferId: text("stripe_transfer_id"),
+  stripePayoutId:   text("stripe_payout_id"),
+  error:            text("error"),
+  requestedAt:      timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
+  completedAt:      timestamp("completed_at", { withTimezone: true }),
+  initiatedByKind:  text("initiated_by_kind").notNull().default("driver"),
+  initiatedById:    uuid("initiated_by_id"),
+});
+export type DriverCashout = typeof driverCashoutsTable.$inferSelect;
+
+// ── Driver Wallet Balances (VIEW) ─────────────────────────────────────────────
+// Read-only aggregate view — never insert/update through this definition.
+// bigint mode:"number" is safe for any realistic earnings amount (< $21M).
+
+export const driverWalletBalancesTable = pgTable("driver_wallet_balances", {
+  driverId:            uuid("driver_id"),
+  availableCents:      bigint("available_cents",       { mode: "number" }),
+  pendingAccountCents: bigint("pending_account_cents", { mode: "number" }),
+  failedCents:         bigint("failed_cents",          { mode: "number" }),
+  inFlightCents:       bigint("in_flight_cents",       { mode: "number" }),
+  lifetimePaidCents:   bigint("lifetime_paid_cents",   { mode: "number" }),
+});
+export type DriverWalletBalance = typeof driverWalletBalancesTable.$inferSelect;
+
 export const insertDeviceTokenSchema = createInsertSchema(deviceTokensTable).omit({
   id: true,
   createdAt: true,
