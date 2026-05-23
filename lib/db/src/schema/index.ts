@@ -437,6 +437,37 @@ export const driverWalletBalancesTable = pgTable("driver_wallet_balances", {
 });
 export type DriverWalletBalance = typeof driverWalletBalancesTable.$inferSelect;
 
+// ── Driver Mileage Logs ───────────────────────────────────────────────────────
+// Per-trip odometer entries for IRS mileage deduction tracking.
+
+export const driverMileageLogsTable = pgTable("driver_mileage_logs", {
+  id:             uuid("id").primaryKey().defaultRandom(),
+  driverId:       uuid("driver_id").notNull(),
+  tripDate:       timestamp("trip_date", { withTimezone: true }).notNull(),
+  startOdometer:  integer("start_odometer").notNull(),
+  endOdometer:    integer("end_odometer").notNull(),
+  miles:          real("miles").notNull(),
+  notes:          text("notes"),
+  createdAt:      timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export type DriverMileageLog = typeof driverMileageLogsTable.$inferSelect;
+
+// ── Driver Expenses ───────────────────────────────────────────────────────────
+// Business expense log for tax deduction tracking.
+// category: 'gas' | 'car_wash' | 'phone' | 'insurance' | 'maintenance' | 'other'
+
+export const driverExpensesTable = pgTable("driver_expenses", {
+  id:           uuid("id").primaryKey().defaultRandom(),
+  driverId:     uuid("driver_id").notNull(),
+  category:     text("category").notNull(),
+  amountCents:  integer("amount_cents").notNull(),
+  expenseDate:  timestamp("expense_date", { withTimezone: true }).notNull(),
+  notes:        text("notes"),
+  receiptUrl:   text("receipt_url"),
+  createdAt:    timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export type DriverExpense = typeof driverExpensesTable.$inferSelect;
+
 export const insertDeviceTokenSchema = createInsertSchema(deviceTokensTable).omit({
   id: true,
   createdAt: true,

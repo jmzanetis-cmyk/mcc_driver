@@ -39,6 +39,10 @@ import { TrainingModuleScreen } from '@/screens/TrainingModuleScreen';
 import { TrainingLessonScreen } from '@/screens/TrainingLessonScreen';
 import { CoDriverEvalScreen } from '@/screens/CoDriverEvalScreen';
 import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
+import { MileageScreen } from '@/screens/MileageScreen';
+import { ExpensesScreen } from '@/screens/ExpensesScreen';
+import { TaxEstimatorScreen } from '@/screens/TaxEstimatorScreen';
+import { LeaderboardScreen } from '@/screens/LeaderboardScreen';
 import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
 import { SupportScreen as LegalSupportScreen } from '@/screens/legal/SupportScreen';
@@ -146,6 +150,10 @@ export default function App() {
             <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />
             <Route path="/instant-pay" element={<ProtectedRoute><InstantPayScreen /></ProtectedRoute>} />
             <Route path="/settings/payments" element={<ProtectedRoute><SetupPaymentsScreen /></ProtectedRoute>} />
+            <Route path="/mileage" element={<ProtectedRoute><MileageScreen /></ProtectedRoute>} />
+            <Route path="/expenses" element={<ProtectedRoute><ExpensesScreen /></ProtectedRoute>} />
+            <Route path="/tax-estimator" element={<ProtectedRoute><TaxEstimatorScreen /></ProtectedRoute>} />
+            <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardScreen /></ProtectedRoute>} />
             <Route path="/scheduled" element={<Navigate to="/home" replace />} />
             {/* Public legal routes — required by App Store Connect for the
                 Privacy Policy URL, Terms of Use URL, and Support URL fields.

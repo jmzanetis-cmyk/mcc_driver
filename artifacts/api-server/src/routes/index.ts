@@ -28,6 +28,10 @@ import scheduleRouter from "./schedule";
 import supportTicketsRouter from "./supportTickets";
 import trainingRouter from "./training";
 import evaluationsRouter from "./evaluations";
+import mileageRouter from "./mileage";
+import expensesRouter from "./expenses";
+import taxEstimateRouter from "./taxEstimate";
+import leaderboardRouter from "./leaderboard";
 
 const router: IRouter = Router();
 
@@ -60,5 +64,9 @@ router.use(scheduleRouter);
 router.use(supportTicketsRouter);
 router.use(trainingRouter);
 router.use(evaluationsRouter);
+router.use(mileageRouter);
+router.use(expensesRouter);
+router.use(taxEstimateRouter);
+router.use(leaderboardRouter);
 
 export default router;

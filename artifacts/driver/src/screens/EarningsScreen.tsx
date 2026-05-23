@@ -143,6 +143,33 @@ export function EarningsScreen() {
         {/* Daily chart */}
         {period !== 'today' && <DailyEarningsChart rides={filteredRides} period={period === 'month' ? 'week' : period} />}
 
+        {/* Financial Tools */}
+        <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+          Financial Tools
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          {[
+            { path: '/mileage', icon: '🚗', label: 'Mileage', sublabel: 'IRS deduction' },
+            { path: '/expenses', icon: '🧾', label: 'Expenses', sublabel: 'Business costs' },
+            { path: '/tax-estimator', icon: '📊', label: 'Tax Est.', sublabel: 'Quarterly' },
+            { path: '/leaderboard', icon: '🏆', label: 'Rankings', sublabel: 'Top drivers' },
+          ].map(({ path, icon, label, sublabel }) => (
+            <button
+              key={path}
+              onClick={() => navigate(path)}
+              style={{
+                flex: 1, padding: '12px 4px', background: colors.bgCard,
+                border: `1px solid ${colors.borderLight}`, borderRadius: borderRadius.md,
+                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: colors.navy }}>{label}</div>
+              <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>{sublabel}</div>
+            </button>
+          ))}
+        </div>
+
         {/* Payout History */}
         {payouts.length > 0 && (
           <>
