@@ -11,7 +11,7 @@
 // Prerequisites:
 //   - Driver has completed Stripe Connect onboarding
 //   - payoutsEnabled on the account (no debit card required)
-//   - Driver has unpaid completed assignments
+//   - Driver has earnings with payout_status = 'available'
 // ============================================================
 
 import { Router, type Request, type Response } from "express";
@@ -29,11 +29,9 @@ function getStripeClient(): Stripe | null {
 
 const router = Router();
 
-const STANDARD_PAYOUT_MINIMUM = 1.0;
-
-interface UnpaidAssignment {
+interface AvailableEarning {
   id: string;
-  driver_payout_amount: number;
+  amount_cents: number;
 }
 
 function nextWednesdayISO(): string {
@@ -108,68 +106,65 @@ router.post("/payouts/standard", async (req: Request, res: Response) => {
       return;
     }
 
-    // ── 4. Fetch unpaid completed assignments ────────────────
-    const { data: unpaidAssignments, error: assignmentError } =
+    // ── 4. Fetch available earnings ──────────────────────────
+    const { data: availableEarnings, error: earningsError } =
       await supabaseAdmin
-        .from("driver_assignments")
-        .select("id, driver_payout_amount")
+        .from("driver_earnings")
+        .select("id, amount_cents")
         .eq("driver_id", driver.id)
-        .eq("status", "completed")
-        .eq("payout_status", "unpaid")
-        .returns<UnpaidAssignment[]>();
+        .eq("payout_status", "available")
+        .returns<AvailableEarning[]>();
 
-    if (assignmentError) {
-      logger.error({ err: assignmentError }, "Failed to fetch assignments");
+    if (earningsError) {
+      logger.error({ err: earningsError }, "Failed to fetch available earnings");
       res.status(500).json({ error: "Failed to fetch unpaid earnings" });
       return;
     }
 
-    if (!unpaidAssignments || unpaidAssignments.length === 0) {
+    if (!availableEarnings || availableEarnings.length === 0) {
       res.status(400).json({
-        error: "No unpaid earnings available for payout",
+        error: "No available earnings for payout",
         code: "NO_UNPAID_EARNINGS",
       });
       return;
     }
 
-    // ── 5. Calculate amounts (no fee for standard) ───────────
-    const totalDollars = Number(
-      unpaidAssignments
-        .reduce((sum, a) => sum + (a.driver_payout_amount || 0), 0)
-        .toFixed(2),
+    // ── 5. Calculate amounts (all in cents; no fee for standard)
+    const grossCents = availableEarnings.reduce(
+      (sum, e) => sum + (e.amount_cents || 0),
+      0,
     );
-    const totalCents = Math.round(totalDollars * 100);
 
-    if (totalCents < Math.round(STANDARD_PAYOUT_MINIMUM * 100)) {
+    if (grossCents < 100) {
       res.status(400).json({
-        error: `Minimum payout amount is $${STANDARD_PAYOUT_MINIMUM.toFixed(2)}`,
+        error: "Minimum payout amount is $1.00",
         code: "BELOW_MINIMUM",
-        amount: totalDollars,
+        gross: grossCents / 100,
       });
       return;
     }
 
-    // ── 6. Create driver_payouts DB row ──────────────────────
-    const assignmentIds = unpaidAssignments.map((a) => a.id);
+    // ── 6. Create driver_cashouts DB row ─────────────────────
+    const earningIds = availableEarnings.map((e) => e.id);
     const arrivalDate = nextWednesdayISO();
 
-    const { data: payoutRow, error: insertError } = await supabaseAdmin
-      .from("driver_payouts")
+    const { data: cashoutRow, error: insertError } = await supabaseAdmin
+      .from("driver_cashouts")
       .insert({
         driver_id: driver.id,
-        amount: totalDollars,
-        net_payout: totalDollars,
-        platform_fee: 0,
+        amount_cents: grossCents,
+        fee_cents: 0,
         method: "standard",
         status: "processing",
-        scheduled_date: arrivalDate,
+        initiated_by_kind: "driver",
+        initiated_by_id: driver.id,
         requested_at: new Date().toISOString(),
       })
       .select("id")
       .single();
 
-    if (insertError || !payoutRow) {
-      logger.error({ err: insertError }, "Failed to create payout record");
+    if (insertError || !cashoutRow) {
+      logger.error({ err: insertError }, "Failed to create cashout record");
       res.status(500).json({ error: "Failed to initiate payout" });
       return;
     }
@@ -178,12 +173,12 @@ router.post("/payouts/standard", async (req: Request, res: Response) => {
     let transfer: Stripe.Transfer;
     try {
       transfer = await stripe.transfers.create({
-        amount: totalCents,
+        amount: grossCents,
         currency: "usd",
         destination: driver.stripe_account_id,
-        description: `MCC standard payout – ${assignmentIds.length} assignment(s)`,
+        description: `MCC standard payout – ${earningIds.length} earning(s)`,
         metadata: {
-          mcc_payout_id: payoutRow.id,
+          mcc_cashout_id: cashoutRow.id,
           driver_id: driver.id,
           method: "standard",
         },
@@ -191,12 +186,12 @@ router.post("/payouts/standard", async (req: Request, res: Response) => {
     } catch (stripeErr: unknown) {
       const msg =
         stripeErr instanceof Error ? stripeErr.message : "Transfer creation failed";
-      logger.error({ err: stripeErr, payoutId: payoutRow.id }, "Stripe transfer.create failed");
+      logger.error({ err: stripeErr, cashoutId: cashoutRow.id }, "Stripe transfer.create failed");
 
       await supabaseAdmin
-        .from("driver_payouts")
-        .update({ status: "failed", failed_reason: msg })
-        .eq("id", payoutRow.id);
+        .from("driver_cashouts")
+        .update({ status: "failed", error: msg })
+        .eq("id", cashoutRow.id);
 
       res.status(502).json({
         error: "Payment transfer failed. Please try again.",
@@ -210,11 +205,11 @@ router.post("/payouts/standard", async (req: Request, res: Response) => {
     try {
       payout = await stripe.payouts.create(
         {
-          amount: totalCents,
+          amount: grossCents,
           currency: "usd",
           method: "standard",
           description: "MCC Standard Payout",
-          metadata: { mcc_payout_id: payoutRow.id, driver_id: driver.id },
+          metadata: { mcc_cashout_id: cashoutRow.id, driver_id: driver.id },
         },
         { stripeAccount: driver.stripe_account_id },
       );
@@ -222,16 +217,16 @@ router.post("/payouts/standard", async (req: Request, res: Response) => {
       const msg =
         stripeErr instanceof Error ? stripeErr.message : "Standard payout creation failed";
       logger.error(
-        { err: stripeErr, payoutId: payoutRow.id, transferId: transfer.id },
+        { err: stripeErr, cashoutId: cashoutRow.id, transferId: transfer.id },
         "Stripe payout.create (standard) failed",
       );
 
       // Transfer succeeded but payout failed — funds are in the connected
       // account balance. Mark failed with the transfer ID so ops can investigate.
       await supabaseAdmin
-        .from("driver_payouts")
-        .update({ status: "failed", stripe_transfer_id: transfer.id, failed_reason: msg })
-        .eq("id", payoutRow.id);
+        .from("driver_cashouts")
+        .update({ status: "failed", stripe_transfer_id: transfer.id, error: msg })
+        .eq("id", cashoutRow.id);
 
       res.status(502).json({
         error: "Funds transferred but standard payout failed. Contact support.",
@@ -240,26 +235,37 @@ router.post("/payouts/standard", async (req: Request, res: Response) => {
       return;
     }
 
-    // ── 9. Update DB with Stripe IDs ─────────────────────────
+    // ── 9. Update cashout row with Stripe IDs + in_transit ───
     await supabaseAdmin
-      .from("driver_payouts")
-      .update({ stripe_transfer_id: transfer.id, status: "in_transit" })
-      .eq("id", payoutRow.id);
+      .from("driver_cashouts")
+      .update({
+        stripe_transfer_id: transfer.id,
+        stripe_payout_id: payout.id,
+        status: "in_transit",
+      })
+      .eq("id", cashoutRow.id);
 
-    // ── 10. Mark assignments as paid ─────────────────────────
+    // ── 10. Mark swept earnings as paid ──────────────────────
     await supabaseAdmin
-      .from("driver_assignments")
-      .update({ payout_status: "paid", payout_id: payoutRow.id })
-      .in("id", assignmentIds);
+      .from("driver_earnings")
+      .update({
+        payout_status: "paid",
+        cashout_id: cashoutRow.id,
+        paid_at: new Date().toISOString(),
+        stripe_transfer_id: transfer.id,
+      })
+      .in("id", earningIds);
+
+    const grossDollars = grossCents / 100;
 
     logger.info(
       {
-        payoutId: payoutRow.id,
+        cashoutId: cashoutRow.id,
         transferId: transfer.id,
         stripePayoutId: payout.id,
-        amount: totalDollars,
+        grossDollars,
         driverId: driver.id,
-        assignmentCount: assignmentIds.length,
+        earningCount: earningIds.length,
       },
       "Standard payout initiated successfully",
     );
@@ -268,18 +274,20 @@ router.post("/payouts/standard", async (req: Request, res: Response) => {
       driver.id,
       "payout_success",
       "Standard Payout Scheduled",
-      `$${totalDollars.toFixed(2)} will arrive in your bank account by ${arrivalDate ?? "2 business days"}.`,
-      { payoutId: payoutRow.id, amount: totalDollars, method: "standard", arrivalDate },
+      `$${grossDollars.toFixed(2)} will arrive in your bank account by ${arrivalDate}.`,
+      { payoutId: cashoutRow.id, gross: grossDollars, method: "standard", arrivalDate },
     );
 
     res.status(200).json({
       success: true,
       payout: {
-        id: payoutRow.id,
-        amount: totalDollars,
+        id: cashoutRow.id,
+        gross: grossDollars,
+        fee: 0,
+        net: grossDollars,
         method: "standard",
         status: "in_transit",
-        assignmentCount: assignmentIds.length,
+        earningCount: earningIds.length,
         arrivalDate,
       },
     });
