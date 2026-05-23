@@ -34,6 +34,9 @@ import { PerformanceScreen } from '@/screens/PerformanceScreen';
 import { PromotionsScreen } from '@/screens/PromotionsScreen';
 import { ScheduleScreen } from '@/screens/ScheduleScreen';
 import { HelpScreen } from '@/screens/HelpScreen';
+import { TrainingHubScreen } from '@/screens/TrainingHubScreen';
+import { TrainingModuleScreen } from '@/screens/TrainingModuleScreen';
+import { TrainingLessonScreen } from '@/screens/TrainingLessonScreen';
 import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
 import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
 import { TermsScreen } from '@/screens/legal/TermsScreen';
@@ -133,6 +136,9 @@ export default function App() {
             <Route path="/promotions" element={<ProtectedRoute><PromotionsScreen /></ProtectedRoute>} />
             <Route path="/schedule" element={<ProtectedRoute><ScheduleScreen /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><HelpScreen /></ProtectedRoute>} />
+            <Route path="/training" element={<ProtectedRoute><TrainingHubScreen /></ProtectedRoute>} />
+            <Route path="/training/module/:slug" element={<ProtectedRoute><TrainingModuleScreen /></ProtectedRoute>} />
+            <Route path="/training/lesson/:lessonId" element={<ProtectedRoute><TrainingLessonScreen /></ProtectedRoute>} />
             <Route path="/earnings" element={<ProtectedRoute><EarningsScreen /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
             <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />

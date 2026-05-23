@@ -33,6 +33,7 @@ export function HomeScreen() {
 
   const [activePromo, setActivePromo] = useState<{ title: string; current: number; target: number } | null>(null);
   const [upcomingRide, setUpcomingRide] = useState<{ id: string; scheduledAt: string; pickup: string } | null>(null);
+  const [trainingBanner, setTrainingBanner] = useState<{ title: string; subtitle: string } | null>(null);
   useEffect(() => {
     if (!driver) return;
     void (async () => {
@@ -62,6 +63,31 @@ export function HomeScreen() {
           const j = await res.json() as { schedule: Array<{ id: string; scheduled_at: string; status: string; rides: { pickup_address: string } | null }> };
           const first = j.schedule.find((s) => s.status === 'accepted' && s.rides);
           if (first?.rides) setUpcomingRide({ id: first.id, scheduledAt: first.scheduled_at, pickup: first.rides.pickup_address.split(',')[0] ?? '' });
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [driver?.id]);
+
+  useEffect(() => {
+    if (!driver) return;
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(apiUrl('/training/modules'), {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (!res.ok) return;
+        type TM = { slug: string; isCertified: boolean; percentComplete: number; tier_required: number };
+        const j = await res.json() as { modules: TM[] };
+        const certSlugs = new Set(j.modules.filter((m) => m.isCertified).map((m) => m.slug));
+        const PREREQ: Record<number, string> = { 1: 'platform-basics', 2: 'passenger-rides', 3: 'solo-vehicle-shuttle' };
+        const unlocked = (m: TM) => m.tier_required === 0 || certSlugs.has(PREREQ[m.tier_required] ?? '');
+        const inProgress = j.modules.find((m) => !m.isCertified && unlocked(m) && m.percentComplete > 0);
+        const nextUp = j.modules.find((m) => !m.isCertified && unlocked(m));
+        if (inProgress) {
+          setTrainingBanner({ title: 'Training in progress', subtitle: `Continue: ${inProgress.percentComplete}% complete` });
+        } else if (nextUp) {
+          setTrainingBanner({ title: 'Training available', subtitle: `Start: ${nextUp.slug.replace(/-/g, ' ')}` });
         }
       } catch { /* ignore */ }
     })();
@@ -203,6 +229,28 @@ export function HomeScreen() {
           </Card>
         )}
 
+        {/* Training banner */}
+        {trainingBanner && (
+          <Card
+            onClick={() => navigate('/training')}
+            padding={14}
+            style={{
+              marginBottom: 16, cursor: 'pointer',
+              border: `1px solid ${colors.gold}`,
+              background: `rgba(201,152,46,0.06)`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🎓</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>{trainingBanner.title}</div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{trainingBanner.subtitle}</div>
+              </div>
+              <span style={{ color: colors.gold }}>›</span>
+            </div>
+          </Card>
+        )}
+
         {earningsError && (
           <Card padding={14} style={{ marginBottom: 16, border: `1px solid ${colors.error}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -276,7 +324,12 @@ export function HomeScreen() {
             <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Earnings</div>
             <div style={{ fontSize: 11, color: colors.textMuted }}>View details</div>
           </Card>
-<Card onClick={() => navigate('/settings')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
+          <Card onClick={() => navigate('/training')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
+            <div style={{ fontSize: 20, marginBottom: 6 }}>🎓</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Training</div>
+            <div style={{ fontSize: 11, color: colors.textMuted }}>Certifications</div>
+          </Card>
+          <Card onClick={() => navigate('/settings')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
             <div style={{ fontSize: 20, marginBottom: 6 }}>⚙️</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Settings</div>
             <div style={{ fontSize: 11, color: colors.textMuted }}>Profile & prefs</div>
