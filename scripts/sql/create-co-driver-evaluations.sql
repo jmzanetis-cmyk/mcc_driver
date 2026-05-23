@@ -21,15 +21,5 @@ CREATE INDEX IF NOT EXISTS idx_codriver_eval_ride      ON co_driver_evaluations(
 
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS co_driver_rating NUMERIC(3,2);
 
--- RLS
+-- RLS enabled — all access goes through the API server's service_role key.
 ALTER TABLE co_driver_evaluations ENABLE ROW LEVEL SECURITY;
--- Drivers can insert their own evaluations
-CREATE POLICY "driver insert own codriver eval"
-  ON co_driver_evaluations FOR INSERT
-  TO authenticated
-  WITH CHECK (evaluator_id = (SELECT id FROM drivers WHERE user_id = auth.uid() LIMIT 1));
--- Drivers can read evaluations where they are the evaluatee
-CREATE POLICY "driver read own codriver evals"
-  ON co_driver_evaluations FOR SELECT
-  TO authenticated
-  USING (evaluatee_id = (SELECT id FROM drivers WHERE user_id = auth.uid() LIMIT 1));
