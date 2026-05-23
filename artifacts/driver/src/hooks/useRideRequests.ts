@@ -67,6 +67,8 @@ async function hydrateOfferFromRow(
     tandemJobId: null,
     tandemMode: null,
     tandemModeConfirmed: false,
+    waypoints: (ride as { waypoints?: unknown }).waypoints as Array<{ address: string; lat: number; lng: number; label?: string }> | null ?? null,
+    currentWaypointIndex: 0,
   });
 }
 

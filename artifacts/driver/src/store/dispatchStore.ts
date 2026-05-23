@@ -42,6 +42,10 @@ interface DispatchState {
   startedAt: string | null;
   cancellationReason: string | null;
 
+  // Multi-stop waypoints (optional — null for single-destination rides)
+  waypoints: Array<{ address: string; lat: number; lng: number; label?: string }> | null;
+  currentWaypointIndex: number;
+
   // Tandem job fields (Phase 2+)
   tandemRequired: boolean;
   tandemFee: number | null;
@@ -54,12 +58,13 @@ interface DispatchState {
   serverCancelled: boolean;
 
   // Actions
-  setOffer: (payload: Omit<DispatchState, 'stage' | 'startedAt' | 'cancellationReason' | 'serverCancelled' | 'setOffer' | 'setStage' | 'setCancelled' | 'clearDispatch' | 'setServerCancelled' | 'setTandemJob'>) => void;
+  setOffer: (payload: Omit<DispatchState, 'stage' | 'startedAt' | 'cancellationReason' | 'serverCancelled' | 'setOffer' | 'setStage' | 'setCancelled' | 'clearDispatch' | 'setServerCancelled' | 'setTandemJob' | 'advanceWaypoint'>) => void;
   setStage: (stage: DispatchStage, extra?: Partial<DispatchState>) => void;
   setCancelled: (reason?: string) => void;
   clearDispatch: () => void;
   setServerCancelled: (value: boolean) => void;
   setTandemJob: (tandemJobId: string, tandemMode: 'A' | 'B' | 'C') => void;
+  advanceWaypoint: () => void;
 }
 
 const INITIAL = {
@@ -90,6 +95,8 @@ const INITIAL = {
   tandemJobId: null as string | null,
   tandemMode: null as 'A' | 'B' | 'C' | null,
   tandemModeConfirmed: false,
+  waypoints: null as Array<{ address: string; lat: number; lng: number; label?: string }> | null,
+  currentWaypointIndex: 0,
 };
 
 export const useDispatchStore = create<DispatchState>((set) => ({
@@ -108,4 +115,8 @@ export const useDispatchStore = create<DispatchState>((set) => ({
   setServerCancelled: (value) => set({ serverCancelled: value }),
 
   setTandemJob: (tandemJobId, tandemMode) => set({ tandemJobId, tandemMode, tandemModeConfirmed: true }),
+
+  advanceWaypoint: () => set((s) => ({
+    currentWaypointIndex: s.currentWaypointIndex + 1,
+  })),
 }));

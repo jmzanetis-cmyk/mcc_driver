@@ -33,7 +33,7 @@ export function NavigateScreen() {
   const { driver } = useAuth();
   const {
     activeRide, startNavigating, markArrived, startRide,
-    completeRide, cancelRide,
+    completeRide, cancelRide, advanceWaypoint,
   } = useActiveRide();
 
   // Used by the cancelled overlay to clear dispatch and show cancellation reason
@@ -76,7 +76,18 @@ export function NavigateScreen() {
 
   // Computed before early returns so they're available in effects
   const isNavigatingToPickup = dispatch.stage === 'accepted' || dispatch.stage === 'navigating';
-  const routeDest: { lat: number; lng: number } | null = isNavigatingToPickup
+
+  // Waypoint-aware current destination: during in_progress, navigate to current waypoint if any
+  const waypoints = dispatch.waypoints ?? null;
+  const currentWpIdx = dispatch.currentWaypointIndex ?? 0;
+  const currentWaypoint = waypoints && waypoints[currentWpIdx] && dispatch.stage === 'in_progress'
+    ? waypoints[currentWpIdx]!
+    : null;
+  const isLastWaypoint = !waypoints || currentWpIdx >= waypoints.length - 1;
+
+  const routeDest: { lat: number; lng: number } | null = currentWaypoint
+    ? { lat: currentWaypoint.lat, lng: currentWaypoint.lng }
+    : isNavigatingToPickup
     ? (dispatch.pickupLat != null && dispatch.pickupLng != null
         ? { lat: dispatch.pickupLat, lng: dispatch.pickupLng }
         : null)
@@ -246,9 +257,20 @@ export function NavigateScreen() {
   }
 
   // isNavigatingToPickup is computed from dispatch store above (before early returns)
-  const destination = isNavigatingToPickup
+  const destination = currentWaypoint
+    ? { lat: currentWaypoint.lat, lng: currentWaypoint.lng, label: currentWaypoint.address }
+    : isNavigatingToPickup
     ? { lat: activeRide.pickupLat, lng: activeRide.pickupLng, label: activeRide.pickupAddress }
     : { lat: activeRide.dropoffLat, lng: activeRide.dropoffLng, label: activeRide.dropoffAddress };
+
+  // Build all waypoint pins for the map (remaining stops shown as numbered markers)
+  const remainingWaypoints = waypoints && dispatch.stage === 'in_progress'
+    ? waypoints.slice(currentWpIdx).map((wp, i) => ({
+        lat: wp.lat,
+        lng: wp.lng,
+        label: wp.label ?? `Stop ${currentWpIdx + i + 1}`,
+      }))
+    : null;
 
   const handleOpenNav = () => {
     openNavigation(preferredNav, destination);
@@ -275,7 +297,16 @@ export function NavigateScreen() {
       action: () => startRide(),
       variant: 'success',
     },
-    in_progress: {
+    in_progress: currentWaypoint && !isLastWaypoint ? {
+      label: `Next Stop (${currentWpIdx + 1}/${waypoints?.length ?? 0}) →`,
+      action: () => {
+        advanceWaypoint();
+        if (currentWaypoint) {
+          openNavigation(preferredNav, { lat: currentWaypoint.lat, lng: currentWaypoint.lng, label: currentWaypoint.address });
+        }
+      },
+      variant: 'primary' as const,
+    } : {
       label: activeRide.serviceType === 'delivery' ? 'Mark as Delivered'
         : activeRide.serviceType === 'rideshare' ? 'Complete Rideshare'
         : 'Complete Ride',
@@ -285,7 +316,7 @@ export function NavigateScreen() {
           navigate(`/ride/${result.rideId}/complete`);
         }
       },
-      variant: 'success',
+      variant: 'success' as const,
     },
     completing: { label: 'Processing…', action: () => {}, variant: 'secondary' },
     completed: { label: 'Completed', action: () => {}, variant: 'secondary' },
@@ -517,7 +548,7 @@ export function NavigateScreen() {
         <MapView
           center={driverPosition ?? { lat: destination.lat, lng: destination.lng }}
           driverPosition={driverPosition}
-          destinations={[{ lat: destination.lat, lng: destination.lng, label: destination.label }]}
+          destinations={remainingWaypoints ?? [{ lat: destination.lat, lng: destination.lng, label: destination.label }]}
           routePolyline={route?.polyline}
           zoom={15}
           style={{ height: '100%' }}
@@ -657,12 +688,30 @@ export function NavigateScreen() {
 
         {/* Destination card */}
         <Card style={{ marginBottom: 12 }} padding={14}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: isNavigatingToPickup ? colors.info : colors.success, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-            {isNavigatingToPickup ? '📍 Navigating to Pickup' : '🏁 Navigating to Drop-off'}
+          <div style={{ fontSize: 11, fontWeight: 600, color: currentWaypoint ? colors.warning : isNavigatingToPickup ? colors.info : colors.success, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+            {currentWaypoint
+              ? `📍 Stop ${currentWpIdx + 1} of ${waypoints?.length ?? 1}`
+              : isNavigatingToPickup ? '📍 Navigating to Pickup' : '🏁 Navigating to Drop-off'}
           </div>
           <div style={{ fontSize: 18, fontWeight: 600, color: colors.textPrimary }}>
-            {isNavigatingToPickup ? activeRide.pickupAddress : activeRide.dropoffAddress}
+            {destination.label}
           </div>
+          {/* Remaining waypoints */}
+          {remainingWaypoints && remainingWaypoints.length > 1 && (
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {remainingWaypoints.slice(1).map((wp, i) => (
+                <div key={i} style={{ fontSize: 12, color: colors.textMuted, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: colors.bgSecondary, display: 'inline-flex',
+                    alignItems: 'center', justifyContent: 'center', fontSize: 10,
+                    fontWeight: 700, color: colors.navy, flexShrink: 0,
+                  }}>{currentWpIdx + i + 2}</span>
+                  {wp.label}
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Ride details */}

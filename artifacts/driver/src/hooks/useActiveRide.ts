@@ -120,6 +120,8 @@ export function useActiveRide() {
       carriesPassenger: dispatch.carriesPassenger,
       startedAt: dispatch.startedAt,
       cancellationReason: dispatch.cancellationReason,
+      waypoints: dispatch.waypoints,
+      currentWaypointIndex: dispatch.currentWaypointIndex,
     } : null,
 
     // Actions (all through Edge Functions)
@@ -128,6 +130,7 @@ export function useActiveRide() {
     startRide,
     completeRide,
     cancelRide,
+    advanceWaypoint: dispatch.advanceWaypoint,
   };
 }
 
