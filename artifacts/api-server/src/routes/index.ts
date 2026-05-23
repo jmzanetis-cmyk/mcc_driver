@@ -26,6 +26,7 @@ import driverStatsRouter from "./driverStats";
 import promotionsRouter from "./promotions";
 import scheduleRouter from "./schedule";
 import supportTicketsRouter from "./supportTickets";
+import trainingRouter from "./training";
 
 const router: IRouter = Router();
 
@@ -56,5 +57,6 @@ router.use(driverStatsRouter);
 router.use(promotionsRouter);
 router.use(scheduleRouter);
 router.use(supportTicketsRouter);
+router.use(trainingRouter);
 
 export default router;
