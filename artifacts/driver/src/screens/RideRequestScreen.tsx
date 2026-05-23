@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { type IncomingRideRequest } from '@/hooks/useRideRequests';
+import { useTrainingGating, CERT_LABELS } from '@/hooks/useTrainingGating';
 import { Button, CountdownTimer, InfoRow, Card } from '@/components';
 import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius } from '@/theme';
@@ -20,6 +22,7 @@ interface RideRequestModalProps {
 }
 
 export function RideRequestModal({ request, onAccept, onDecline, onExpired }: RideRequestModalProps) {
+  const navigate = useNavigate();
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -109,6 +112,7 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
 
   const tier = request.tier ?? '';
   const tierColor = tierColors[tier] ?? colors.navy;
+  const gating = useTrainingGating(tier || null);
   const serviceType = getServiceTypeFromTier(tier);
   const scenario = request.scenario ?? '';
   const pickupAddress = request.pickupAddress ?? '';
@@ -311,6 +315,46 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
           </Card>
         )}
 
+        {/* Training gating block */}
+        {!gating.loading && gating.blocked && (
+          <Card
+            style={{
+              marginBottom: 12,
+              border: `1.5px solid ${colors.warning}`,
+              background: colors.warningBg,
+            }}
+            padding={14}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🎓</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.warning, marginBottom: 4 }}>
+                  Training Required
+                </div>
+                <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 8, lineHeight: 1.4 }}>
+                  You need the following certification{gating.missingCerts.length > 1 ? 's' : ''} to accept this ride:
+                </div>
+                {gating.missingCerts.map((slug) => (
+                  <div key={slug} style={{ fontSize: 12, fontWeight: 600, color: colors.navy, marginBottom: 2 }}>
+                    · {CERT_LABELS[slug] ?? slug}
+                  </div>
+                ))}
+                <button
+                  onClick={() => { onDecline(); navigate('/training'); }}
+                  style={{
+                    marginTop: 10, padding: '7px 14px',
+                    background: colors.navy, color: '#fff',
+                    border: 'none', borderRadius: borderRadius.full,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Go to Training →
+                </button>
+              </div>
+            </div>
+          </Card>
+        )}
+
         <OfflineNotice style={{ marginBottom: 12 }} />
         {acceptError && (
           <div style={{
@@ -334,11 +378,12 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
           <Button
             onClick={handleAccept}
             loading={accepting}
+            disabled={gating.blocked}
             size="lg"
             style={{ flex: 2 }}
             buttonRef={acceptButtonRef}
           >
-            Accept Ride
+            {gating.blocked ? 'Training Required' : 'Accept Ride'}
           </Button>
         </div>
       </div>
