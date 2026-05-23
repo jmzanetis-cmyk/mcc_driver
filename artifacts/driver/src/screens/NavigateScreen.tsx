@@ -7,7 +7,7 @@
 // overlay is shown and the driver is returned to home.
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveRide, type ActiveRideStage } from '@/hooks/useActiveRide';
 import { useAuth } from '@/hooks/useAuth';
@@ -493,6 +493,22 @@ export function NavigateScreen() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
+      {/* Floating panic button */}
+      <button
+        onClick={() => navigate('/safety')}
+        aria-label="Open safety screen"
+        style={{
+          position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)', left: 20,
+          zIndex: 500, width: 52, height: 52, borderRadius: '50%',
+          background: '#DC2626', border: '3px solid #FCA5A5',
+          color: '#fff', fontSize: 22, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 16px rgba(220,38,38,0.5)',
+        }}
+      >
+        🆘
+      </button>
+
       {/* Trip chat panel */}
       {showChat && rideId && <TripChat rideId={rideId} onClose={() => setShowChat(false)} />}
 
