@@ -117,6 +117,16 @@ export function useRideRequests(driverId: string | null, isOnline: boolean) {
     }
   }, [driverId, dispatch.setOffer]);
 
+  // Push-notification wakeup: when a native "ride_offer" push arrives while
+  // the app is in the foreground, the Realtime socket may be stale. The push
+  // handler fires this CustomEvent so we backfill immediately rather than
+  // waiting for the next network-restored edge or component remount.
+  useEffect(() => {
+    const handler = () => { void backfillPendingOffer(); };
+    window.addEventListener("mcc:ride_offer_push", handler);
+    return () => window.removeEventListener("mcc:ride_offer_push", handler);
+  }, [backfillPendingOffer]);
+
   useEffect(() => {
     if (!driverId || !isOnline) {
       return;

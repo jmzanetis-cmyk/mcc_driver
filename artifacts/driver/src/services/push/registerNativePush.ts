@@ -163,6 +163,13 @@ export async function registerNativePush(): Promise<void> {
       await PushNotifications.addListener(
         "pushNotificationReceived",
         (notification) => {
+          const data = notification.data as { type?: string } | undefined;
+          if (data?.type === "ride_offer") {
+            // App is in foreground — Realtime may be stale. Dispatch a
+            // CustomEvent so useRideRequests can call backfillPendingOffer()
+            // immediately without waiting for a network-restored edge.
+            window.dispatchEvent(new CustomEvent("mcc:ride_offer_push"));
+          }
           logger.info("native_push.received_foreground", {
             title: notification.title,
             data: notification.data,
@@ -172,13 +179,23 @@ export async function registerNativePush(): Promise<void> {
       await PushNotifications.addListener(
         "pushNotificationActionPerformed",
         (action) => {
-          // Deep-link if payload includes a url. The Capacitor router
-          // uses BASE_URL as basename, so the URL is the in-app path
-          // already prefixed by /driver.
-          const url =
-            (action.notification?.data as { url?: string } | undefined)?.url;
-          if (typeof url === "string" && url.length > 0) {
-            window.location.assign(url);
+          const data = action.notification?.data as
+            | { type?: string; url?: string }
+            | undefined;
+
+          if (data?.type === "ride_offer") {
+            // Navigate to /home so HomeScreen mounts, which triggers the
+            // backfill and shows the RideRequestModal.
+            const base =
+              (import.meta.env.BASE_URL as string | undefined)?.replace(/\/$/, "") ??
+              "/driver";
+            window.location.assign(`${base}/home`);
+            return;
+          }
+
+          // Fallback: generic deep-link navigation for other push types.
+          if (typeof data?.url === "string" && data.url.length > 0) {
+            window.location.assign(data.url);
           }
         },
       );
