@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { type IncomingRideRequest } from '@/hooks/useRideRequests';
 import { useTrainingGating, CERT_LABELS } from '@/hooks/useTrainingGating';
-import { Button, CountdownTimer, InfoRow, Card } from '@/components';
+import { Button, CountdownTimer, InfoRow, Card, MapView } from '@/components';
 import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius } from '@/theme';
 import {
@@ -11,6 +11,8 @@ import {
 } from '@/utils/formatters';
 import { getTierPricing } from '@/services/rides';
 import { useDispatchStore } from '@/store/dispatchStore';
+import { fetchRoute, type RouteResult } from '@/services/navigation/routeService';
+import { useDriverStatusStore } from '@/store/driverStatusStore';
 
 type DispatchOffer = ReturnType<typeof useDispatchStore.getState>;
 
@@ -25,8 +27,13 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
   const navigate = useNavigate();
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [previewRoute, setPreviewRoute] = useState<RouteResult | null>(null);
+  const [toPickupRoute, setToPickupRoute] = useState<RouteResult | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const acceptButtonRef = useRef<HTMLButtonElement>(null);
+
+  const currentLat = useDriverStatusStore((s) => s.currentLat);
+  const currentLng = useDriverStatusStore((s) => s.currentLng);
   // Instance-unique IDs so multiple dialogs can't collide on the
   // labelledby/describedby targets.
   const dialogReactId = React.useId();
@@ -85,6 +92,21 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const pickupLat = request.pickupLat;
+    const pickupLng = request.pickupLng;
+    const dropoffLat = request.dropoffLat;
+    const dropoffLng = request.dropoffLng;
+    if (pickupLat == null || pickupLng == null || dropoffLat == null || dropoffLng == null) return;
+    const pickup = { lat: pickupLat, lng: pickupLng };
+    const dropoff = { lat: dropoffLat, lng: dropoffLng };
+    void fetchRoute(pickup, dropoff).then((r) => { if (r) setPreviewRoute(r); });
+    if (currentLat != null && currentLng != null) {
+      void fetchRoute({ lat: currentLat, lng: currentLng }, pickup).then((r) => { if (r) setToPickupRoute(r); });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request.pickupLat, request.pickupLng, request.dropoffLat, request.dropoffLng, currentLat, currentLng]);
+
   const handleAccept = async () => {
     setAcceptError(null);
     if (isOffline()) {
@@ -117,6 +139,10 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
   const scenario = request.scenario ?? '';
   const pickupAddress = request.pickupAddress ?? '';
   const dropoffAddress = request.dropoffAddress ?? '';
+  const pickupLat = request.pickupLat;
+  const pickupLng = request.pickupLng;
+  const dropoffLat = request.dropoffLat;
+  const dropoffLng = request.dropoffLng;
   const estimatedFare = request.estimatedFare ?? 0;
   const estimatedDistance = request.estimatedDistance ?? 0;
   const responseDeadline = request.responseDeadline ?? new Date(Date.now() + 30000).toISOString();
@@ -158,6 +184,41 @@ export function RideRequestModal({ request, onAccept, onDecline, onExpired }: Ri
         padding: '24px 20px max(24px, env(safe-area-inset-bottom))',
         maxHeight: '85vh', overflowY: 'auto',
       }}>
+        {/* Route preview mini-map */}
+        {pickupLat != null && pickupLng != null && dropoffLat != null && dropoffLng != null && (
+          <div style={{
+            height: 200, borderRadius: borderRadius.md, overflow: 'hidden',
+            marginBottom: 16, position: 'relative',
+          }}>
+            <MapView
+              center={{ lat: (pickupLat + dropoffLat) / 2, lng: (pickupLng + dropoffLng) / 2 }}
+              destinations={[
+                { lat: pickupLat, lng: pickupLng, label: 'Pickup' },
+                { lat: dropoffLat, lng: dropoffLng, label: 'Drop-off' },
+              ]}
+              routePolyline={previewRoute?.polyline}
+              zoom={12}
+              style={{ height: '100%' }}
+            />
+            {toPickupRoute && (
+              <div style={{
+                position: 'absolute', bottom: 8, left: 8, right: 8,
+                display: 'flex', justifyContent: 'center',
+              }}>
+                <div style={{
+                  background: 'rgba(0,0,0,0.72)', color: '#fff',
+                  borderRadius: borderRadius.full, padding: '6px 14px',
+                  fontSize: 12, fontWeight: 700, display: 'flex', gap: 8, alignItems: 'center',
+                }}>
+                  <span>📍 {(toPickupRoute.distanceMeters / 1609.34).toFixed(1)} mi to pickup</span>
+                  <span style={{ opacity: 0.5 }}>·</span>
+                  <span>~{toPickupRoute.etaMinutes} min away</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Header with timer */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
