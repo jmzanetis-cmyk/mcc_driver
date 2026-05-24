@@ -641,8 +641,7 @@ describe('fare calculation (mirrors server TIER_RATES)', () => {
     expect(payout).toBeCloseTo(22.30 * 0.85, 2);
   });
 
-  // Living documentation: completion currently writes to driver_payouts (legacy).
-  // When migrated to driver_earnings, update this test.
+  // Server (rides.ts) writes to driver_earnings on completion; client never touches either table.
   it('documents: client does NOT write directly to driver_payouts or driver_earnings', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ success: true, finalFare: 22.30, driverPayout: 18.96 }), { status: 200 }),

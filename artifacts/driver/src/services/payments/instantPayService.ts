@@ -1,6 +1,6 @@
 import { supabase } from '@/services/supabase/client';
 import { apiUrl } from '@/services/api/baseUrl';
-import type { DriverRow, PayoutRow } from '@/services/supabase/types';
+import type { DriverRow, CashoutRow } from '@/services/supabase/types';
 
 export interface InstantPayBalance {
   available: number;
@@ -98,21 +98,21 @@ export async function getInstantPayBalance(driverId: string): Promise<InstantPay
   todayStart.setHours(0, 0, 0, 0);
 
   const { data: todayCashouts } = await supabase
-    .from('driver_payouts')
+    .from('driver_cashouts')
     .select('id')
     .eq('driver_id', driverId)
     .eq('method', 'instant')
-    .gte('created_at', todayStart.toISOString());
+    .gte('requested_at', todayStart.toISOString());
 
   const { data: lastPayoutData } = await supabase
-    .from('driver_payouts')
+    .from('driver_cashouts')
     .select('completed_at')
     .eq('driver_id', driverId)
-    .eq('status', 'completed')
+    .eq('status', 'paid')
     .order('completed_at', { ascending: false })
     .limit(1);
 
-  const lastPayout = (lastPayoutData ?? []) as unknown as Array<Pick<PayoutRow, 'completed_at'>>;
+  const lastPayout = (lastPayoutData ?? []) as unknown as Array<Pick<CashoutRow, 'completed_at'>>;
 
   interface PartialAssignment { driver_payout_amount: number | null }
   const available = (unpaidRides ?? []).reduce(
@@ -270,24 +270,22 @@ export async function executeStandardPayout(
 
 export async function getPayoutHistory(driverId: string, limit = 20): Promise<PayoutHistoryItem[]> {
   const { data } = await supabase
-    .from('driver_payouts')
+    .from('driver_cashouts')
     .select('*')
     .eq('driver_id', driverId)
-    .order('created_at', { ascending: false })
+    .order('requested_at', { ascending: false })
     .limit(limit);
 
-  const rows = (data ?? []) as unknown as PayoutRow[];
+  const rows = (data ?? []) as unknown as CashoutRow[];
   return rows.map((p) => ({
     id: p.id,
-    amount: p.amount ?? 0,
-    fee: p.platform_fee ?? 0,
-    netAmount: p.net_payout ?? 0,
+    amount: p.amount_cents / 100,
+    fee: p.fee_cents / 100,
+    netAmount: (p.amount_cents - p.fee_cents) / 100,
     method: p.method,
     status: p.status as PayoutHistoryItem['status'],
-    initiatedAt: p.requested_at ?? p.created_at,
-    arrivalDate: p.completed_at ?? p.scheduled_date ?? undefined,
-    cardLast4: p.card_last4 ?? undefined,
-    bankLast4: p.bank_last4 ?? undefined,
-    failureReason: p.failed_reason ?? undefined,
+    initiatedAt: p.requested_at,
+    arrivalDate: p.completed_at ?? undefined,
+    failureReason: p.error ?? undefined,
   }));
 }

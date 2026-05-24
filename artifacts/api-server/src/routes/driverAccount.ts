@@ -9,7 +9,7 @@
 //   - PII fields on the local Drizzle `drivers` row are stripped
 //     (name, email, phone, profile photo, documents, stripe acct,
 //     location, preferred partner). The row itself is preserved
-//     so the FK from `rides` / `driver_payouts` / `driver_assignments`
+//     so the FK from `rides` / `driver_cashouts` / `driver_assignments`
 //     still resolves for historical/accounting reporting.
 //   - `userId` cannot be NULL (notNull constraint), so it is
 //     replaced with a sentinel string `deleted:<driverId>` that
@@ -22,8 +22,8 @@
 // Preflight blocks deletion when:
 //   - The driver has any assignment in flight
 //     (status ∈ accepted | en_route | arrived | in_progress), OR
-//   - The driver has any pending payout request
-//     (driver_payouts.status = 'pending').
+//   - The driver has any in-flight cashout request
+//     (driver_cashouts.status = 'processing').
 // In both cases the response shape includes a machine-readable
 // `reason` so the Settings UI can show targeted copy instead of
 // a generic error.
@@ -35,7 +35,7 @@ import {
   db,
   driversTable,
   driverAssignmentsTable,
-  driverPayoutsTable,
+  driverCashoutsTable,
   driverAuditLogTable,
 } from "@workspace/db";
 import { logger } from "../lib/logger";
@@ -185,21 +185,21 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
         throw new Error("preflight_active_ride");
       }
 
-      // Preflight #2 — pending payouts (under lock).
+      // Preflight #2 — in-flight cashouts (under lock).
       // Policy (documented in replit.md): BLOCK rather than auto-forfeit or
       // auto-pay so the Stripe webhook can still reconcile in-flight
       // transfers to the driver row.
       const pendingPayouts = await tx
-        .select({ id: driverPayoutsTable.id, amount: driverPayoutsTable.amount })
-        .from(driverPayoutsTable)
+        .select({ id: driverCashoutsTable.id, amountCents: driverCashoutsTable.amountCents })
+        .from(driverCashoutsTable)
         .where(
           and(
-            eq(driverPayoutsTable.driverId, driver.id),
-            eq(driverPayoutsTable.status, "pending"),
+            eq(driverCashoutsTable.driverId, driver.id),
+            eq(driverCashoutsTable.status, "processing"),
           ),
         );
       if (pendingPayouts.length > 0) {
-        const total = pendingPayouts.reduce((sum, p) => sum + (p.amount ?? 0), 0);
+        const total = pendingPayouts.reduce((sum, p) => sum + ((p.amountCents ?? 0) / 100), 0);
         preflightFailure = {
           reason: "pending_payout",
           count: pendingPayouts.length,

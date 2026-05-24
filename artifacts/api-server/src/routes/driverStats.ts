@@ -40,7 +40,7 @@ router.get("/drivers/stats", async (req: Request, res: Response) => {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
 
     // Parallel queries for recent assignments + ratings
-    const [assignmentsRes, ratingsRes, payoutsRes] = await Promise.all([
+    const [assignmentsRes, ratingsRes, earningsRes] = await Promise.all([
       supabaseAdmin
         .from("driver_assignments")
         .select("status, completed_at")
@@ -52,10 +52,9 @@ router.get("/drivers/stats", async (req: Request, res: Response) => {
         .eq("rater_id", user.id)
         .gte("created_at", thirtyDaysAgo),
       supabaseAdmin
-        .from("driver_payouts")
-        .select("amount, net_payout")
-        .eq("driver_id", d.id)
-        .in("status", ["paid", "in_transit"]),
+        .from("driver_earnings")
+        .select("amount_cents")
+        .eq("driver_id", d.id),
     ]);
 
     const assignments = (assignmentsRes.data ?? []) as { status: string; completed_at: string | null }[];
@@ -83,8 +82,8 @@ router.get("/drivers/stats", async (req: Request, res: Response) => {
       ? Math.round((recentRatings.reduce((s, r) => s + r.stars, 0) / recentRatings.length) * 10) / 10
       : null;
 
-    const totalEarnings = ((payoutsRes.data ?? []) as { amount: number; net_payout: number | null }[])
-      .reduce((s, p) => s + (p.net_payout ?? p.amount), 0);
+    const totalEarnings = ((earningsRes.data ?? []) as { amount_cents: number }[])
+      .reduce((s, p) => s + p.amount_cents, 0) / 100;
 
     res.status(200).json({
       acceptanceRate: 1, // acceptance is not tracked per-driver in current schema — default to 100%

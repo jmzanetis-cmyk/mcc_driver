@@ -2,7 +2,7 @@ import { supabase } from '@/services/supabase/client';
 import { apiUrl } from '@/services/api/baseUrl';
 import type {
   DriverRow, PartnerRow, VehicleRow, AssignmentRow, RideRow,
-  PayoutRow, SupportIssueRow, AIConversationRow, AIMessageRow,
+  CashoutRow, SupportIssueRow, AIConversationRow, AIMessageRow,
 } from '@/services/supabase/types';
 
 // ============================================================
@@ -290,11 +290,11 @@ async function loadDriverContext(driverId: string): Promise<DriverContext | null
     .limit(10);
 
   const { data: payoutsData } = await supabase
-    .from('driver_payouts')
+    .from('driver_cashouts')
     .select('*')
     .eq('driver_id', driverId)
-    .in('status', ['pending', 'scheduled'])
-    .order('scheduled_date', { ascending: true });
+    .eq('status', 'processing')
+    .order('requested_at', { ascending: true });
 
   const { data: issuesData } = await supabase
     .from('driver_support_issues')
@@ -305,7 +305,7 @@ async function loadDriverContext(driverId: string): Promise<DriverContext | null
 
   const vehicles = (vehiclesData ?? []) as unknown as VehicleRow[];
   const assignments = (assignmentsData ?? []) as unknown as AssignmentWithRide[];
-  const payouts = (payoutsData ?? []) as unknown as PayoutRow[];
+  const payouts = (payoutsData ?? []) as unknown as CashoutRow[];
   const issues = (issuesData ?? []) as unknown as SupportIssueRow[];
 
   const recentRides: RecentRideInfo[] = assignments.map((a) => {
@@ -350,9 +350,9 @@ async function loadDriverContext(driverId: string): Promise<DriverContext | null
     })),
     recentRides,
     pendingPayouts: payouts.map((p) => ({
-      amount: p.amount,
+      amount: p.amount_cents / 100,
       status: p.status,
-      scheduledDate: p.scheduled_date ?? '',
+      scheduledDate: p.completed_at ?? '',
       stripeTransferId: p.stripe_transfer_id ?? undefined,
     })),
     openIssues: issues.map((i) => ({
@@ -442,10 +442,14 @@ async function executeAction(
     }
 
     case 'REQUEST_PAYOUT': {
-      const { error } = await supabase.from('driver_payouts').insert({
+      const { error } = await supabase.from('driver_cashouts').insert({
         driver_id: driverId,
-        status: 'requested',
+        amount_cents: 0,
+        fee_cents: 0,
+        method: 'standard',
+        status: 'processing',
         requested_at: new Date().toISOString(),
+        initiated_by_kind: 'driver',
       });
       if (error) return { success: false, message: `Payout request failed: ${error.message}` };
       return { success: true, message: 'Payout requested — typically processes within 1-2 business days' };
