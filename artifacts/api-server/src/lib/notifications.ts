@@ -229,6 +229,35 @@ async function loadContext(tandemJobId: string): Promise<TandemContext | null> {
   return { job, ride };
 }
 
+// ── 0. Ride offer → dispatched driver ───────────────────────────────────────
+// Native-push only (no Realtime broadcast) — the postgres_changes INSERT on
+// driver_assignments already delivers the offer via the WebSocket. This push
+// is the backup delivery for when the socket is down or the app is backgrounded.
+export async function notifyRideOffer(
+  driverId: string,
+  rideId: string,
+  assignmentId: string,
+  estimatedFare: number,
+  pickupAddress: string,
+): Promise<void> {
+  const driverPayout = Math.round(estimatedFare * 0.85 * 100) / 100;
+  await sendNativePush(
+    { kind: "driver", id: driverId },
+    {
+      event: "ride_offer",
+      title: "New Ride Request",
+      body: `$${driverPayout.toFixed(2)} estimated — tap to view`,
+      data: {
+        type: "ride_offer",
+        ride_id: rideId,
+        assignment_id: assignmentId,
+        estimated_fare: estimatedFare,
+        pickup_address: pickupAddress,
+      },
+    },
+  );
+}
+
 // ── 1. Broadcast → eligible ride-along drivers ──────────────────────────────
 export async function notifyBroadcastToDrivers(
   tandemJobId: string,

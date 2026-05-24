@@ -19,6 +19,7 @@ import { logger } from "../lib/logger";
 import { setSentryRequestIdentity } from "../lib/sentry";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
 import { insertAssignmentViaSupabase, updateAssignmentViaSupabase, updateRideViaSupabase } from "../lib/supabaseAdmin";
+import { notifyRideOffer } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -280,7 +281,7 @@ async function cascadeDispatch(
       ? `${ride.memberVehicleYear} ${ride.memberVehicleColor ?? ""} ${ride.memberVehicleMake} ${ride.memberVehicleModel ?? ""}`.trim()
       : null;
 
-  await insertAssignmentViaSupabase({
+  const [inserted] = await insertAssignmentViaSupabase({
     ride_id: rideId,
     driver_id: nextDriverId,
     role: declinedAssignment.role,
@@ -292,6 +293,16 @@ async function cascadeDispatch(
   });
 
   logger.info({ rideId, nextDriverId, role: declinedAssignment.role }, "cascadeDispatch: re-offered ride to next driver");
+
+  if (inserted) {
+    void notifyRideOffer(
+      inserted.driver_id,
+      rideId,
+      inserted.id,
+      ride.estimatedFare,
+      ride.pickupAddress,
+    ).catch((err) => logger.warn({ err, rideId }, "cascadeDispatch: push notification failed"));
+  }
 }
 
 // ── Background expiry sweep ───────────────────────────────────────────────────
@@ -531,7 +542,18 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
       response_deadline: responseDeadline.toISOString(),
     }));
 
-    await insertAssignmentViaSupabase(assignmentValues);
+    const insertedAssignments = await insertAssignmentViaSupabase(assignmentValues);
+
+    // Fire push notifications — non-blocking, Realtime is primary delivery.
+    for (const ia of insertedAssignments) {
+      void notifyRideOffer(
+        ia.driver_id,
+        ride!.id,
+        ia.id,
+        ride!.estimatedFare,
+        ride!.pickupAddress,
+      ).catch((err) => logger.warn({ err, rideId: ride!.id }, "dispatch: push notification failed"));
+    }
 
     req.log.info(
       { rideId: ride!.id, driversNotified: assignmentValues.length },

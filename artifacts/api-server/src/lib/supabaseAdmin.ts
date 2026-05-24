@@ -24,19 +24,26 @@ export interface DriverAssignmentInsert {
   member_vehicle_plate?: string | null;
 }
 
+export interface InsertedAssignment {
+  id: string;
+  driver_id: string;
+}
+
 export async function insertAssignmentViaSupabase(
   values: DriverAssignmentInsert | DriverAssignmentInsert[],
-): Promise<void> {
+): Promise<InsertedAssignment[]> {
   const rows = Array.isArray(values) ? values : [values];
 
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("driver_assignments")
-    .insert(rows);
+    .insert(rows)
+    .select("id, driver_id");
 
   if (error) {
     logger.error({ error }, "supabaseAdmin: failed to insert driver_assignment");
     throw new Error(`Supabase insert failed: ${error.message}`);
   }
+  return (data ?? []) as InsertedAssignment[];
 }
 
 /**
