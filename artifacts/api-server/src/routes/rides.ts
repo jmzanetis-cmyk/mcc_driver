@@ -13,7 +13,7 @@ import {
   ridesTable,
   driverAssignmentsTable,
   driversTable,
-  driverPayoutsTable,
+  driverEarningsTable,
 } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { setSentryRequestIdentity } from "../lib/sentry";
@@ -1092,14 +1092,12 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
           })
           .where(eq(ridesTable.id, rideId));
 
-        await tx.insert(driverPayoutsTable).values({
+        await tx.insert(driverEarningsTable).values({
           driverId: assignment.driverId,
-          amount: driverPayout,
-          netPayout: driverPayout,
-          platformFee: Math.round((finalFare - driverPayout) * 100) / 100,
-          method: "standard",
-          status: "pending",
-          requestedAt: now,
+          jobId: rideId,
+          amountCents: Math.round(driverPayout * 100),
+          kind: "base",
+          payoutStatus: "pending",
         });
 
         const [currentDriver] = await tx
