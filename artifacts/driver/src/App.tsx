@@ -53,6 +53,7 @@ const LeaderboardScreen = lazy(() => import('@/screens/LeaderboardScreen').then(
 const PrivacyScreen = lazy(() => import('@/screens/legal/PrivacyScreen').then(m => ({ default: m.PrivacyScreen })));
 const TermsScreen = lazy(() => import('@/screens/legal/TermsScreen').then(m => ({ default: m.TermsScreen })));
 const LegalSupportScreen = lazy(() => import('@/screens/legal/SupportScreen').then(m => ({ default: m.SupportScreen })));
+const VehicleInspectionScreen = lazy(() => import('@/screens/VehicleInspectionScreen').then(m => ({ default: m.VehicleInspectionScreen })));
 
 function ScreenFallback() {
   return (
@@ -146,6 +147,7 @@ export default function App() {
             <Route path="/ride/:rideId/complete" element={<ProtectedRoute><RideCompleteScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/tip" element={<ProtectedRoute><TipScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/relocation" element={<ProtectedRoute><RelocationScreen /></ProtectedRoute>} />
+            <Route path="/ride/:rideId/inspection/:phase" element={<ProtectedRoute><VehicleInspectionScreen /></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><NotificationsScreen /></ProtectedRoute>} />
             <Route path="/safety" element={<ProtectedRoute><SafetyScreen /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><DriverProfileScreen /></ProtectedRoute>} />

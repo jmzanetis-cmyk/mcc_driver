@@ -151,3 +151,25 @@ export interface AIMessageRow {
   actions_taken: string | null;
   created_at: string;
 }
+
+export interface InspectionPhotoData {
+  angleId: string;
+  storagePath: string;
+  damageNote: string;
+  damageMarker: { x: number; y: number } | null;
+  capturedAt: string;
+  lat: number | null;
+  lng: number | null;
+}
+
+export interface InspectionRow {
+  id: string;
+  ride_id: string;
+  driver_id: string;
+  phase: 'pickup' | 'dropoff';
+  photos_json: InspectionPhotoData[];
+  odometer_reading: number | null;
+  status: 'submitted';
+  submitted_at: string | null;
+  created_at: string;
+}

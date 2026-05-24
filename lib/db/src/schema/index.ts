@@ -468,6 +468,24 @@ export const driverExpensesTable = pgTable("driver_expenses", {
 });
 export type DriverExpense = typeof driverExpensesTable.$inferSelect;
 
+// ── Vehicle Inspections ───────────────────────────────────────────────────────
+// Pre-pickup and post-dropoff walk-around records for relocation/concierge.
+// photos_json stores InspectionPhotoData[] (see driver app types.ts).
+// phase: 'pickup' | 'dropoff'    status: 'submitted' (written once by driver)
+
+export const vehicleInspectionsTable = pgTable("vehicle_inspections", {
+  id:              uuid("id").primaryKey().defaultRandom(),
+  rideId:          uuid("ride_id").notNull(),
+  driverId:        uuid("driver_id").notNull(),
+  phase:           text("phase").notNull(),
+  photosJson:      jsonb("photos_json").notNull().default([]),
+  odometerReading: integer("odometer_reading"),
+  status:          text("status").notNull().default("submitted"),
+  submittedAt:     timestamp("submitted_at", { withTimezone: true }),
+  createdAt:       timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export type VehicleInspection = typeof vehicleInspectionsTable.$inferSelect;
+
 export const insertDeviceTokenSchema = createInsertSchema(deviceTokensTable).omit({
   id: true,
   createdAt: true,

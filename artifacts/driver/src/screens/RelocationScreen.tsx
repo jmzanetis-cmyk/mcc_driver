@@ -4,21 +4,20 @@
 // Handles vehicle_delivery_solo, vehicle_pickup_solo,
 // paired_vehicle_*, concierge_* scenarios.
 //
-// Flow:
-//   1. Pickup photos (6 angles) → uploaded to Supabase Storage
-//   2. Navigate to dropoff (with optional chase dot for Tier 3/4)
-//   3. Dropoff photos (same angles)
-//   4. Confirm delivery → completeRide()
+// Phase is derived from dispatch stage + vehicle_inspections DB records
+// so it survives navigation to/from VehicleInspectionScreen:
 //
-// Supabase Storage: create a "relocation-photos" bucket
-// (private, 50 MB file limit) in your Supabase dashboard before
-// this flow runs in production.
+//   pickup_inspection  → navigate to /ride/:id/inspection/pickup
+//   pickup_ready       → startNavigating()
+//   navigating         → en route, "I've Arrived" CTA
+//   dropoff_inspection → navigate to /ride/:id/inspection/dropoff
+//   confirming         → completeRide()
+//
+// Photo capture is fully delegated to VehicleInspectionScreen.
 // ============================================================
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Capacitor } from '@capacitor/core';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { supabase } from '@/services/supabase/client';
 import { useActiveRide } from '@/hooks/useActiveRide';
 import { useDriverStatusStore } from '@/store/driverStatusStore';
@@ -29,27 +28,6 @@ import { MapView, Button, Card, InfoRow, Spinner, PageHeader } from '@/component
 import { colors, borderRadius, withAlpha } from '@/theme';
 import { formatCurrency, formatDistance, getScenarioLabel, shortenAddress } from '@/utils/formatters';
 import type { LatLng } from '@/components/MapView';
-
-// ── Photo angles required for every relocation job ──────────────────────────
-
-const PHOTO_ANGLES = [
-  { id: 'front',          label: 'Front of Vehicle',    icon: '🚗' },
-  { id: 'rear',           label: 'Rear of Vehicle',     icon: '🔙' },
-  { id: 'driver_side',    label: "Driver's Side",       icon: '◀' },
-  { id: 'passenger_side', label: "Passenger's Side",    icon: '▶' },
-  { id: 'odometer',       label: 'Odometer',            icon: '🔢' },
-  { id: 'dashboard',      label: 'Dashboard',           icon: '📊' },
-] as const;
-
-type AngleId = typeof PHOTO_ANGLES[number]['id'];
-type PhotoSet = Partial<Record<AngleId, string>>; // angle → dataUrl or objectUrl
-
-type Phase =
-  | 'pickup_photos'    // capture pre-pickup condition
-  | 'navigating'       // en route to dropoff
-  | 'dropoff_photos'   // capture post-dropoff condition
-  | 'confirming'       // final confirmation before completing ride
-  | 'uploading';       // uploading photos before completing
 
 // ── Scenarios that use this screen ──────────────────────────────────────────
 
@@ -64,42 +42,84 @@ export const RELOCATION_SCENARIOS = new Set([
   'full_concierge_round_trip',
 ]);
 
+// ── Derived phase ────────────────────────────────────────────────────────────
+
+type RelocationPhase =
+  | 'loading'             // inspection records not yet fetched
+  | 'pickup_inspection'   // need pre-pickup photos
+  | 'pickup_ready'        // photos done, ready to start navigating
+  | 'navigating'          // en route to dropoff
+  | 'dropoff_inspection'  // need post-delivery photos
+  | 'confirming';         // photos done, ready to complete ride
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function RelocationScreen() {
   const navigate = useNavigate();
   const { activeRide, startNavigating, markArrived, startRide, completeRide } = useActiveRide();
-  const dispatch = useDispatchStore();
+
   const rideId = useDispatchStore((s) => s.rideId);
   const tier = useDispatchStore((s) => s.tier);
+  const dispatchStage = useDispatchStore((s) => s.stage);
 
   const currentLat = useDriverStatusStore((s) => s.currentLat);
   const currentLng = useDriverStatusStore((s) => s.currentLng);
   const driverPosition: LatLng | null =
     currentLat != null && currentLng != null ? { lat: currentLat, lng: currentLng } : null;
 
-  const [phase, setPhase] = useState<Phase>('pickup_photos');
-  const [pickupPhotos, setPickupPhotos] = useState<PhotoSet>({});
-  const [dropoffPhotos, setDropoffPhotos] = useState<PhotoSet>({});
+  const [pickupInspectionId, setPickupInspectionId] = useState<string | null>(null);
+  const [dropoffInspectionId, setDropoffInspectionId] = useState<string | null>(null);
+  const [inspectionsLoaded, setInspectionsLoaded] = useState(false);
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [partnerPos, setPartnerPos] = useState<LatLng | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
   const [preferredNav] = useState<NavApp>(() => {
     try { return (localStorage.getItem('mcc_preferred_nav') as NavApp) ?? getDefaultNavApp(); }
     catch { return getDefaultNavApp(); }
   });
-  const [completing, setCompleting] = useState(false);
-  const [completeError, setCompleteError] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState('');
 
   // Contact info fetched from ride row
   const [pickupContact, setPickupContact] = useState<{ name: string; phone: string } | null>(null);
   const [dropoffContact, setDropoffContact] = useState<{ name: string; phone: string } | null>(null);
 
-  // Web fallback file input refs (one per angle)
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const pendingAngleRef = useRef<{ set: 'pickup' | 'dropoff'; angleId: AngleId } | null>(null);
+  // ── Query inspection records on every mount ─────────────────────────────
+  // Runs after returning from VehicleInspectionScreen because React Router
+  // remounts this component on navigation back.
 
-  // ── Fetch ride contact info ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!rideId) return;
+    setInspectionsLoaded(false);
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('vehicle_inspections')
+          .select('id, phase')
+          .eq('ride_id', rideId)
+          .eq('status', 'submitted');
+        for (const row of data ?? []) {
+          const r = row as { id: string; phase: string };
+          if (r.phase === 'pickup')  setPickupInspectionId(r.id);
+          if (r.phase === 'dropoff') setDropoffInspectionId(r.id);
+        }
+      } finally {
+        setInspectionsLoaded(true);
+      }
+    })();
+  }, [rideId]);
+
+  // ── Derive current phase ─────────────────────────────────────────────────
+
+  const currentPhase: RelocationPhase = useMemo(() => {
+    if (!inspectionsLoaded) return 'loading';
+    if (!pickupInspectionId) return 'pickup_inspection';
+    if (dispatchStage === 'accepted') return 'pickup_ready';
+    if (dispatchStage === 'navigating' || dispatchStage === 'arrived') return 'navigating';
+    if (dispatchStage === 'in_progress' && !dropoffInspectionId) return 'dropoff_inspection';
+    return 'confirming';
+  }, [inspectionsLoaded, pickupInspectionId, dropoffInspectionId, dispatchStage]);
+
+  // ── Ride contact info ───────────────────────────────────────────────────
 
   useEffect(() => {
     if (!rideId) return;
@@ -109,49 +129,36 @@ export function RelocationScreen() {
         .select('pickup_contact_name, pickup_contact_phone, dropoff_contact_name, dropoff_contact_phone, member_phone')
         .eq('id', rideId)
         .maybeSingle();
-
       if (!data) return;
       const d = data as {
-        pickup_contact_name?: string | null;
-        pickup_contact_phone?: string | null;
-        dropoff_contact_name?: string | null;
-        dropoff_contact_phone?: string | null;
+        pickup_contact_name?: string | null; pickup_contact_phone?: string | null;
+        dropoff_contact_name?: string | null; dropoff_contact_phone?: string | null;
         member_phone?: string | null;
       };
-
       const memberPhone = d.member_phone ?? null;
-      setPickupContact({
-        name: d.pickup_contact_name ?? 'Pickup Contact',
-        phone: d.pickup_contact_phone ?? memberPhone ?? '',
-      });
-      setDropoffContact({
-        name: d.dropoff_contact_name ?? 'Dropoff Contact',
-        phone: d.dropoff_contact_phone ?? memberPhone ?? '',
-      });
+      setPickupContact({ name: d.pickup_contact_name ?? 'Pickup Contact', phone: d.pickup_contact_phone ?? memberPhone ?? '' });
+      setDropoffContact({ name: d.dropoff_contact_name ?? 'Dropoff Contact', phone: d.dropoff_contact_phone ?? memberPhone ?? '' });
     })();
   }, [rideId]);
 
-  // ── Route fetch (refreshes every 30 s) ─────────────────────────────────
+  // ── Route fetch (30 s interval while navigating) ────────────────────────
 
   useEffect(() => {
-    if (phase !== 'navigating' || !activeRide) return;
+    if ((dispatchStage !== 'navigating' && dispatchStage !== 'arrived') || !activeRide) return;
     const dest = { lat: activeRide.dropoffLat, lng: activeRide.dropoffLng };
     let cancelled = false;
-
     const doFetch = () => {
       const s = useDriverStatusStore.getState();
-      const pos = s.currentLat != null && s.currentLng != null
-        ? { lat: s.currentLat, lng: s.currentLng } : null;
+      const pos = s.currentLat != null && s.currentLng != null ? { lat: s.currentLat, lng: s.currentLng } : null;
       if (!pos) return;
       void fetchRoute(pos, dest).then((r) => { if (!cancelled && r) setRoute(r); });
     };
-
     doFetch();
     const id = setInterval(doFetch, 30_000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [phase, activeRide?.dropoffLat, activeRide?.dropoffLng]);
+  }, [dispatchStage, activeRide?.dropoffLat, activeRide?.dropoffLng]);
 
-  // ── Chase vehicle position (Tier 3/4 tandem) ───────────────────────────
+  // ── Chase vehicle position (Tier 3/4 tandem) ────────────────────────────
 
   const tandemJobId = useDispatchStore((s) => s.tandemJobId);
   const isTandemTier = tier === 'tier_3_vehicle_paired' || tier === 'tier_4_full_concierge';
@@ -159,132 +166,40 @@ export function RelocationScreen() {
   useEffect(() => {
     if (!isTandemTier || !tandemJobId) return;
     let cancelled = false;
-
     const poll = async () => {
       try {
-        // Get the tandem job to find ride-along driver id
-        const { data: job } = await supabase
-          .from('tandem_jobs')
-          .select('ride_along_driver_id')
-          .eq('id', tandemJobId)
-          .maybeSingle();
-
-        const rideAlongDriverId = (job as { ride_along_driver_id?: string | null } | null)
-          ?.ride_along_driver_id;
+        const { data: job } = await supabase.from('tandem_jobs').select('ride_along_driver_id').eq('id', tandemJobId).maybeSingle();
+        const rideAlongDriverId = (job as { ride_along_driver_id?: string | null } | null)?.ride_along_driver_id;
         if (!rideAlongDriverId || cancelled) return;
-
-        // Look up the ride-along driver's user_id, then get their driver record position
-        const { data: rad } = await supabase
-          .from('ride_along_drivers')
-          .select('user_id')
-          .eq('id', rideAlongDriverId)
-          .maybeSingle();
-
+        const { data: rad } = await supabase.from('ride_along_drivers').select('user_id').eq('id', rideAlongDriverId).maybeSingle();
         const userId = (rad as { user_id?: string } | null)?.user_id;
         if (!userId || cancelled) return;
-
-        const { data: driverRow } = await supabase
-          .from('drivers')
-          .select('current_lat, current_lng')
-          .eq('user_id', userId)
-          .maybeSingle();
-
+        const { data: driverRow } = await supabase.from('drivers').select('current_lat, current_lng').eq('user_id', userId).maybeSingle();
         const dr = driverRow as { current_lat?: number | null; current_lng?: number | null } | null;
         if (dr?.current_lat != null && dr?.current_lng != null && !cancelled) {
           setPartnerPos({ lat: dr.current_lat, lng: dr.current_lng });
         }
       } catch { /* swallow */ }
     };
-
     void poll();
     const id = setInterval(poll, 10_000);
     return () => { cancelled = true; clearInterval(id); };
   }, [isTandemTier, tandemJobId]);
 
-  // ── Camera / file input ──────────────────────────────────────────────────
+  // ── Actions ──────────────────────────────────────────────────────────────
 
-  const capturePhoto = useCallback(async (set: 'pickup' | 'dropoff', angleId: AngleId) => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const photo = await Camera.getPhoto({
-          quality: 80,
-          resultType: CameraResultType.DataUrl,
-          source: CameraSource.Camera,
-          promptLabelHeader: PHOTO_ANGLES.find((a) => a.id === angleId)?.label ?? 'Take Photo',
-        });
-        if (photo.dataUrl) {
-          if (set === 'pickup') setPickupPhotos((p) => ({ ...p, [angleId]: photo.dataUrl! }));
-          else setDropoffPhotos((p) => ({ ...p, [angleId]: photo.dataUrl! }));
-        }
-      } catch { /* user cancelled */ }
-    } else {
-      // Web fallback: trigger hidden file input
-      pendingAngleRef.current = { set, angleId };
-      fileInputRef.current?.click();
-    }
-  }, []);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    const pending = pendingAngleRef.current;
-    if (!file || !pending) return;
-    const url = URL.createObjectURL(file);
-    if (pending.set === 'pickup') setPickupPhotos((p) => ({ ...p, [pending.angleId]: url }));
-    else setDropoffPhotos((p) => ({ ...p, [pending.angleId]: url }));
-    pendingAngleRef.current = null;
-    e.target.value = '';
-  };
-
-  // ── Upload photos to Supabase Storage ────────────────────────────────────
-
-  const uploadPhotos = useCallback(async (
-    photos: PhotoSet,
-    phase: 'pickup' | 'dropoff',
-  ): Promise<void> => {
-    if (!rideId) return;
-    const entries = Object.entries(photos) as [AngleId, string][];
-    for (const [angleId, dataUrl] of entries) {
-      setUploadProgress(`Uploading ${phase} photos… (${angleId})`);
-      // Convert dataUrl / objectUrl to blob
-      let blob: Blob;
-      if (dataUrl.startsWith('data:')) {
-        const res = await fetch(dataUrl);
-        blob = await res.blob();
-      } else {
-        const res = await fetch(dataUrl);
-        blob = await res.blob();
-      }
-      const path = `${rideId}/${phase}/${angleId}.jpg`;
-      await supabase.storage.from('relocation-photos').upload(path, blob, {
-        contentType: 'image/jpeg',
-        upsert: true,
-      });
-    }
-    setUploadProgress('');
-  }, [rideId]);
-
-  // ── Phase actions ────────────────────────────────────────────────────────
-
-  const handleConfirmPickup = useCallback(async () => {
-    setPhase('uploading');
-    setUploadProgress('Uploading pickup photos…');
-    await uploadPhotos(pickupPhotos, 'pickup');
+  const handleStartNavigating = useCallback(async () => {
     await startNavigating();
-    setPhase('navigating');
-  }, [pickupPhotos, uploadPhotos, startNavigating]);
+    if (activeRide) {
+      openNavigation(preferredNav, { lat: activeRide.dropoffLat, lng: activeRide.dropoffLng, label: activeRide.dropoffAddress });
+    }
+  }, [startNavigating, activeRide, preferredNav]);
 
   const handleArrivedAtDropoff = useCallback(async () => {
     await markArrived();
     await startRide();
-    setPhase('dropoff_photos');
+    // Stage becomes 'in_progress' → derived phase becomes 'dropoff_inspection'
   }, [markArrived, startRide]);
-
-  const handleConfirmDropoff = useCallback(async () => {
-    setPhase('uploading');
-    setUploadProgress('Uploading dropoff photos…');
-    await uploadPhotos(dropoffPhotos, 'dropoff');
-    setPhase('confirming');
-  }, [dropoffPhotos, uploadPhotos]);
 
   const handleCompleteRide = useCallback(async () => {
     if (!activeRide) return;
@@ -318,41 +233,25 @@ export function RelocationScreen() {
     );
   }
 
-  // ── Upload progress overlay ──────────────────────────────────────────────
+  // ── Loading phase ────────────────────────────────────────────────────────
 
-  if (phase === 'uploading') {
+  if (currentPhase === 'loading') {
     return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', padding: 24,
-        background: colors.bgPrimary,
-      }}>
-        <Spinner size={36} color={colors.gold} />
-        <div style={{ marginTop: 20, fontSize: 15, color: colors.textMuted, textAlign: 'center' }}>
-          {uploadProgress || 'Uploading photos…'}
-        </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: colors.bgPrimary }}>
+        <Spinner size={32} color={colors.gold} />
       </div>
     );
   }
 
-  // ── Destination for map ──────────────────────────────────────────────────
+  // ── Map destination ──────────────────────────────────────────────────────
 
-  const mapDest: LatLng & { label: string } =
-    phase === 'navigating'
-      ? { lat: activeRide.dropoffLat, lng: activeRide.dropoffLng, label: activeRide.dropoffAddress }
-      : { lat: activeRide.pickupLat, lng: activeRide.pickupLng, label: activeRide.pickupAddress };
+  const isNavigating = currentPhase === 'navigating';
+  const mapDest: LatLng & { label: string } = isNavigating
+    ? { lat: activeRide.dropoffLat, lng: activeRide.dropoffLng, label: activeRide.dropoffAddress }
+    : { lat: activeRide.pickupLat, lng: activeRide.pickupLng, label: activeRide.pickupAddress };
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
-      {/* Hidden file input for web camera fallback */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-        style={{ display: 'none' }}
-      />
 
       {/* Map */}
       <div style={{ height: '30vh', position: 'relative' }}>
@@ -361,7 +260,7 @@ export function RelocationScreen() {
           driverPosition={driverPosition}
           partnerPosition={isTandemTier ? partnerPos : null}
           destinations={[mapDest]}
-          routePolyline={route?.polyline}
+          routePolyline={isNavigating ? route?.polyline : undefined}
           zoom={14}
           style={{ height: '100%' }}
         />
@@ -377,20 +276,23 @@ export function RelocationScreen() {
           }}
         >←</button>
 
-        {/* ETA strip when navigating */}
-        {phase === 'navigating' && route && (
+        {/* ETA strip while navigating */}
+        {isNavigating && route && (
           <div style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
             background: 'rgba(27,42,74,0.85)',
-            display: 'flex', justifyContent: 'center', gap: 32,
-            padding: '8px 0',
+            display: 'flex', justifyContent: 'center', gap: 32, padding: '8px 0',
           }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{route.etaMinutes} <span style={{ fontSize: 12 }}>min</span></div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>
+                {route.etaMinutes} <span style={{ fontSize: 12 }}>min</span>
+              </div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 }}>ETA</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{(route.distanceMeters / 1609.34).toFixed(1)} <span style={{ fontSize: 12 }}>mi</span></div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>
+                {(route.distanceMeters / 1609.34).toFixed(1)} <span style={{ fontSize: 12 }}>mi</span>
+              </div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Away</div>
             </div>
           </div>
@@ -403,7 +305,6 @@ export function RelocationScreen() {
         borderRadius: `${borderRadius.xl}px ${borderRadius.xl}px 0 0`,
         marginTop: -16, background: colors.bgPrimary, overflowY: 'auto',
       }}>
-
         {/* Scenario badge */}
         <div style={{ marginBottom: 16 }}>
           <span className="eyebrow">{getScenarioLabel(activeRide.scenario)}</span>
@@ -416,51 +317,76 @@ export function RelocationScreen() {
           )}
         </div>
 
-        {/* ── PHASE: PICKUP PHOTOS ─────────────────────────────── */}
-        {phase === 'pickup_photos' && (
+        {/* ── PHASE: PICKUP INSPECTION ──────────────────────────── */}
+        {currentPhase === 'pickup_inspection' && (
           <>
             <SectionHeader
-              icon="📸"
-              title="Pre-Pickup Condition"
+              icon="📋"
+              title="Pre-Pickup Inspection Required"
               subtitle="Photograph all 6 angles before taking possession of the vehicle."
             />
 
-            <PhotoGrid
-              photos={pickupPhotos}
-              onCapture={(id) => void capturePhoto('pickup', id)}
-            />
+            {pickupContact?.phone && <ContactCard label="Pickup Contact" name={pickupContact.name} phone={pickupContact.phone} />}
 
-            {/* Pickup contact */}
-            {pickupContact?.phone && (
-              <ContactCard
-                label="Pickup Contact"
-                name={pickupContact.name}
-                phone={pickupContact.phone}
-              />
-            )}
-
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 16 }}>
               <InfoRow icon="📍" label="Pickup" value={shortenAddress(activeRide.pickupAddress)} />
               <InfoRow icon="🏁" label="Dropoff" value={shortenAddress(activeRide.dropoffAddress)} />
               <InfoRow icon="💰" label="Est. Fare" value={formatCurrency(activeRide.estimatedFare)} valueColor={colors.navy} />
             </div>
 
             <Button
-              onClick={() => void handleConfirmPickup()}
-              fullWidth
-              size="lg"
-              disabled={PHOTO_ANGLES.length > Object.keys(pickupPhotos).length}
-              style={{ marginTop: 8 }}
+              onClick={() => navigate(`/ride/${rideId}/inspection/pickup`)}
+              fullWidth size="lg"
             >
-              {PHOTO_ANGLES.length > Object.keys(pickupPhotos).length
-                ? `${Object.keys(pickupPhotos).length}/${PHOTO_ANGLES.length} photos taken`
-                : 'Confirm Pickup & Navigate'}
+              📸 Start Pre-Pickup Inspection
             </Button>
           </>
         )}
 
-        {/* ── PHASE: NAVIGATING ───────────────────────────────── */}
-        {phase === 'navigating' && (
+        {/* ── PHASE: PICKUP READY ───────────────────────────────── */}
+        {currentPhase === 'pickup_ready' && (
+          <>
+            <SectionHeader
+              icon="✅"
+              title="Inspection Complete"
+              subtitle="Pre-pickup photos submitted. Navigate to the dropoff location."
+            />
+
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '12px 16px', borderRadius: borderRadius.md,
+              background: withAlpha(colors.success, '10'),
+              border: `1px solid ${withAlpha(colors.success, '30')}`,
+              marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 22 }}>🟢</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: colors.success }}>Pre-pickup inspection submitted</div>
+                <div style={{ fontSize: 12, color: colors.textMuted }}>6 photos on record</div>
+              </div>
+            </div>
+
+            {pickupContact?.phone && <ContactCard label="Pickup Contact" name={pickupContact.name} phone={pickupContact.phone} />}
+
+            <div style={{ marginBottom: 16 }}>
+              <InfoRow icon="🏁" label="Dropoff" value={shortenAddress(activeRide.dropoffAddress)} />
+              <InfoRow icon="💰" label="Est. Fare" value={formatCurrency(activeRide.estimatedFare)} valueColor={colors.navy} />
+              {activeRide.estimatedDistance && (
+                <InfoRow icon="📏" label="Distance" value={formatDistance(activeRide.estimatedDistance)} />
+              )}
+            </div>
+
+            <Button
+              onClick={() => void handleStartNavigating()}
+              fullWidth size="lg" variant="primary"
+            >
+              Navigate to Dropoff → ({getNavAppName(preferredNav)})
+            </Button>
+          </>
+        )}
+
+        {/* ── PHASE: NAVIGATING ────────────────────────────────── */}
+        {currentPhase === 'navigating' && (
           <>
             <SectionHeader
               icon="🧭"
@@ -474,94 +400,89 @@ export function RelocationScreen() {
               </Card>
             )}
 
-            {/* Dropoff contact */}
-            {dropoffContact?.phone && (
-              <ContactCard
-                label="Dropoff Contact"
-                name={dropoffContact.name}
-                phone={dropoffContact.phone}
-              />
-            )}
+            {dropoffContact?.phone && <ContactCard label="Dropoff Contact" name={dropoffContact.name} phone={dropoffContact.phone} />}
 
             <Button
-              onClick={() => openNavigation(preferredNav, {
-                lat: activeRide.dropoffLat, lng: activeRide.dropoffLng,
-                label: activeRide.dropoffAddress,
-              })}
-              variant="secondary"
-              fullWidth
-              size="md"
-              style={{ marginBottom: 12 }}
+              onClick={() => openNavigation(preferredNav, { lat: activeRide.dropoffLat, lng: activeRide.dropoffLng, label: activeRide.dropoffAddress })}
+              variant="secondary" fullWidth size="md" style={{ marginBottom: 12 }}
             >
               Open in {getNavAppName(preferredNav)} →
             </Button>
 
             <Button
               onClick={() => void handleArrivedAtDropoff()}
-              fullWidth
-              size="lg"
-              variant="success"
+              fullWidth size="lg" variant="success"
             >
               I've Arrived at Dropoff
             </Button>
           </>
         )}
 
-        {/* ── PHASE: DROPOFF PHOTOS ───────────────────────────── */}
-        {phase === 'dropoff_photos' && (
+        {/* ── PHASE: DROPOFF INSPECTION ────────────────────────── */}
+        {currentPhase === 'dropoff_inspection' && (
           <>
             <SectionHeader
-              icon="📸"
-              title="Post-Dropoff Condition"
+              icon="📋"
+              title="Post-Delivery Inspection Required"
               subtitle="Photograph all 6 angles to document the vehicle at handoff."
             />
 
-            <PhotoGrid
-              photos={dropoffPhotos}
-              onCapture={(id) => void capturePhoto('dropoff', id)}
-            />
+            {dropoffContact?.phone && <ContactCard label="Dropoff Contact" name={dropoffContact.name} phone={dropoffContact.phone} />}
 
-            {dropoffContact?.phone && (
-              <ContactCard
-                label="Dropoff Contact"
-                name={dropoffContact.name}
-                phone={dropoffContact.phone}
-              />
-            )}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '12px 16px', borderRadius: borderRadius.md,
+              background: withAlpha(colors.success, '10'),
+              border: `1px solid ${withAlpha(colors.success, '30')}`,
+              marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 18 }}>🟢</div>
+              <div style={{ fontSize: 13, color: colors.textSecondary }}>
+                Pre-pickup photos on record — now document the vehicle at delivery.
+              </div>
+            </div>
 
             <Button
-              onClick={() => void handleConfirmDropoff()}
-              fullWidth
-              size="lg"
-              disabled={PHOTO_ANGLES.length > Object.keys(dropoffPhotos).length}
-              style={{ marginTop: 8 }}
+              onClick={() => navigate(`/ride/${rideId}/inspection/dropoff`)}
+              fullWidth size="lg"
             >
-              {PHOTO_ANGLES.length > Object.keys(dropoffPhotos).length
-                ? `${Object.keys(dropoffPhotos).length}/${PHOTO_ANGLES.length} photos taken`
-                : 'Photos Done — Confirm Delivery'}
+              📸 Start Post-Delivery Inspection
             </Button>
           </>
         )}
 
-        {/* ── PHASE: CONFIRMING ───────────────────────────────── */}
-        {phase === 'confirming' && (
+        {/* ── PHASE: CONFIRMING ────────────────────────────────── */}
+        {currentPhase === 'confirming' && (
           <>
             <SectionHeader
               icon="✅"
-              title="Confirm Delivery"
-              subtitle="Review the before/after photos and confirm the vehicle was delivered in acceptable condition."
+              title="Inspections Complete"
+              subtitle="Both pre-pickup and post-delivery photos are on record. Complete the relocation."
             />
 
-            <Card padding={14} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-                Pickup ({Object.keys(pickupPhotos).length} photos)
-              </div>
-              <PhotoThumbnailRow photos={pickupPhotos} />
-              <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, margin: '12px 0 10px' }}>
-                Dropoff ({Object.keys(dropoffPhotos).length} photos)
-              </div>
-              <PhotoThumbnailRow photos={dropoffPhotos} />
-            </Card>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              {[
+                { label: 'Pre-pickup inspection', id: pickupInspectionId },
+                { label: 'Post-delivery inspection', id: dropoffInspectionId },
+              ].map(({ label, id }) => (
+                <div key={label} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 14px', borderRadius: borderRadius.md,
+                  background: withAlpha(colors.success, '08'),
+                  border: `1px solid ${withAlpha(colors.success, '25')}`,
+                }}>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: '50%',
+                    background: colors.success, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, color: '#fff', flexShrink: 0,
+                  }}>✓</div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>{label}</div>
+                    <div style={{ fontSize: 11, color: colors.textMuted }}>ID: {id?.slice(0, 8)}…</div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {completeError && (
               <div style={{
@@ -576,9 +497,7 @@ export function RelocationScreen() {
             <Button
               onClick={() => void handleCompleteRide()}
               loading={completing}
-              fullWidth
-              size="lg"
-              variant="success"
+              fullWidth size="lg" variant="success"
               style={{ boxShadow: `0 6px 28px ${withAlpha(colors.success, '55')}` }}
             >
               Complete Relocation
@@ -623,74 +542,9 @@ function ContactCard({ label, name, phone }: { label: string; name: string; phon
               fontSize: 20, textDecoration: 'none',
             }}
             aria-label={`Call ${name}`}
-          >
-            📞
-          </a>
+          >📞</a>
         )}
       </div>
     </Card>
-  );
-}
-
-function PhotoGrid({ photos, onCapture }: { photos: PhotoSet; onCapture: (id: AngleId) => void }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-      {PHOTO_ANGLES.map(({ id, label, icon }) => {
-        const captured = !!photos[id];
-        return (
-          <button
-            key={id}
-            onClick={() => onCapture(id)}
-            style={{
-              padding: 0, border: `2px solid ${captured ? colors.success : colors.border}`,
-              borderRadius: borderRadius.md, background: captured ? 'rgba(52,211,153,0.06)' : colors.bgSecondary,
-              cursor: 'pointer', fontFamily: 'inherit', overflow: 'hidden',
-              minHeight: 90, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              position: 'relative',
-            }}
-          >
-            {captured ? (
-              <>
-                <img
-                  src={photos[id]}
-                  alt={label}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }}
-                />
-                <div style={{
-                  position: 'absolute', bottom: 4, right: 4,
-                  background: colors.success, borderRadius: '50%',
-                  width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, color: '#fff',
-                }}>✓</div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
-                <div style={{ fontSize: 10, color: colors.textMuted, textAlign: 'center', padding: '0 4px', lineHeight: 1.3 }}>{label}</div>
-                <div style={{ fontSize: 16, color: colors.textMuted, marginTop: 4 }}>+</div>
-              </>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function PhotoThumbnailRow({ photos }: { photos: PhotoSet }) {
-  const entries = Object.entries(photos) as [AngleId, string][];
-  if (entries.length === 0) return <div style={{ fontSize: 12, color: colors.textMuted }}>No photos</div>;
-  return (
-    <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
-      {entries.map(([id, url]) => (
-        <img
-          key={id}
-          src={url}
-          alt={id}
-          style={{ width: 64, height: 64, borderRadius: borderRadius.sm, objectFit: 'cover', flexShrink: 0 }}
-        />
-      ))}
-    </div>
   );
 }
