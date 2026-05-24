@@ -10,6 +10,7 @@ import { useDriverStatus } from '@/hooks/useDriverStatus';
 import { useRideRequests } from '@/hooks/useRideRequests';
 import { useEarnings } from '@/hooks/useEarnings';
 import { useDispatchStore } from '@/store/dispatchStore';
+import { useDriverStatusStore } from '@/store/driverStatusStore';
 import { OnlineToggle, Card, StatCard, Button, Spinner, MapView } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import { formatCurrency, getStarDisplay, formatDate, formatTime } from '@/utils/formatters';
@@ -28,6 +29,7 @@ export function HomeScreen() {
 
   const serverCancelled = useDispatchStore((s) => s.serverCancelled);
   const setServerCancelled = useDispatchStore((s) => s.setServerCancelled);
+  const locationError = useDriverStatusStore((s) => s.locationError);
   const { unreadCount } = useNotifications();
   const compliance = useDocumentCompliance();
 
@@ -219,6 +221,37 @@ export function HomeScreen() {
       />
 
       <div style={{ padding: 20 }}>
+        {/* Location permission error banner */}
+        {locationError && (
+          <Card
+            padding={14}
+            style={{
+              marginBottom: 16, cursor: 'pointer',
+              border: `1px solid ${colors.error}`,
+              background: colors.errorBg,
+            }}
+            onClick={() => {
+              // On Capacitor/iOS we can deep-link to app settings; web falls
+              // back to re-prompting via getCurrentPosition.
+              const opened = window.open('app-settings:', '_system');
+              if (!opened) navigator.geolocation?.getCurrentPosition(() => {}, () => {});
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>📍</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.error }}>
+                  Location access required to go online
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  Tap to open Settings and enable location
+                </div>
+              </div>
+              <span style={{ color: colors.error, fontSize: 16 }}>›</span>
+            </div>
+          </Card>
+        )}
+
         {/* Document compliance banner */}
         {!compliance.isLoading && (compliance.isBlocked || compliance.hasWarnings) && (
           <Card
