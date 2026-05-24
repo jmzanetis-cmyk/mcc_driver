@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryProvider } from '@/app/providers/QueryProvider';
 import { AuthProvider } from '@/features/auth/provider/AuthProvider';
@@ -10,48 +10,60 @@ import './theme/global.css';
 
 import { ActiveRideWatcher } from '@/components/ActiveRideWatcher';
 import { LocationTracker } from '@/components/LocationTracker';
-import { SignInScreen } from '@/screens/SignInScreen';
-import { ApplicationScreen } from '@/screens/ApplicationScreen';
-import { PendingScreen } from '@/screens/PendingScreen';
-import { RideAlongApplyScreen } from '@/screens/RideAlongApplyScreen';
-import { RideAlongPendingScreen } from '@/screens/RideAlongPendingScreen';
-import { RideAlongDashboardScreen } from '@/screens/RideAlongDashboardScreen';
-import { MemberApprovalScreen } from '@/screens/MemberApprovalScreen';
-import { HomeScreen } from '@/screens/HomeScreen';
-import { NavigateScreen } from '@/screens/NavigateScreen';
-import { RideCompleteScreen } from '@/screens/RideCompleteScreen';
-import { EarningsScreen } from '@/screens/EarningsScreen';
-import { SettingsScreen } from '@/screens/SettingsScreen';
-import { AIChatScreen } from '@/screens/AIChatScreen';
-import { InstantPayScreen } from '@/screens/InstantPayScreen';
-import { TipScreen } from '@/screens/TipScreen';
-import { RelocationScreen } from '@/screens/RelocationScreen';
-import { NotificationsScreen } from '@/screens/NotificationsScreen';
-import { SafetyScreen } from '@/screens/SafetyScreen';
-import { DriverProfileScreen } from '@/screens/DriverProfileScreen';
-import { DocumentsScreen } from '@/screens/DocumentsScreen';
-import { PerformanceScreen } from '@/screens/PerformanceScreen';
-import { PromotionsScreen } from '@/screens/PromotionsScreen';
-import { ScheduleScreen } from '@/screens/ScheduleScreen';
-import { HelpScreen } from '@/screens/HelpScreen';
-import { TrainingHubScreen } from '@/screens/TrainingHubScreen';
-import { TrainingModuleScreen } from '@/screens/TrainingModuleScreen';
-import { TrainingLessonScreen } from '@/screens/TrainingLessonScreen';
-import { CoDriverEvalScreen } from '@/screens/CoDriverEvalScreen';
-import { SetupPaymentsScreen } from '@/screens/SetupPaymentsScreen';
-import { MileageScreen } from '@/screens/MileageScreen';
-import { ExpensesScreen } from '@/screens/ExpensesScreen';
-import { TaxEstimatorScreen } from '@/screens/TaxEstimatorScreen';
-import { LeaderboardScreen } from '@/screens/LeaderboardScreen';
-import { PrivacyScreen } from '@/screens/legal/PrivacyScreen';
-import { TermsScreen } from '@/screens/legal/TermsScreen';
-import { SupportScreen as LegalSupportScreen } from '@/screens/legal/SupportScreen';
 import { EnvBadge } from '@/components/EnvBadge';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NetworkResyncBridge } from '@/components/NetworkResyncBridge';
 import { AppStatusBridge } from '@/components/AppStatusBridge';
+
+const SignInScreen = lazy(() => import('@/screens/SignInScreen').then(m => ({ default: m.SignInScreen })));
+const ApplicationScreen = lazy(() => import('@/screens/ApplicationScreen').then(m => ({ default: m.ApplicationScreen })));
+const PendingScreen = lazy(() => import('@/screens/PendingScreen').then(m => ({ default: m.PendingScreen })));
+const RideAlongApplyScreen = lazy(() => import('@/screens/RideAlongApplyScreen').then(m => ({ default: m.RideAlongApplyScreen })));
+const RideAlongPendingScreen = lazy(() => import('@/screens/RideAlongPendingScreen').then(m => ({ default: m.RideAlongPendingScreen })));
+const RideAlongDashboardScreen = lazy(() => import('@/screens/RideAlongDashboardScreen').then(m => ({ default: m.RideAlongDashboardScreen })));
+const MemberApprovalScreen = lazy(() => import('@/screens/MemberApprovalScreen').then(m => ({ default: m.MemberApprovalScreen })));
+const HomeScreen = lazy(() => import('@/screens/HomeScreen').then(m => ({ default: m.HomeScreen })));
+const NavigateScreen = lazy(() => import('@/screens/NavigateScreen').then(m => ({ default: m.NavigateScreen })));
+const RideCompleteScreen = lazy(() => import('@/screens/RideCompleteScreen').then(m => ({ default: m.RideCompleteScreen })));
+const EarningsScreen = lazy(() => import('@/screens/EarningsScreen').then(m => ({ default: m.EarningsScreen })));
+const SettingsScreen = lazy(() => import('@/screens/SettingsScreen').then(m => ({ default: m.SettingsScreen })));
+const AIChatScreen = lazy(() => import('@/screens/AIChatScreen').then(m => ({ default: m.AIChatScreen })));
+const InstantPayScreen = lazy(() => import('@/screens/InstantPayScreen').then(m => ({ default: m.InstantPayScreen })));
+const TipScreen = lazy(() => import('@/screens/TipScreen').then(m => ({ default: m.TipScreen })));
+const RelocationScreen = lazy(() => import('@/screens/RelocationScreen').then(m => ({ default: m.RelocationScreen })));
+const NotificationsScreen = lazy(() => import('@/screens/NotificationsScreen').then(m => ({ default: m.NotificationsScreen })));
+const SafetyScreen = lazy(() => import('@/screens/SafetyScreen').then(m => ({ default: m.SafetyScreen })));
+const DriverProfileScreen = lazy(() => import('@/screens/DriverProfileScreen').then(m => ({ default: m.DriverProfileScreen })));
+const DocumentsScreen = lazy(() => import('@/screens/DocumentsScreen').then(m => ({ default: m.DocumentsScreen })));
+const PerformanceScreen = lazy(() => import('@/screens/PerformanceScreen').then(m => ({ default: m.PerformanceScreen })));
+const PromotionsScreen = lazy(() => import('@/screens/PromotionsScreen').then(m => ({ default: m.PromotionsScreen })));
+const ScheduleScreen = lazy(() => import('@/screens/ScheduleScreen').then(m => ({ default: m.ScheduleScreen })));
+const HelpScreen = lazy(() => import('@/screens/HelpScreen').then(m => ({ default: m.HelpScreen })));
+const TrainingHubScreen = lazy(() => import('@/screens/TrainingHubScreen').then(m => ({ default: m.TrainingHubScreen })));
+const TrainingModuleScreen = lazy(() => import('@/screens/TrainingModuleScreen').then(m => ({ default: m.TrainingModuleScreen })));
+const TrainingLessonScreen = lazy(() => import('@/screens/TrainingLessonScreen').then(m => ({ default: m.TrainingLessonScreen })));
+const CoDriverEvalScreen = lazy(() => import('@/screens/CoDriverEvalScreen').then(m => ({ default: m.CoDriverEvalScreen })));
+const SetupPaymentsScreen = lazy(() => import('@/screens/SetupPaymentsScreen').then(m => ({ default: m.SetupPaymentsScreen })));
+const MileageScreen = lazy(() => import('@/screens/MileageScreen').then(m => ({ default: m.MileageScreen })));
+const ExpensesScreen = lazy(() => import('@/screens/ExpensesScreen').then(m => ({ default: m.ExpensesScreen })));
+const TaxEstimatorScreen = lazy(() => import('@/screens/TaxEstimatorScreen').then(m => ({ default: m.TaxEstimatorScreen })));
+const LeaderboardScreen = lazy(() => import('@/screens/LeaderboardScreen').then(m => ({ default: m.LeaderboardScreen })));
+const PrivacyScreen = lazy(() => import('@/screens/legal/PrivacyScreen').then(m => ({ default: m.PrivacyScreen })));
+const TermsScreen = lazy(() => import('@/screens/legal/TermsScreen').then(m => ({ default: m.TermsScreen })));
+const LegalSupportScreen = lazy(() => import('@/screens/legal/SupportScreen').then(m => ({ default: m.SupportScreen })));
+
+function ScreenFallback() {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', background: colors.surfaceDark,
+    }}>
+      <Spinner size={32} color={colors.gold} />
+    </div>
+  );
+}
 
 function AuthRedirect() {
   const { isLoading, isAuthenticated, driver } = useAuth();
@@ -120,6 +132,7 @@ export default function App() {
             <ThemeToggle />
           </div>
           <AppStatusBridge>
+          <Suspense fallback={<ScreenFallback />}>
           <Routes>
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/apply" element={<ApplicationScreen />} />
@@ -164,6 +177,7 @@ export default function App() {
             <Route path="/legal/support" element={<LegalSupportScreen />} />
             <Route path="*" element={<AuthRedirect />} />
           </Routes>
+          </Suspense>
           </AppStatusBridge>
         </AuthProvider>
       </QueryProvider>
