@@ -35,6 +35,8 @@ catalog:
   vite: ^7.3.2
   wouter: ^3.3.5
   zod: 3.25.76
+  jsdom: ^26.1.0
+  vitest: ^4.1.7
 
 minimumReleaseAge: 1440
 
