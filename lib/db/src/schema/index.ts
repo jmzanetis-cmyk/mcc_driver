@@ -390,6 +390,7 @@ export const driverEarningsTable = pgTable("driver_earnings", {
   jobId:            uuid("job_id"),
   legId:            uuid("leg_id"),
   amountCents:      integer("amount_cents").notNull(),
+  // 'base' | 'tip' | 'bonus' | 'adjustment' | 'tip_share'
   kind:             text("kind").notNull().default("base"),
   notes:            text("notes"),
   recordedAt:       timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
@@ -398,6 +399,8 @@ export const driverEarningsTable = pgTable("driver_earnings", {
   paidAt:           timestamp("paid_at", { withTimezone: true }),
   payoutError:      text("payout_error"),
   cashoutId:        uuid("cashout_id"),
+  // Populated on kind='tip_share' rows — points to the primary driver's tip earning
+  tipSharedFrom:    uuid("tip_shared_from"),
 });
 export type DriverEarning = typeof driverEarningsTable.$inferSelect;
 
@@ -495,6 +498,32 @@ export const driverRideInspectionsTable = pgTable(
   ],
 );
 export type DriverRideInspection = typeof driverRideInspectionsTable.$inferSelect;
+
+// ── Transport Rate Config ─────────────────────────────────────────────────────
+// Single-row table seeded with the canonical MCC transport rate structure.
+// Admins can update values without a redeploy (future admin portal).
+// id is text 'default' — one canonical row, human-readable key.
+
+export const transportRateConfigTable = pgTable("transport_rate_config", {
+  id:                     text("id").primaryKey().default("default"),
+  // JSON array of tier brackets: [{ maxMiles, flatCents, label }]
+  tiersJson:              jsonb("tiers_json").notNull(),
+  overageCentsPerMile:    integer("overage_cents_per_mile").notNull().default(400),
+  driverPercent:          integer("driver_percent").notNull().default(75),
+  insurancePercent:       integer("insurance_percent").notNull().default(7),
+  platformPercent:        integer("platform_percent").notNull().default(18),
+  tandemSurchargePercent: integer("tandem_surcharge_percent").notNull().default(50),
+  tandemPrimaryPercent:   integer("tandem_primary_percent").notNull().default(55),
+  tandemChasePercent:     integer("tandem_chase_percent").notNull().default(45),
+  minimumFareCents:       integer("minimum_fare_cents").notNull().default(3500),
+  // JSON array of tip preset amounts in cents
+  tipPresetsJson:         jsonb("tip_presets_json").notNull(),
+  tipWindowHours:         integer("tip_window_hours").notNull().default(24),
+  tipDriverPercent:       integer("tip_driver_percent").notNull().default(100),
+  updatedAt:              timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedBy:              text("updated_by"),
+});
+export type TransportRateConfig = typeof transportRateConfigTable.$inferSelect;
 
 export const insertDeviceTokenSchema = createInsertSchema(deviceTokensTable).omit({
   id: true,

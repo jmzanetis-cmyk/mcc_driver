@@ -11,6 +11,9 @@
       "path": "../../lib/db"
     },
     {
+      "path": "../../lib/shared"
+    },
+    {
       "path": "../../lib/api-zod"
     }
   ]

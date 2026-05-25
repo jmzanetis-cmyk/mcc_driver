@@ -12,6 +12,7 @@ import { colors, borderRadius, shadows } from '@/theme';
 
 export { MapView } from './MapView';
 export type { MapViewProps, LatLng } from './MapView';
+export { TransportEstimateCard } from './TransportEstimateCard';
 
 // ============================================================
 // BUTTON — wraps `.btn` + variant class from platform tokens

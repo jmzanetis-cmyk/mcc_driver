@@ -20,22 +20,31 @@ import { setSentryRequestIdentity } from "../lib/sentry";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
 import { insertAssignmentViaSupabase, updateAssignmentViaSupabase, updateRideViaSupabase } from "../lib/supabaseAdmin";
 import { notifyRideOffer } from "../lib/notifications";
+import { calculateTransportFare } from "@workspace/shared/transportRates";
 
 const router: IRouter = Router();
 
-// ── Tier rates (shared by dispatch fare computation and completion) ────────────
-// perMinute is applied at completion when actual duration is known.
-// deliveryPickupFee is applied at both dispatch estimate and completion for delivery rides.
+// ── Tier rates (non-transport tiers) ────────────────────────────────────────
+// Transport tiers (vehicle_solo / vehicle_paired / full_concierge) use
+// calculateTransportFare() from @workspace/shared/transportRates instead.
 const TIER_RATES: Record<string, { base: number; perMile: number; perMinute: number; deliveryPickupFee: number; minimum: number }> = {
   tier_0_rideshare: { base: 5, perMile: 1.5, perMinute: 0.30, deliveryPickupFee: 0, minimum: 8 },
   tier_0_delivery:  { base: 6, perMile: 2.0, perMinute: 0.35, deliveryPickupFee: 1.50, minimum: 10 },
   tier_1_passenger: { base: 10, perMile: 1.5, perMinute: 0, deliveryPickupFee: 0, minimum: 12 },
-  tier_2_vehicle_solo: { base: 20, perMile: 2.0, perMinute: 0, deliveryPickupFee: 0, minimum: 25 },
-  tier_3_vehicle_paired: { base: 35, perMile: 2.5, perMinute: 0, deliveryPickupFee: 0, minimum: 40 },
-  tier_4_full_concierge: { base: 40, perMile: 3.0, perMinute: 0, deliveryPickupFee: 0, minimum: 45 },
 };
 
+const TRANSPORT_TIERS = new Set([
+  "tier_2_vehicle_solo",
+  "tier_3_vehicle_paired",
+  "tier_4_full_concierge",
+]);
+
 export function computeFare(tier: string, distanceMiles: number, durationMinutes?: number): number {
+  if (TRANSPORT_TIERS.has(tier)) {
+    const isTandem = tier === "tier_3_vehicle_paired" || tier === "tier_4_full_concierge";
+    const result = calculateTransportFare(distanceMiles, isTandem);
+    return result.totalCents / 100;
+  }
   const rates = TIER_RATES[tier] ?? TIER_RATES["tier_1_passenger"]!;
   const raw = rates.base + rates.deliveryPickupFee + distanceMiles * rates.perMile + (durationMinutes ?? 0) * rates.perMinute;
   return Math.round(Math.max(raw, rates.minimum) * 100) / 100;
