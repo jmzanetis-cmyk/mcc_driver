@@ -542,7 +542,7 @@ export function VehicleInspectionScreen() {
   if (activeAngle !== null) {
     const angle = INSPECTION_ANGLES.find(a => a.id === activeAngle)!;
     const photo = photos[activeAngle];
-    const reqIdx = REQUIRED_ANGLES.indexOf(activeAngle);
+    const reqIdx = REQUIRED_ANGLES.findIndex(id => id === activeAngle);
     const headerSuffix = reqIdx >= 0
       ? ` (${reqIdx + 1} of ${REQUIRED_ANGLES.length})`
       : ' (Optional)';
