@@ -18,15 +18,15 @@
 export const colors = {
   // Primary brand
   navy: 'var(--text-primary)',          // text uses — themed
-  surfaceDark: '#0B1D3A',                // fixed brand navy for header/hero surfaces
+  surfaceDark: '#1B2A4A',                // fixed brand navy for header/hero surfaces
   gold: 'var(--accent-gold)',
-  cream: '#FAF8F5',
+  cream: '#FAF7F0',
 
   // Text
   textPrimary: 'var(--text-primary)',
   textSecondary: 'var(--text-secondary)',
   textMuted: 'var(--text-muted)',
-  textWhite: '#F7F5F0',
+  textWhite: '#FAF7F0',
 
   // Backgrounds
   bgPrimary: 'var(--bg-deep)',
@@ -55,7 +55,7 @@ export const colors = {
   chaseGold: 'var(--accent-gold)',
 
   // Tag colors (legacy — not theme-critical)
-  tagSetup: '#0B1D3A',
+  tagSetup: '#1B2A4A',
   tagScreen: '#C9982E',
   tagBackend: '#2D6B8A',
 };

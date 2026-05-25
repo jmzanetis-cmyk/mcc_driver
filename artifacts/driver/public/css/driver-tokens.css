@@ -33,46 +33,37 @@
 
 /* ---------- Dark theme (default) ---------- */
 :root {
-  /* Backgrounds — warmer, garage-inspired */
-  --bg-deep: #12161c;
-  --bg-card: rgba(26, 32, 42, 0.9);
-  --bg-elevated: rgba(36, 44, 56, 0.95);
-  --bg-input: rgba(30, 38, 48, 0.9);
+  /* Backgrounds */
+  --bg-deep: #0F1923;
+  --bg-card: rgba(27, 42, 74, 0.85);
+  --bg-elevated: rgba(27, 42, 74, 0.95);
+  --bg-input: rgba(27, 42, 74, 0.6);
 
   /* Typography */
-  --text-primary: #f5f5f7;
+  --text-primary: #FAF7F0;
   --text-secondary: #a0a8b8;
-  /* Bumped from #6b7280 → #9ca3af for WCAG AA contrast (≥4.5:1)
-     against `--bg-card` (rgba(26,32,42,0.9)) — the old value
-     measured ~4.0:1 against card surfaces and failed AA for
-     small body text. New value measures ~6.3:1 on bg-deep and
-     ~5.7:1 on bg-card.  Light theme value below is unchanged. */
-  --text-muted: #9ca3af;
+  --text-muted: rgba(250, 247, 240, 0.5);
 
-  /* Bronze / copper — engine-metal accent */
-  --accent-gold: #c9a227;
-  --accent-gold-soft: rgba(201, 162, 39, 0.18);
-  --accent-bronze: #cd7f32;
-  --accent-bronze-soft: rgba(205, 127, 50, 0.15);
+  /* Brand gold */
+  --accent-gold: #C9A84C;
+  --accent-gold-soft: rgba(201, 168, 76, 0.18);
 
-  /* Coolant teal — automotive fluid accent */
-  --accent-teal: #22d3ee;
-  --accent-teal-soft: rgba(34, 211, 238, 0.12);
+  /* Info blue (neutral, for info states only — not CTAs) */
   --accent-blue: #38bdf8;
   --accent-blue-soft: rgba(56, 189, 248, 0.12);
 
   /* Status colors */
-  --accent-green: #34d399;
-  --accent-green-soft: rgba(52, 211, 153, 0.12);
-  --accent-red: #f87171;
-  --accent-red-soft: rgba(248, 113, 113, 0.15);
+  --accent-green: #22C55E;
+  --accent-green-soft: rgba(34, 197, 94, 0.12);
+  --accent-red: #EF4444;
+  --accent-red-soft: rgba(239, 68, 68, 0.15);
   --accent-orange: #fb923c;
   --accent-orange-soft: rgba(251, 146, 60, 0.15);
 
   /* Borders */
-  --border-subtle: rgba(160, 168, 184, 0.15);
-  --border-medium: rgba(160, 168, 184, 0.25);
-  --border-focus:  rgba(56, 189, 248, 0.5);
+  --border-subtle: rgba(250, 247, 240, 0.1);
+  --border-medium: rgba(250, 247, 240, 0.2);
+  --border-focus:  rgba(201, 168, 76, 0.5);
 
   /* Border radius */
   --radius-sm: 8px;
@@ -81,10 +72,10 @@
   --radius-xl: 24px;
 
   /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
-  --shadow-md: 0 4px 20px rgba(0,0,0,0.2);
-  --shadow-lg: 0 12px 40px rgba(0,0,0,0.3);
-  --shadow-glow-gold: 0 0 60px rgba(201, 162, 39, 0.1);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.4);
+  --shadow-glow-gold: 0 0 60px rgba(201, 168, 76, 0.15);
   --shadow-glow-blue: 0 2px 12px rgba(56, 189, 248, 0.3);
 }
 
@@ -107,12 +98,8 @@
   /* Deeper gold for higher-contrast CTAs in light mode */
   --accent-gold: #b8942d;
   --accent-gold-soft: rgba(184, 148, 45, 0.12);
-  --accent-bronze: #1e3a5f;
-  --accent-bronze-soft: rgba(30, 58, 95, 0.10);
-  --accent-teal: #0d7377;
-  --accent-teal-soft: rgba(13, 115, 119, 0.12);
-  --accent-blue: #1e3a5f;
-  --accent-blue-soft: rgba(30, 58, 95, 0.10);
+  --accent-blue: #1B2A4A;
+  --accent-blue-soft: rgba(27, 42, 74, 0.10);
 
   --accent-green: #059669;
   --accent-green-soft: rgba(5, 150, 105, 0.12);
@@ -193,13 +180,13 @@ body {
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-blue), #5eb8f7);
-  box-shadow: var(--shadow-glow-blue);
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent-gold), #e0c070);
+  box-shadow: var(--shadow-glow-gold);
+  color: #0F1923;
 }
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 4px 16px rgba(201, 168, 76, 0.4);
 }
 
 .btn-secondary {
@@ -211,8 +198,8 @@ body {
 
 .btn-gold {
   background: linear-gradient(135deg, var(--accent-gold), #e6b84a);
-  color: #12161c;
-  box-shadow: 0 2px 12px rgba(201, 162, 39, 0.3);
+  color: #0F1923;
+  box-shadow: 0 2px 12px rgba(201, 168, 76, 0.3);
 }
 .btn-gold:hover:not(:disabled) {
   transform: translateY(-1px);
@@ -247,11 +234,11 @@ body {
 .btn-sm { padding: 6px 12px;  font-size: 0.82rem; }
 .btn-lg { padding: 14px 28px; font-size: 1rem;    }
 
-/* Light-mode button overrides — deeper gold for ~23% higher CTR */
+/* Light-mode button overrides — deeper gold for higher-contrast CTAs */
 [data-theme="light"] .btn-primary {
   background: linear-gradient(135deg, #b8942d, #d4a63a);
   box-shadow: 0 3px 14px rgba(184, 148, 45, 0.35);
-  color: #ffffff;
+  color: #1B2A4A;
   font-weight: 600;
 }
 [data-theme="light"] .btn-primary:hover:not(:disabled) {
@@ -284,7 +271,7 @@ body {
 
 /* ---------- Cards ---------- */
 .card {
-  background: linear-gradient(145deg, #1a202a, #141a24);
+  background: linear-gradient(145deg, #1B2A4A, #162240);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 24px;
@@ -331,7 +318,7 @@ body {
 
 /* On the dark brand hero (colors.surfaceDark) we always want
    editorial headings in cream/white regardless of theme. */
-.heading-editorial.on-dark { color: #F7F5F0; }
+.heading-editorial.on-dark { color: #FAF7F0; }
 
 /* ---------- Eyebrow label (teal, all-caps) ----------
    Small uppercase label that sits above a hero/section title.
@@ -344,7 +331,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--accent-teal);
+  color: var(--accent-gold);
 }
 .eyebrow.on-dark { color: var(--accent-gold); }
 
@@ -358,7 +345,7 @@ body {
   padding: 3px 10px;
   border-radius: 999px;
   background: var(--accent-gold);
-  color: #12161c;
+  color: #0F1923;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.06em;
