@@ -1,3 +1,10 @@
+# Environment / secrets — never commit real credentials
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
 # Playwright transient outputs — only the baselines under
 # tests/visual.spec.ts-snapshots/ should be committed.
 test-results/
