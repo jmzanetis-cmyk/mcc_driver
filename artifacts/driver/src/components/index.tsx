@@ -130,37 +130,43 @@ interface OnlineToggleProps {
   isOnline: boolean;
   isToggling: boolean;
   onToggle: () => void;
+  disabledReason?: string;
 }
 
-export function OnlineToggle({ isOnline, isToggling, onToggle }: OnlineToggleProps) {
+export function OnlineToggle({ isOnline, isToggling, onToggle, disabledReason }: OnlineToggleProps) {
+  const isDisabled = isToggling || !!disabledReason;
   return (
     <button
-      onClick={onToggle}
-      disabled={isToggling}
+      onClick={disabledReason ? undefined : onToggle}
+      disabled={isDisabled}
+      title={disabledReason}
       role="switch"
       aria-checked={isOnline}
       aria-busy={isToggling || undefined}
-      aria-label={isOnline ? 'Go offline — stop accepting rides' : 'Go online — start accepting rides'}
+      aria-disabled={isDisabled || undefined}
+      aria-label={disabledReason ?? (isOnline ? 'Go offline — stop accepting rides' : 'Go online — start accepting rides')}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '14px 24px', borderRadius: borderRadius.xl,
-        border: 'none', cursor: isToggling ? 'wait' : 'pointer',
-        background: isOnline ? colors.success : 'var(--bg-elevated)',
-        color: isOnline ? '#fff' : colors.textMuted,
+        border: 'none',
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        background: disabledReason ? 'var(--bg-elevated)' : isOnline ? colors.success : 'var(--bg-elevated)',
+        color: isDisabled ? colors.textMuted : isOnline ? '#fff' : colors.textMuted,
         fontSize: 16, fontWeight: 600, width: '100%',
         minHeight: 48,
+        opacity: disabledReason ? 0.6 : 1,
         transition: 'all 0.3s ease',
-        boxShadow: isOnline ? '0 4px 16px rgba(52, 211, 153, 0.3)' : shadows.sm,
+        boxShadow: isOnline && !disabledReason ? '0 4px 16px rgba(34, 197, 94, 0.3)' : shadows.sm,
         fontFamily: 'inherit',
       }}
     >
       <div style={{
         width: 12, height: 12, borderRadius: '50%',
-        background: isOnline ? '#fff' : colors.textMuted,
-        boxShadow: isOnline ? '0 0 8px rgba(255,255,255,0.5)' : 'none',
+        background: isOnline && !disabledReason ? '#fff' : colors.textMuted,
+        boxShadow: isOnline && !disabledReason ? '0 0 8px rgba(255,255,255,0.5)' : 'none',
         transition: 'all 0.3s',
       }} />
-      {isToggling ? 'Updating...' : isOnline ? 'Online — Accepting Rides' : 'Offline — Tap to Go Online'}
+      {isToggling ? 'Updating...' : disabledReason ? 'Go Online (Unavailable)' : isOnline ? 'Online — Accepting Rides' : 'Offline — Tap to Go Online'}
     </button>
   );
 }

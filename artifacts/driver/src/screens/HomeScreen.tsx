@@ -20,6 +20,8 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useDocumentCompliance } from '@/hooks/useDocumentCompliance';
 import { apiUrl } from '@/services/api/baseUrl';
 
+const PRE_LAUNCH = import.meta.env.VITE_PRE_LAUNCH_MODE === 'true';
+
 export function HomeScreen() {
   const navigate = useNavigate();
   const { driver, signOut } = useAuth();
@@ -140,6 +142,23 @@ export function HomeScreen() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>
+      {/* Pre-launch banner */}
+      {PRE_LAUNCH && (
+        <div style={{
+          background: 'rgba(201,168,76,0.12)',
+          borderBottom: '1px solid rgba(201,168,76,0.25)',
+          padding: '12px 20px',
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+        }}>
+          <span aria-hidden="true" style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🔒</span>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+            <strong style={{ color: colors.gold, fontWeight: 600 }}>MCC Driver is in pre-launch.</strong>{' '}
+            You can explore the app and complete training. Active dispatch will begin once licensing is finalized.
+            We'll notify you when you can start earning.
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{
         background: colors.surfaceDark, padding: '20px 20px 24px',
@@ -209,7 +228,12 @@ export function HomeScreen() {
         </div>
 
         {/* Online toggle */}
-        <OnlineToggle isOnline={isOnline} isToggling={isToggling} onToggle={toggleOnline} />
+        <OnlineToggle
+          isOnline={isOnline}
+          isToggling={isToggling}
+          onToggle={toggleOnline}
+          disabledReason={PRE_LAUNCH ? 'Coming soon — licensing in progress' : undefined}
+        />
       </div>
 
       {/* Live location map — 40% viewport height */}
