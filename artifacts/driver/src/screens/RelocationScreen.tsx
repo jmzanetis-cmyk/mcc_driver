@@ -93,7 +93,7 @@ export function RelocationScreen() {
     void (async () => {
       try {
         const { data } = await supabase
-          .from('vehicle_inspections')
+          .from('driver_ride_inspections')
           .select('id, phase')
           .eq('ride_id', rideId)
           .eq('status', 'submitted');

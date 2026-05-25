@@ -501,7 +501,7 @@ export function VehicleInspectionScreen() {
         });
       }
       setUploadProgress('Saving inspection record…');
-      const { error } = await supabase.from('vehicle_inspections').insert({
+      const { error } = await supabase.from('driver_ride_inspections').insert({
         ride_id: rideId,
         driver_id: driver.id,
         phase,
