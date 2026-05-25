@@ -1126,6 +1126,7 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
         await tx.insert(driverEarningsTable).values({
           driverId: assignment.driverId,
           jobId: rideId,
+          rideId,
           amountCents: Math.round(driverPayout * 100),
           kind: "base",
           payoutStatus: "pending",

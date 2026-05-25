@@ -31,6 +31,15 @@ export interface RideEarning {
   distanceMiles: number;
 }
 
+export interface EarningRow {
+  id: string;
+  rideId: string | null;
+  amountCents: number;
+  kind: 'base' | 'tip' | 'bonus' | 'adjustment' | 'tip_share';
+  recordedAt: string;
+  payoutStatus: string;
+}
+
 export interface PayoutRecord {
   id: string;
   amount: number;
@@ -61,6 +70,7 @@ async function fetchEarnings(driverId: string): Promise<{
   recentRides: RideEarning[];
   payouts: PayoutRecord[];
   availableCents: number;
+  earningRows: EarningRow[];
 }> {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -74,6 +84,7 @@ async function fetchEarnings(driverId: string): Promise<{
     { data: driverData, error: driverError },
     { data: cashoutData },
     { data: walletData },
+    { data: earningsData },
   ] = await Promise.all([
     supabase
       .from('driver_assignments')
@@ -105,6 +116,12 @@ async function fetchEarnings(driverId: string): Promise<{
       .select('available_cents')
       .eq('driver_id', driverId)
       .maybeSingle(),
+    supabase
+      .from('driver_earnings')
+      .select('id, ride_id, amount_cents, kind, recorded_at, payout_status')
+      .eq('driver_id', driverId)
+      .order('recorded_at', { ascending: false })
+      .limit(200),
   ]);
 
   if (assignmentsError) throw assignmentsError;
@@ -166,6 +183,16 @@ async function fetchEarnings(driverId: string): Promise<{
     createdAt: c.requested_at,
   }));
 
+  type RawEarning = { id: string; ride_id: string | null; amount_cents: number; kind: string; recorded_at: string; payout_status: string };
+  const earningRows: EarningRow[] = ((earningsData ?? []) as unknown as RawEarning[]).map((e) => ({
+    id: e.id,
+    rideId: e.ride_id,
+    amountCents: e.amount_cents,
+    kind: e.kind as EarningRow['kind'],
+    recordedAt: e.recorded_at,
+    payoutStatus: e.payout_status,
+  }));
+
   return {
     summary: {
       today: Math.round(today * 100) / 100,
@@ -183,6 +210,7 @@ async function fetchEarnings(driverId: string): Promise<{
     recentRides: rides,
     payouts,
     availableCents: (walletData as { available_cents: number | null } | null)?.available_cents ?? 0,
+    earningRows,
   };
 }
 
@@ -204,6 +232,7 @@ export function useEarnings(driverId: string | null) {
     },
     recentRides: query.data?.recentRides ?? [],
     payouts: query.data?.payouts ?? [],
+    earningRows: query.data?.earningRows ?? [],
     availableCents: query.data?.availableCents ?? 0,
     isLoading: query.isLoading,
     isError: query.isError,

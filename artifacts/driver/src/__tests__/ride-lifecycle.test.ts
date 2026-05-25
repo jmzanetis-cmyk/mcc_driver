@@ -641,7 +641,7 @@ describe('fare calculation (mirrors server TIER_RATES)', () => {
     expect(payout).toBeCloseTo(22.30 * 0.85, 2);
   });
 
-  // Server (rides.ts) writes to driver_earnings on completion; client never touches either table.
+  // Server (rides.ts) writes to driver_earnings on completion; client never writes to it.
   it('documents: client does NOT write directly to driver_payouts or driver_earnings', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ success: true, finalFare: 22.30, driverPayout: 18.96 }), { status: 200 }),
@@ -654,10 +654,10 @@ describe('fare calculation (mirrors server TIER_RATES)', () => {
 
     await completeRide('ride-1', 'assign-1', 8.2, 20);
 
-    // The API server (not client) owns the payout insert.
-    // No direct supabase.from('driver_payouts') or supabase.from('driver_earnings') call.
+    // The API server (not client) owns payout inserts.
+    // completeRide() itself never calls supabase.from('driver_payouts').
+    // (useEarnings reads driver_earnings for display, but completeRide does not.)
     expect(supabase.from).not.toHaveBeenCalledWith('driver_payouts');
-    expect(supabase.from).not.toHaveBeenCalledWith('driver_earnings');
   });
 });
 

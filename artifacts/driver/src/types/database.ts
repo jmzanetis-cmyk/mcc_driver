@@ -156,6 +156,27 @@ export interface Database {
         Insert: Partial<Database['public']['Tables']['driver_payouts']['Row']>;
         Update: Partial<Database['public']['Tables']['driver_payouts']['Row']>;
       };
+      driver_earnings: {
+        Row: {
+          id: string;
+          driver_id: string;
+          job_id: string | null;
+          leg_id: string | null;
+          ride_id: string | null;
+          amount_cents: number;
+          kind: 'base' | 'tip' | 'bonus' | 'adjustment' | 'tip_share';
+          notes: string | null;
+          recorded_at: string;
+          payout_status: string;
+          stripe_transfer_id: string | null;
+          paid_at: string | null;
+          payout_error: string | null;
+          cashout_id: string | null;
+          tip_shared_from: string | null;
+        };
+        Insert: Partial<Database['public']['Tables']['driver_earnings']['Row']>;
+        Update: Partial<Database['public']['Tables']['driver_earnings']['Row']>;
+      };
       driver_support_issues: {
         Row: {
           id: string;

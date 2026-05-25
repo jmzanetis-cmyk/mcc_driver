@@ -414,6 +414,7 @@ export const driverEarningsTable = pgTable("driver_earnings", {
   paidAt:           timestamp("paid_at", { withTimezone: true }),
   payoutError:      text("payout_error"),
   cashoutId:        uuid("cashout_id"),
+  rideId:           uuid("ride_id"),
   // Populated on kind='tip_share' rows — points to the primary driver's tip earning
   tipSharedFrom:    uuid("tip_shared_from"),
 });
