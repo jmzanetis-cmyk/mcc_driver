@@ -52,6 +52,7 @@ export function NavigateScreen() {
   const [showCancel, setShowCancel] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [countdown, setCountdown] = useState(5);
+  const [queuedCompletion, setQueuedCompletion] = useState(false);
 
   // Tandem mode selector state
   const [selectedMode, setSelectedMode] = useState<TandemMode | null>(null);
@@ -312,8 +313,10 @@ export function NavigateScreen() {
         : 'Complete Ride',
       action: async () => {
         const result = await completeRide(activeRide.estimatedDistance);
-        if (result.success) {
+        if (result?.success) {
           navigate(`/ride/${result.rideId}/complete`);
+        } else if (result && 'queued' in result && result.queued) {
+          setQueuedCompletion(true);
         }
       },
       variant: 'success' as const,
@@ -755,13 +758,25 @@ export function NavigateScreen() {
             fullWidth
             size="lg"
             loading={activeRide.stage === 'completing'}
-            disabled={activeRide.stage === 'completing'}
+            disabled={activeRide.stage === 'completing' || queuedCompletion}
             style={activeRide.stage === 'in_progress' ? {
               boxShadow: `0 6px 28px ${withAlpha(colors.success, '55')}`,
             } : undefined}
           >
             {currentAction.label}
           </Button>
+        )}
+
+        {queuedCompletion && (
+          <div style={{
+            marginTop: 12, padding: '10px 14px',
+            background: 'rgba(245,158,11,0.1)',
+            border: '1px solid rgba(245,158,11,0.35)',
+            borderRadius: 8, fontSize: 13,
+            color: 'rgba(245,158,11,0.9)', textAlign: 'center',
+          }}>
+            Ride saved locally — will sync when connected.
+          </div>
         )}
 
         {/* Cancel option (driver-initiated) */}

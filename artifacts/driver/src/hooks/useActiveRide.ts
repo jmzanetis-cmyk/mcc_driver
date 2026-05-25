@@ -10,6 +10,8 @@ import { useDispatchStore, type DispatchStage } from '@/store/dispatchStore';
 import { updateRideStage, completeRide as completeRideEdge, cancelRide as cancelRideEdge } from '@/services/api/edgeFunctions';
 import { saveRideState, clearRideState } from '@/services/offline/storage';
 import { logger } from '@/services/telemetry/logger';
+import { enqueue } from '@/services/offlineQueue';
+import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 
 export function useActiveRide() {
   const dispatch = useDispatchStore();
@@ -17,33 +19,60 @@ export function useActiveRide() {
   const startNavigating = useCallback(async () => {
     if (!dispatch.rideId || !dispatch.assignmentId) return;
 
-    const result = await updateRideStage(dispatch.rideId, dispatch.assignmentId, 'en_route');
-    if (result.success) {
-      dispatch.setStage('navigating');
-      await saveRideState(dispatch.rideId, { ...dispatch, stage: 'navigating' });
-      logger.info('ride.navigating', { rideId: dispatch.rideId });
+    try {
+      const result = await updateRideStage(dispatch.rideId, dispatch.assignmentId, 'en_route');
+      if (result.success) {
+        dispatch.setStage('navigating');
+        await saveRideState(dispatch.rideId, { ...dispatch, stage: 'navigating' });
+        logger.info('ride.navigating', { rideId: dispatch.rideId });
+      }
+    } catch {
+      if (!getNetworkStatus().online) {
+        const rideId = dispatch.rideId;
+        const assignmentId = dispatch.assignmentId;
+        dispatch.setStage('navigating');
+        enqueue(async () => { await updateRideStage(rideId, assignmentId, 'en_route'); }, 'Start navigating');
+      }
     }
   }, [dispatch.rideId, dispatch.assignmentId]);
 
   const markArrived = useCallback(async () => {
     if (!dispatch.rideId || !dispatch.assignmentId) return;
 
-    const result = await updateRideStage(dispatch.rideId, dispatch.assignmentId, 'arrived');
-    if (result.success) {
-      dispatch.setStage('arrived');
-      await saveRideState(dispatch.rideId, { stage: 'arrived' });
-      logger.info('ride.arrived', { rideId: dispatch.rideId });
+    try {
+      const result = await updateRideStage(dispatch.rideId, dispatch.assignmentId, 'arrived');
+      if (result.success) {
+        dispatch.setStage('arrived');
+        await saveRideState(dispatch.rideId, { stage: 'arrived' });
+        logger.info('ride.arrived', { rideId: dispatch.rideId });
+      }
+    } catch {
+      if (!getNetworkStatus().online) {
+        const rideId = dispatch.rideId;
+        const assignmentId = dispatch.assignmentId;
+        dispatch.setStage('arrived');
+        enqueue(async () => { await updateRideStage(rideId, assignmentId, 'arrived'); }, 'Mark arrived');
+      }
     }
   }, [dispatch.rideId, dispatch.assignmentId]);
 
   const startRide = useCallback(async () => {
     if (!dispatch.rideId || !dispatch.assignmentId) return;
 
-    const result = await updateRideStage(dispatch.rideId, dispatch.assignmentId, 'in_progress');
-    if (result.success) {
-      dispatch.setStage('in_progress', { startedAt: new Date().toISOString() });
-      await saveRideState(dispatch.rideId, { stage: 'in_progress' });
-      logger.info('ride.started', { rideId: dispatch.rideId });
+    try {
+      const result = await updateRideStage(dispatch.rideId, dispatch.assignmentId, 'in_progress');
+      if (result.success) {
+        dispatch.setStage('in_progress', { startedAt: new Date().toISOString() });
+        await saveRideState(dispatch.rideId, { stage: 'in_progress' });
+        logger.info('ride.started', { rideId: dispatch.rideId });
+      }
+    } catch {
+      if (!getNetworkStatus().online) {
+        const rideId = dispatch.rideId;
+        const assignmentId = dispatch.assignmentId;
+        dispatch.setStage('in_progress', { startedAt: new Date().toISOString() });
+        enqueue(async () => { await updateRideStage(rideId, assignmentId, 'in_progress'); }, 'Start ride');
+      }
     }
   }, [dispatch.rideId, dispatch.assignmentId]);
 
@@ -63,23 +92,43 @@ export function useActiveRide() {
 
     logger.info('ride.completing', { rideId: store.rideId, distance: actualDistanceMiles, durationMinutes: actualDurationMinutes });
 
-    const result = await completeRideEdge(
-      store.rideId,
-      store.assignmentId,
-      actualDistanceMiles,
-      actualDurationMinutes
-    );
+    try {
+      const result = await completeRideEdge(
+        store.rideId,
+        store.assignmentId,
+        actualDistanceMiles,
+        actualDurationMinutes
+      );
 
-    if (result.success) {
-      const completedRideId = store.rideId;
-      await clearRideState(completedRideId);
-      store.clearDispatch();
-      logger.info('ride.completed', { rideId: completedRideId });
-      return { success: true, rideId: completedRideId };
+      if (result.success) {
+        const completedRideId = store.rideId;
+        await clearRideState(completedRideId);
+        store.clearDispatch();
+        logger.info('ride.completed', { rideId: completedRideId });
+        return { success: true, rideId: completedRideId };
+      }
+
+      store.setStage('in_progress');
+      return { success: false };
+    } catch {
+      if (!getNetworkStatus().online) {
+        const capturedRideId = store.rideId;
+        const capturedAssignmentId = store.assignmentId;
+        enqueue(async () => {
+          const r = await completeRideEdge(capturedRideId, capturedAssignmentId, actualDistanceMiles, actualDurationMinutes);
+          if (r.success) {
+            await clearRideState(capturedRideId);
+            useDispatchStore.getState().clearDispatch();
+            logger.info('ride.completed.queued', { rideId: capturedRideId });
+          }
+        }, 'Complete ride');
+        store.setStage('in_progress');
+        logger.info('ride.complete.queued', { rideId: store.rideId });
+        return { success: false, queued: true as const };
+      }
+      store.setStage('in_progress');
+      return { success: false };
     }
-
-    store.setStage('in_progress');
-    return { success: false };
   }, []);
 
   const cancelRide = useCallback(async (reason?: string) => {
