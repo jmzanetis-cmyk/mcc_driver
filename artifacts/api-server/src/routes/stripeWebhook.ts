@@ -84,15 +84,22 @@ export async function stripeWebhookHandler(
 // ── Event dispatcher ──────────────────────────────────────────────────────────
 
 async function dispatch(event: Stripe.Event): Promise<void> {
+  // "transfer.paid" and "transfer.failed" are real Stripe webhook events but
+  // absent from the SDK's discriminated-union type. Guard them before the
+  // typed switch so the remaining arms stay fully type-checked.
+  const rawType = event.type as string;
+  if (rawType === "transfer.paid") {
+    await onTransferPaid(event.data.object as Stripe.Transfer);
+    return;
+  }
+  if (rawType === "transfer.failed") {
+    await onTransferFailed(event.data.object as Stripe.Transfer);
+    return;
+  }
+
   switch (event.type) {
     case "transfer.created":
       await onTransferCreated(event.data.object as Stripe.Transfer);
-      break;
-    case "transfer.paid":
-      await onTransferPaid(event.data.object as Stripe.Transfer);
-      break;
-    case "transfer.failed":
-      await onTransferFailed(event.data.object as Stripe.Transfer);
       break;
     case "payout.paid":
       await onPayoutPaid(event.data.object as Stripe.Payout);
