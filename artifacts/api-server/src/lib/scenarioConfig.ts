@@ -262,4 +262,74 @@ export const SCENARIO_CONFIG: Record<string, ScenarioConfig> = {
     ],
     description: "Both drivers handle the full round trip.",
   },
+
+  // ── Member Self-Service Transport ──
+  // Created by POST /api/transport/request from the member app.
+  member_direct_solo: {
+    tier: "tier_2_vehicle_solo",
+    driversRequired: 1,
+    assignments: [
+      {
+        role: "primary",
+        drivesMemberVehicle: true,
+        carriesPassenger: false,
+        description: "Drive the member's vehicle to the requested destination",
+      },
+    ],
+    description: "Member requested a solo vehicle relocation.",
+  },
+  member_direct_tandem: {
+    tier: "tier_3_vehicle_paired",
+    driversRequired: 2,
+    assignments: [
+      {
+        role: "primary",
+        drivesMemberVehicle: true,
+        carriesPassenger: false,
+        description: "Drive the member's vehicle to the requested destination",
+      },
+      {
+        role: "chase",
+        drivesMemberVehicle: false,
+        carriesPassenger: false,
+        description: "Follow in chase vehicle, pick up primary after delivery",
+      },
+    ],
+    description: "Member requested a tandem vehicle relocation.",
+  },
+
+  // ── Provider-Initiated Transport ──
+  // Created by POST /api/transport/provider-request from the provider portal.
+  provider_requested_solo: {
+    tier: "tier_2_vehicle_solo",
+    driversRequired: 1,
+    assignments: [
+      {
+        role: "primary",
+        drivesMemberVehicle: true,
+        carriesPassenger: false,
+        description: "Drive the vehicle to the destination on behalf of the provider",
+      },
+    ],
+    description: "Provider requested a solo vehicle relocation for a member.",
+  },
+  provider_requested_tandem: {
+    tier: "tier_3_vehicle_paired",
+    driversRequired: 2,
+    assignments: [
+      {
+        role: "primary",
+        drivesMemberVehicle: true,
+        carriesPassenger: false,
+        description: "Drive the vehicle to the destination",
+      },
+      {
+        role: "chase",
+        drivesMemberVehicle: false,
+        carriesPassenger: false,
+        description: "Follow in chase vehicle, pick up primary after delivery",
+      },
+    ],
+    description: "Provider requested a tandem vehicle relocation for a member.",
+  },
 };

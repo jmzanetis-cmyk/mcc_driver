@@ -115,6 +115,16 @@ export const ridesTable = pgTable("rides", {
   serviceType: text("service_type").notNull().default("concierge"),
   // Free-text package description for delivery rides (e.g. "Small box, fragile")
   packageDescription: text("package_description"),
+  // Vehicle plate number — required for transport/relocation jobs
+  memberVehiclePlate: text("member_vehicle_plate"),
+  // Provider subsidy percentage (0–100). Set on provider-requested rides.
+  subsidyPercent: real("subsidy_percent"),
+  // Who initiated the ride: 'member_direct' | 'provider_requested' | 'dispatch_admin'
+  requestSource: text("request_source"),
+  // Supabase user_id of the person who created this request (member or provider)
+  requestedByUserId: text("requested_by_user_id"),
+  // For scheduled rides — ISO timestamp when the ride should be dispatched
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

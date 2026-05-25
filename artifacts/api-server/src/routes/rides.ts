@@ -162,7 +162,7 @@ async function resolveCallerDriver(
 // the next available eligible driver for the same role. If no drivers remain,
 // mark the ride as 'dispatch_failed'.
 
-async function cascadeDispatch(
+export async function cascadeDispatch(
   rideId: string,
   declinedAssignment: typeof driverAssignmentsTable.$inferSelect,
 ): Promise<void> {

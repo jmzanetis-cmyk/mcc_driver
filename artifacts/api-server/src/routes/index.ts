@@ -33,6 +33,7 @@ import expensesRouter from "./expenses";
 import taxEstimateRouter from "./taxEstimate";
 import leaderboardRouter from "./leaderboard";
 import transportRouter from "./transport";
+import transportRequestsRouter from "./transportRequests";
 import tipShareRouter from "./tipShare";
 
 const router: IRouter = Router();
@@ -71,6 +72,7 @@ router.use(expensesRouter);
 router.use(taxEstimateRouter);
 router.use(leaderboardRouter);
 router.use(transportRouter);
+router.use(transportRequestsRouter);
 router.use(tipShareRouter);
 
 export default router;
