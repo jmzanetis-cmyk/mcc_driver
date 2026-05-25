@@ -117,6 +117,11 @@ export const ridesTable = pgTable("rides", {
   packageDescription: text("package_description"),
   // Vehicle plate number — required for transport/relocation jobs
   memberVehiclePlate: text("member_vehicle_plate"),
+  // Contact details for pickup and dropoff locations (relocation / concierge)
+  pickupContactName:   text("pickup_contact_name"),
+  pickupContactPhone:  text("pickup_contact_phone"),
+  dropoffContactName:  text("dropoff_contact_name"),
+  dropoffContactPhone: text("dropoff_contact_phone"),
   // Provider subsidy percentage (0–100). Set on provider-requested rides.
   subsidyPercent: real("subsidy_percent"),
   // Who initiated the ride: 'member_direct' | 'provider_requested' | 'dispatch_admin'
