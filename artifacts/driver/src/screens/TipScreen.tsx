@@ -47,6 +47,11 @@ export function TipScreen() {
   const [sharePercent, setSharePercent] = useState(0);
   const [myEarningId, setMyEarningId] = useState<string | null>(null);
 
+  // Inline share — set upfront before submission (the main path per spec)
+  const [inlineShareEnabled, setInlineShareEnabled] = useState(false);
+  const [inlineSharePercent, setInlineSharePercent] = useState(0);
+  const [sharedInline, setSharedInline] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [tipSubmitted, setTipSubmitted] = useState(false);
@@ -166,18 +171,24 @@ export function TipScreen() {
         Authorization: `Bearer ${session.access_token}`,
       };
 
-      // Primary (or solo) driver tip
+      // Primary (or solo) driver tip — include inline sharePercent if set
+      const shareToSend = inlineShareEnabled && inlineSharePercent >= 1 ? inlineSharePercent : undefined;
       const res = await fetch(apiUrl('/tips'), {
         method: 'POST',
         headers,
-        body: JSON.stringify({ rideId, amount: myTipCents / 100 }),
+        body: JSON.stringify({
+          rideId,
+          amount: myTipCents / 100,
+          ...(shareToSend !== undefined ? { sharePercent: shareToSend } : {}),
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(body.error ?? `Request failed (${res.status})`);
       }
-      const tipResult = await res.json() as { earningId?: string };
+      const tipResult = await res.json() as { earningId?: string; sharePercent?: number };
       if (tipResult.earningId) setMyEarningId(tipResult.earningId);
+      if (tipResult.sharePercent && tipResult.sharePercent > 0) setSharedInline(true);
 
       // Co-driver tip (tandem only, independent amount)
       if (isTandem && coDriver && coTipCents && coTipCents > 0) {
@@ -189,6 +200,11 @@ export function TipScreen() {
       }
 
       setTipSubmitted(true);
+      // If the driver set an inline share, skip the post-submit share screen
+      if (shareToSend !== undefined && shareToSend > 0) {
+        navigate('/home');
+        return;
+      }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
     } finally {
@@ -370,6 +386,81 @@ export function TipScreen() {
             setCustomValue={setCustomValue}
           />
         </Card>
+
+        {/* ── Tandem: inline share-from-own-tip section ── */}
+        {isTandem && coDriver && (
+          <Card style={{ marginBottom: 16 }} padding={20}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: inlineShareEnabled ? 14 : 0 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>
+                  Share with {coDriver.firstName}?
+                </div>
+                <div style={{ fontSize: 12, color: colors.textMuted }}>Optional — split your tip with your co-driver</div>
+              </div>
+              <button
+                onClick={() => { setInlineShareEnabled((e) => !e); if (inlineShareEnabled) setInlineSharePercent(0); }}
+                style={{
+                  width: 40, height: 22, borderRadius: 11,
+                  background: inlineShareEnabled ? colors.gold : colors.border,
+                  border: 'none', cursor: 'pointer', position: 'relative',
+                  transition: 'background 0.15s', flexShrink: 0,
+                }}
+                aria-checked={inlineShareEnabled}
+                role="switch"
+                aria-label="Share tip with co-driver"
+              >
+                <span style={{
+                  position: 'absolute', top: 3,
+                  left: inlineShareEnabled ? 'calc(100% - 19px)' : 3,
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: '#fff', transition: 'left 0.15s',
+                }} />
+              </button>
+            </div>
+
+            {inlineShareEnabled && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: colors.textSecondary }}>Share</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: colors.gold }}>
+                    {inlineSharePercent}%
+                  </span>
+                </div>
+                <input
+                  type="range" min="0" max="50" step="5"
+                  value={inlineSharePercent}
+                  onChange={(e) => setInlineSharePercent(parseInt(e.target.value))}
+                  style={{ width: '100%', accentColor: colors.gold, marginBottom: 12 }}
+                  aria-label={`Share ${inlineSharePercent}% with co-driver`}
+                />
+                <div style={{
+                  padding: '10px 14px', borderRadius: borderRadius.md,
+                  background: withAlpha(colors.gold, '08'),
+                  border: `1px solid ${withAlpha(colors.gold, '25')}`,
+                  fontSize: 13, color: colors.textSecondary, textAlign: 'center',
+                }}>
+                  {myTipCents && inlineSharePercent > 0 ? (
+                    <>
+                      You keep{' '}
+                      <strong style={{ color: colors.navy }}>
+                        {formatCurrency((myTipCents - Math.round(myTipCents * inlineSharePercent / 100)) / 100)}
+                      </strong>
+                      {' · '}
+                      {coDriver.firstName} gets{' '}
+                      <strong style={{ color: colors.navy }}>
+                        {formatCurrency(Math.round(myTipCents * inlineSharePercent / 100) / 100)}
+                      </strong>
+                    </>
+                  ) : myTipCents ? (
+                    'Move slider to choose share amount'
+                  ) : (
+                    'Select a tip amount above first'
+                  )}
+                </div>
+              </>
+            )}
+          </Card>
+        )}
 
         {/* ── Tandem: co-driver tip section ── */}
         {isTandem && coDriver && (
