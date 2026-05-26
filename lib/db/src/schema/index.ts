@@ -130,6 +130,19 @@ export const ridesTable = pgTable("rides", {
   requestedByUserId: text("requested_by_user_id"),
   // For scheduled rides — ISO timestamp when the ride should be dispatched
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  // Round-trip support: if set, this ride is the return leg of the parent ride.
+  // Determines wait-time payer (return pickup is at provider's shop → provider pays).
+  roundTripParentId: uuid("round_trip_parent_id"),
+  // Demand multiplier applied at dispatch time (locked in; ≥ 1.0 when active)
+  multiplierRate: real("multiplier_rate"),
+  multiplierLabel: text("multiplier_label"),
+  // Wait time billing
+  waitTimeBilledTo: text("wait_time_billed_to"),
+  pickupWaitMinutes: integer("pickup_wait_minutes").notNull().default(0),
+  pickupWaitCents: integer("pickup_wait_cents").notNull().default(0),
+  dropoffWaitMinutes: integer("dropoff_wait_minutes").notNull().default(0),
+  dropoffWaitCents: integer("dropoff_wait_cents").notNull().default(0),
+  showUpFeeCents: integer("show_up_fee_cents").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -405,7 +418,7 @@ export const driverEarningsTable = pgTable("driver_earnings", {
   jobId:            uuid("job_id"),
   legId:            uuid("leg_id"),
   amountCents:      integer("amount_cents").notNull(),
-  // 'base' | 'tip' | 'bonus' | 'adjustment' | 'tip_share'
+  // 'base' | 'tip' | 'bonus' | 'adjustment' | 'tip_share' | 'wait_time' | 'show_up_fee'
   kind:             text("kind").notNull().default("base"),
   notes:            text("notes"),
   recordedAt:       timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),

@@ -12,6 +12,9 @@
 // ============================================================
 
 import { Router, type Request, type Response } from "express";
+import { eq, and, sql } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { driversTable } from "@workspace/db/schema";
 import {
   calculateTransportFare,
   calculateMemberPrice,
@@ -20,9 +23,9 @@ import {
 
 const router = Router();
 
-router.get("/transport/estimate", (req: Request, res: Response) => {
-  const milesRaw  = req.query.miles  as string | undefined;
-  const tandemRaw = req.query.tandem as string | undefined;
+router.get("/transport/estimate", async (req: Request, res: Response) => {
+  const milesRaw   = req.query.miles   as string | undefined;
+  const tandemRaw  = req.query.tandem  as string | undefined;
   const subsidyRaw = req.query.subsidy as string | undefined;
 
   const miles = parseFloat(milesRaw ?? "");
@@ -31,10 +34,25 @@ router.get("/transport/estimate", (req: Request, res: Response) => {
     return;
   }
 
-  const isTandem        = tandemRaw === "true";
-  const subsidyPercent  = Math.min(100, Math.max(0, parseFloat(subsidyRaw ?? "0") || 0));
+  const isTandem       = tandemRaw === "true";
+  const subsidyPercent = Math.min(100, Math.max(0, parseFloat(subsidyRaw ?? "0") || 0));
 
-  const fare    = calculateTransportFare(miles, isTandem);
+  // Count online drivers to determine lowSupply multiplier
+  let onlineDriverCount = 0;
+  try {
+    const [row] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(driversTable)
+      .where(and(eq(driversTable.isOnline, true), eq(driversTable.status, "active")));
+    onlineDriverCount = row?.n ?? 0;
+  } catch {
+    // Non-fatal — fall back to no lowSupply multiplier
+  }
+
+  const fare    = calculateTransportFare(miles, isTandem, {
+    requestTime: new Date(),
+    onlineDriverCount,
+  });
   const pricing = calculateMemberPrice(fare.totalCents, subsidyPercent);
 
   res.json({
@@ -42,7 +60,11 @@ router.get("/transport/estimate", (req: Request, res: Response) => {
     isTandem,
     subsidyPercent,
     tierLabel:           fare.tierLabel,
+    baseFareCents:       fare.baseFareCents,
+    adjustedFareCents:   fare.adjustedFareCents,
     totalCents:          fare.totalCents,
+    multiplierRate:      fare.multiplierRate,
+    multiplierLabel:     fare.multiplierLabel,
     driverCents:         fare.driverCents,
     insuranceCents:      fare.insuranceCents,
     platformCents:       fare.platformCents,

@@ -12,7 +12,11 @@ interface EstimateResult {
   isTandem: boolean;
   subsidyPercent: number;
   tierLabel: string;
+  baseFareCents: number;
+  adjustedFareCents: number;
   totalCents: number;
+  multiplierRate: number;
+  multiplierLabel: string;
   driverCents: number;
   insuranceCents: number;
   platformCents: number;
@@ -157,8 +161,8 @@ export function TransportEstimateCard({ showSubsidySlider = false }: Props) {
       {/* Breakdown */}
       {result && !loading && (
         <div style={{ marginTop: 8 }}>
-          {/* Tier badge */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          {/* Tier badge + total */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{
               fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase',
               color: colors.gold, background: withAlpha(colors.gold, '12'),
@@ -170,6 +174,28 @@ export function TransportEstimateCard({ showSubsidySlider = false }: Props) {
               {cents(result.totalCents)}
             </span>
           </div>
+
+          {/* Multiplier badges */}
+          {result.multiplierRate > 1 && result.multiplierLabel && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              {result.multiplierLabel.split(' + ').map((label) => (
+                <span key={label} style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
+                  color: colors.gold,
+                  background: withAlpha(colors.gold, '15'),
+                  border: `1px solid ${withAlpha(colors.gold, '30')}`,
+                  padding: '2px 8px', borderRadius: borderRadius.full,
+                }}>
+                  {label} +{Math.round((result.multiplierRate - 1) * 100)}%
+                </span>
+              ))}
+              {result.baseFareCents !== result.adjustedFareCents && (
+                <span style={{ fontSize: 11, color: colors.textMuted, alignSelf: 'center' }}>
+                  (base {cents(result.baseFareCents)})
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Split rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

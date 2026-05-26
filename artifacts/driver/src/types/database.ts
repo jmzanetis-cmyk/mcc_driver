@@ -88,6 +88,15 @@ export interface Database {
           request_source: string | null;
           requested_by_user_id: string | null;
           scheduled_at: string | null;
+          round_trip_parent_id: string | null;
+          multiplier_rate: number | null;
+          multiplier_label: string | null;
+          wait_time_billed_to: string | null;
+          pickup_wait_minutes: number;
+          pickup_wait_cents: number;
+          dropoff_wait_minutes: number;
+          dropoff_wait_cents: number;
+          show_up_fee_cents: number;
           created_at: string;
         };
         Insert: Partial<Database['public']['Tables']['rides']['Row']>;
@@ -164,7 +173,7 @@ export interface Database {
           leg_id: string | null;
           ride_id: string | null;
           amount_cents: number;
-          kind: 'base' | 'tip' | 'bonus' | 'adjustment' | 'tip_share';
+          kind: 'base' | 'tip' | 'bonus' | 'adjustment' | 'tip_share' | 'wait_time' | 'show_up_fee';
           notes: string | null;
           recorded_at: string;
           payout_status: string;

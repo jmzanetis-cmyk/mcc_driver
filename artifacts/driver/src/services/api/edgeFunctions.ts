@@ -112,6 +112,20 @@ export async function cancelRide(
   return callApi(`/rides/${rideId}/cancel`, 'POST', { reason, cancelledBy: 'driver' });
 }
 
+export async function reportNoShow(
+  rideId: string,
+  assignmentId: string,
+): Promise<ApiResult<{ waitMinutes: number; waitCents: number; showUpFeeCents: number; totalDriverEarningsCents: number }>> {
+  return callApi(`/rides/${rideId}/no-show`, 'POST', { assignmentId });
+}
+
+export async function reportUndrivable(
+  rideId: string,
+  assignmentId: string,
+): Promise<ApiResult<{ showUpFeeCents: number }>> {
+  return callApi(`/rides/${rideId}/undrivable`, 'POST', { assignmentId });
+}
+
 /**
  * Complete a ride via the API server.
  * - Recalculates fare with actual distance

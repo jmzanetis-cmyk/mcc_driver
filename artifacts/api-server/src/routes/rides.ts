@@ -7,7 +7,7 @@
 // ============================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, inArray, notInArray, isNotNull, lt, asc } from "drizzle-orm";
+import { eq, and, inArray, notInArray, isNotNull, lt, asc, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   ridesTable,
@@ -20,7 +20,7 @@ import { setSentryRequestIdentity } from "../lib/sentry";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
 import { insertAssignmentViaSupabase, updateAssignmentViaSupabase, updateRideViaSupabase } from "../lib/supabaseAdmin";
 import { notifyRideOffer } from "../lib/notifications";
-import { calculateTransportFare } from "@workspace/shared/transportRates";
+import { calculateTransportFare, TRANSPORT_RATES, determineWaitTimePayer, calculateWaitCents } from "@workspace/shared/transportRates";
 
 const router: IRouter = Router();
 
@@ -508,6 +508,35 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
         ? `${body.memberVehicleYear} ${body.memberVehicleColor ?? ""} ${body.memberVehicleMake} ${body.memberVehicleModel ?? ""}`.trim()
         : null;
 
+    // For transport tiers, apply demand multiplier locked at dispatch time.
+    let estimatedFare: number;
+    let multiplierRate: number | null = null;
+    let multiplierLabel: string | null = null;
+
+    if (TRANSPORT_TIERS.has(body.tier)) {
+      const isTandem = body.tier === "tier_3_vehicle_paired" || body.tier === "tier_4_full_concierge";
+      let onlineDriverCount = 0;
+      try {
+        const [countRow] = await db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(driversTable)
+          .where(and(eq(driversTable.isOnline, true), eq(driversTable.status, "active")));
+        onlineDriverCount = countRow?.n ?? 0;
+      } catch { /* non-fatal */ }
+
+      const fareResult = calculateTransportFare(body.estimatedDistanceMiles, isTandem, {
+        requestTime: new Date(),
+        onlineDriverCount,
+      });
+      estimatedFare = fareResult.adjustedFareCents / 100;
+      if (fareResult.multiplierRate > 1) {
+        multiplierRate = fareResult.multiplierRate;
+        multiplierLabel = fareResult.multiplierLabel || null;
+      }
+    } else {
+      estimatedFare = computeFare(body.tier, body.estimatedDistanceMiles);
+    }
+
     const [ride] = await db
       .insert(ridesTable)
       .values({
@@ -525,13 +554,10 @@ router.post("/rides/dispatch", async (req: Request, res: Response) => {
         dropoffAddress: body.dropoffAddress,
         dropoffLat: body.dropoffLat,
         dropoffLng: body.dropoffLng,
-        // Always compute the estimate server-side from the published rate card.
-        // At dispatch time we have distance but not duration, so perMinute is excluded
-        // from the estimate — it will be factored in at completion with actual duration.
-        // This ensures the stored estimate is always consistent with our rate card,
-        // regardless of what the caller provided.
-        estimatedFare: computeFare(body.tier, body.estimatedDistanceMiles),
+        estimatedFare,
         estimatedDistanceMiles: body.estimatedDistanceMiles,
+        multiplierRate,
+        multiplierLabel,
         memberVehicleYear: body.memberVehicleYear ?? null,
         memberVehicleMake: body.memberVehicleMake ?? null,
         memberVehicleModel: body.memberVehicleModel ?? null,
@@ -847,9 +873,15 @@ router.patch("/rides/assignments/:assignmentId/stage", async (req: Request, res:
       return;
     }
 
+    const stageTimestamp = new Date();
     const [updated] = await db
       .update(driverAssignmentsTable)
-      .set({ status: STAGE_TO_ASSIGNMENT_STATUS[typedStage] })
+      .set({
+        status: STAGE_TO_ASSIGNMENT_STATUS[typedStage],
+        ...(typedStage === 'en_route'     ? { enRouteAt: stageTimestamp } : {}),
+        ...(typedStage === 'arrived'      ? { arrivedAt: stageTimestamp } : {}),
+        ...(typedStage === 'in_progress'  ? { startedAt: stageTimestamp } : {}),
+      })
       .where(
         and(
           eq(driverAssignmentsTable.id, assignmentId),
@@ -1078,17 +1110,45 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
       return;
     }
 
-    const finalFare = computeFare(ride.tier, actualDistanceMiles, actualDurationMinutes);
+    // Apply stored multiplier for transport tiers (locked at dispatch time).
+    const baseFinalFare = computeFare(ride.tier, actualDistanceMiles, actualDurationMinutes);
+    const storedMultiplier = TRANSPORT_TIERS.has(ride.tier) ? (ride.multiplierRate ?? 1.0) : 1.0;
+    const finalFare = Math.round(baseFinalFare * storedMultiplier * 100) / 100;
     const driverPayout = Math.round(finalFare * DRIVER_SHARE * 100) / 100;
 
     const now = new Date();
 
-    // All four writes (assignment flip, ride update, payout insert, driver
-    // counter bump) run atomically. The conditional assignment update is the
+    // Pre-compute pickup wait time (arrivedAt → startedAt, minus grace period).
+    // For scheduled rides: wait starts at max(arrivedAt, scheduledAt).
+    let pickupWaitMinutes = 0;
+    let pickupWaitCents = 0;
+    let waitTimeBilledTo: string | null = null;
+
+    if (assignment.arrivedAt && assignment.startedAt) {
+      const waitStart =
+        ride.scheduledAt && ride.scheduledAt > assignment.arrivedAt
+          ? ride.scheduledAt
+          : assignment.arrivedAt;
+      const waitMs = assignment.startedAt.getTime() - waitStart.getTime();
+      pickupWaitMinutes = Math.max(0, Math.floor(waitMs / 60000));
+      const payer = determineWaitTimePayer({
+        requestSource: ride.requestSource,
+        roundTripParentId: ride.roundTripParentId,
+      });
+      waitTimeBilledTo = payer;
+      const tripFareCents = Math.round(ride.estimatedFare * 100);
+      const estimatedTripMinutes = Math.max(1, (ride.estimatedDistanceMiles / 30) * 60);
+      pickupWaitCents = calculateWaitCents({
+        elapsedMinutes: pickupWaitMinutes,
+        tripFareCents,
+        estimatedTripMinutes,
+        isTandem: ride.tandemRequired,
+      });
+    }
+
+    // All writes run atomically. The conditional assignment update is the
     // race guard from task #48; if it returns zero rows we throw a sentinel
-    // to roll back any partial state and respond 409. Any other thrown error
-    // also rolls back, so we never leave a completed assignment without a
-    // matching payout row.
+    // to roll back any partial state and respond 409.
     const RACE_LOST = Symbol("rides.complete.race_lost");
 
     try {
@@ -1120,6 +1180,7 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
             actualFare: finalFare,
             actualDistanceMiles,
             completedAt: now,
+            ...(pickupWaitCents > 0 ? { pickupWaitMinutes, pickupWaitCents, waitTimeBilledTo } : {}),
           })
           .where(eq(ridesTable.id, rideId));
 
@@ -1131,6 +1192,19 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
           kind: "base",
           payoutStatus: "pending",
         });
+
+        // Wait time goes 100% to driver (no platform cut)
+        if (pickupWaitCents > 0) {
+          await tx.insert(driverEarningsTable).values({
+            driverId: assignment.driverId,
+            jobId: rideId,
+            rideId,
+            amountCents: pickupWaitCents,
+            kind: "wait_time",
+            notes: `Pickup wait: ${pickupWaitMinutes} min (${waitTimeBilledTo ?? "member"} pays)`,
+            payoutStatus: "pending",
+          });
+        }
 
         const [currentDriver] = await tx
           .select({ totalRidesCompleted: driversTable.totalRidesCompleted })
@@ -1167,6 +1241,226 @@ router.post("/rides/:rideId/complete", async (req: Request, res: Response) => {
     });
   } catch (err) {
     logger.error({ err }, "rides.complete failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/rides/:rideId/no-show ──────────────────────────────────────────
+// Called by the driver after waiting ≥ 15 min with no member arrival.
+// Records wait time + show-up fee as driver earnings; cancels the ride.
+
+router.post("/rides/:rideId/no-show", async (req: Request, res: Response) => {
+  const user = await requireUserAuth(req, res);
+  if (!user) return;
+
+  const driver = await resolveCallerDriver(user, res);
+  if (!driver) return;
+
+  const rideId = String(req.params["rideId"]);
+  const { assignmentId } = req.body as { assignmentId: string };
+
+  if (!assignmentId) {
+    res.status(400).json({ error: "assignmentId required" });
+    return;
+  }
+
+  try {
+    const [ride] = await db.select().from(ridesTable).where(eq(ridesTable.id, rideId)).limit(1);
+    if (!ride) {
+      res.status(404).json({ error: "Ride not found" });
+      return;
+    }
+    if (["completed", "cancelled"].includes(ride.status)) {
+      res.status(400).json({ error: `Ride already in terminal state: ${ride.status}` });
+      return;
+    }
+
+    const [assignment] = await db
+      .select()
+      .from(driverAssignmentsTable)
+      .where(eq(driverAssignmentsTable.id, assignmentId))
+      .limit(1);
+
+    if (!assignment || assignment.rideId !== rideId) {
+      res.status(404).json({ error: "Assignment not found for this ride" });
+      return;
+    }
+    if (assignment.driverId !== driver.id) {
+      res.status(403).json({ error: "Forbidden — not your assignment" });
+      return;
+    }
+    if (assignment.status !== "arrived") {
+      res.status(400).json({ error: `Must be in arrived status to report no-show (currently ${assignment.status})` });
+      return;
+    }
+
+    const now = new Date();
+
+    // Wait time: max(arrivedAt, scheduledAt) → now
+    const arrivedAt = assignment.arrivedAt ?? now;
+    const waitStart =
+      ride.scheduledAt && ride.scheduledAt > arrivedAt ? ride.scheduledAt : arrivedAt;
+    const waitMs = now.getTime() - waitStart.getTime();
+    const waitMinutes = Math.max(0, Math.floor(waitMs / 60000));
+
+    const payer = determineWaitTimePayer({
+      requestSource: ride.requestSource,
+      roundTripParentId: ride.roundTripParentId,
+    });
+    const tripFareCents = Math.round(ride.estimatedFare * 100);
+    const estimatedTripMinutes = Math.max(1, (ride.estimatedDistanceMiles / 30) * 60);
+    const waitCents = calculateWaitCents({
+      elapsedMinutes: waitMinutes,
+      tripFareCents,
+      estimatedTripMinutes,
+      isTandem: ride.tandemRequired,
+    });
+    const showUpFeeCents = TRANSPORT_RATES.showUpFee.amountCents;
+    const cancelFeeCents = Math.round(tripFareCents * TRANSPORT_RATES.cancellationFees.noShow);
+
+    await db.transaction(async (tx) => {
+      await tx.update(driverAssignmentsTable)
+        .set({ status: "cancelled", completedAt: now })
+        .where(eq(driverAssignmentsTable.id, assignmentId));
+
+      await tx.update(ridesTable)
+        .set({
+          status: "cancelled",
+          pickupWaitMinutes: waitMinutes,
+          pickupWaitCents: waitCents,
+          waitTimeBilledTo: payer,
+          showUpFeeCents,
+        })
+        .where(eq(ridesTable.id, rideId));
+
+      if (waitCents > 0) {
+        await tx.insert(driverEarningsTable).values({
+          driverId: driver.id,
+          jobId: rideId,
+          rideId,
+          amountCents: waitCents,
+          kind: "wait_time",
+          notes: `No-show wait: ${waitMinutes} min (${payer} pays)`,
+          payoutStatus: "pending",
+        });
+      }
+      await tx.insert(driverEarningsTable).values({
+        driverId: driver.id,
+        jobId: rideId,
+        rideId,
+        amountCents: showUpFeeCents,
+        kind: "show_up_fee",
+        notes: `No-show show-up fee (${payer} pays)`,
+        payoutStatus: "pending",
+      });
+    });
+
+    await updateRideViaSupabase(rideId, { status: "cancelled" }).catch((err) =>
+      logger.warn({ err, rideId }, "rides.no-show: Supabase ride mirror failed"),
+    );
+
+    req.log.info({ rideId, driverId: driver.id, waitMinutes, waitCents, showUpFeeCents, cancelFeeCents }, "rides.no_show.success");
+
+    res.json({
+      success: true,
+      rideId,
+      waitMinutes,
+      waitCents,
+      showUpFeeCents,
+      cancelFeeCents,
+      totalDriverEarningsCents: waitCents + showUpFeeCents,
+    });
+  } catch (err) {
+    logger.error({ err }, "rides.no_show failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ── POST /api/rides/:rideId/undrivable ────────────────────────────────────────
+// Called by the driver when the vehicle cannot be driven (damage, flat, etc.).
+// Driver earns the show-up fee ($15). Photos can be provided as evidence URLs.
+
+router.post("/rides/:rideId/undrivable", async (req: Request, res: Response) => {
+  const user = await requireUserAuth(req, res);
+  if (!user) return;
+
+  const driver = await resolveCallerDriver(user, res);
+  if (!driver) return;
+
+  const rideId = String(req.params["rideId"]);
+  const { assignmentId } = req.body as { assignmentId: string };
+
+  if (!assignmentId) {
+    res.status(400).json({ error: "assignmentId required" });
+    return;
+  }
+
+  try {
+    const [ride] = await db.select().from(ridesTable).where(eq(ridesTable.id, rideId)).limit(1);
+    if (!ride) {
+      res.status(404).json({ error: "Ride not found" });
+      return;
+    }
+    if (["completed", "cancelled"].includes(ride.status)) {
+      res.status(400).json({ error: `Ride already in terminal state: ${ride.status}` });
+      return;
+    }
+
+    const [assignment] = await db
+      .select()
+      .from(driverAssignmentsTable)
+      .where(eq(driverAssignmentsTable.id, assignmentId))
+      .limit(1);
+
+    if (!assignment || assignment.rideId !== rideId) {
+      res.status(404).json({ error: "Assignment not found for this ride" });
+      return;
+    }
+    if (assignment.driverId !== driver.id) {
+      res.status(403).json({ error: "Forbidden — not your assignment" });
+      return;
+    }
+    if (!["accepted", "en_route", "arrived"].includes(assignment.status)) {
+      res.status(400).json({ error: `Cannot report undrivable from status '${assignment.status}'` });
+      return;
+    }
+
+    const now = new Date();
+    const showUpFeeCents = TRANSPORT_RATES.showUpFee.amountCents;
+    const payer = determineWaitTimePayer({
+      requestSource: ride.requestSource,
+      roundTripParentId: ride.roundTripParentId,
+    });
+
+    await db.transaction(async (tx) => {
+      await tx.update(driverAssignmentsTable)
+        .set({ status: "cancelled", completedAt: now })
+        .where(eq(driverAssignmentsTable.id, assignmentId));
+
+      await tx.update(ridesTable)
+        .set({ status: "cancelled", showUpFeeCents })
+        .where(eq(ridesTable.id, rideId));
+
+      await tx.insert(driverEarningsTable).values({
+        driverId: driver.id,
+        jobId: rideId,
+        rideId,
+        amountCents: showUpFeeCents,
+        kind: "show_up_fee",
+        notes: `Vehicle undrivable show-up fee (${payer} pays)`,
+        payoutStatus: "pending",
+      });
+    });
+
+    await updateRideViaSupabase(rideId, { status: "cancelled" }).catch((err) =>
+      logger.warn({ err, rideId }, "rides.undrivable: Supabase ride mirror failed"),
+    );
+
+    req.log.info({ rideId, driverId: driver.id, showUpFeeCents }, "rides.undrivable.success");
+
+    res.json({ success: true, rideId, showUpFeeCents });
+  } catch (err) {
+    logger.error({ err }, "rides.undrivable failed");
     res.status(500).json({ error: "Internal error" });
   }
 });

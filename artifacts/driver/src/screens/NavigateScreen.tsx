@@ -21,7 +21,7 @@ import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
   getRoleDescription, shortenAddress, formatElapsed,
 } from '@/utils/formatters';
-import { createTandemJob, updateTandemJobMode, setKnownPartner, type PartnerLookupResult } from '@/services/api/edgeFunctions';
+import { createTandemJob, updateTandemJobMode, setKnownPartner, reportNoShow, reportUndrivable, type PartnerLookupResult } from '@/services/api/edgeFunctions';
 import { ProviderTandemMatchPanel } from '@/components/ProviderTandemMatchPanel';
 import { TripChat } from '@/components/TripChat';
 
@@ -53,6 +53,12 @@ export function NavigateScreen() {
   const [showChat, setShowChat] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [queuedCompletion, setQueuedCompletion] = useState(false);
+
+  // Wait timer — starts when stage transitions to 'arrived'
+  const [arrivedAtTs, setArrivedAtTs] = useState<number | null>(null);
+  const [waitElapsedSec, setWaitElapsedSec] = useState(0);
+  const [noShowLoading, setNoShowLoading] = useState(false);
+  const [undrivableLoading, setUndrivableLoading] = useState(false);
 
   // Tandem mode selector state
   const [selectedMode, setSelectedMode] = useState<TandemMode | null>(null);
@@ -158,6 +164,25 @@ export function NavigateScreen() {
     // Re-run only when destination changes, not on every position tick
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeDest?.lat, routeDest?.lng]);
+
+  // Stamp arrived time when the stage transitions to 'arrived'
+  useEffect(() => {
+    if (activeRide?.stage === 'arrived') {
+      if (!arrivedAtTs) setArrivedAtTs(Date.now());
+    } else {
+      setArrivedAtTs(null);
+      setWaitElapsedSec(0);
+    }
+  }, [activeRide?.stage]);
+
+  // Live wait counter
+  useEffect(() => {
+    if (!arrivedAtTs) return;
+    const iv = setInterval(() => {
+      setWaitElapsedSec(Math.floor((Date.now() - arrivedAtTs) / 1000));
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [arrivedAtTs]);
 
   // ── Cancelled overlay ──────────────────────────────────────────────────────
   if (activeRide?.stage === 'cancelled') {
@@ -738,6 +763,94 @@ export function NavigateScreen() {
             Open in {getNavAppName(preferredNav)} →
           </Button>
         )}
+
+        {/* Wait timer banner (shown while in arrived stage) */}
+        {activeRide.stage === 'arrived' && arrivedAtTs != null && (() => {
+          const GRACE_MIN = 5;
+          const NO_SHOW_MIN = 15;
+          const elapsedMin = waitElapsedSec / 60;
+          const billableMin = Math.max(0, elapsedMin - GRACE_MIN);
+          const inGrace = elapsedMin < GRACE_MIN;
+          const tripFareCents = (activeRide.estimatedFare ?? 0) * 100;
+          const estimatedTripMin = Math.max(1, (activeRide.estimatedDistance / 30) * 60);
+          const perMinCents = tripFareCents / estimatedTripMin;
+          const isTandem = ['tier_3_vehicle_paired', 'tier_4_full_concierge'].includes(activeRide.tier ?? '');
+          const waitCostCents = Math.round(billableMin * perMinCents * (isTandem ? 2 : 1));
+          const mm = String(Math.floor(waitElapsedSec / 60)).padStart(2, '0');
+          const ss = String(waitElapsedSec % 60).padStart(2, '0');
+          const timeStr = `${mm}:${ss}`;
+          return (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{
+                padding: '10px 14px', borderRadius: 10,
+                background: inGrace ? 'rgba(250,247,240,0.06)' : 'rgba(245,158,11,0.1)',
+                border: `1px solid ${inGrace ? 'rgba(250,247,240,0.12)' : 'rgba(245,158,11,0.35)'}`,
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: inGrace ? colors.textMuted : 'rgba(245,158,11,0.9)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+                    {inGrace ? `Grace period (${Math.ceil(GRACE_MIN - elapsedMin)} min left)` : isTandem ? 'Tandem wait time' : 'Wait time'}
+                  </div>
+                  <div style={{ fontSize: 13, color: inGrace ? colors.textSecondary : 'rgba(245,158,11,0.85)' }}>
+                    {!inGrace && waitCostCents > 0 && `+$${(waitCostCents / 100).toFixed(2)}${isTandem ? ' (×2 drivers)' : ''}`}
+                    {inGrace && 'No charge yet'}
+                  </div>
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'monospace', color: inGrace ? colors.textMuted : 'rgba(245,158,11,0.9)' }}>
+                  {timeStr}
+                </div>
+              </div>
+
+              {/* No-show button at 15 min */}
+              {elapsedMin >= NO_SHOW_MIN && (
+                <button
+                  onClick={async () => {
+                    if (!activeRide.assignmentId) return;
+                    setNoShowLoading(true);
+                    const result = await reportNoShow(activeRide.rideId, activeRide.assignmentId);
+                    setNoShowLoading(false);
+                    if (result.success) {
+                      navigate('/home');
+                    }
+                  }}
+                  disabled={noShowLoading}
+                  style={{
+                    marginTop: 8, width: '100%', padding: '10px 14px', borderRadius: 8,
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)',
+                    color: colors.error, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    opacity: noShowLoading ? 0.6 : 1,
+                  }}
+                >
+                  {noShowLoading ? 'Processing…' : `Cancel — No Show (+$${((waitCostCents + 1500) / 100).toFixed(2)} earned)`}
+                </button>
+              )}
+
+              {/* Undrivable — shown when driver is supposed to drive member's vehicle */}
+              {activeRide.drivesMemberVehicle && (
+                <button
+                  onClick={async () => {
+                    if (!activeRide.assignmentId) return;
+                    setUndrivableLoading(true);
+                    const result = await reportUndrivable(activeRide.rideId, activeRide.assignmentId);
+                    setUndrivableLoading(false);
+                    if (result.success) {
+                      navigate('/home');
+                    }
+                  }}
+                  disabled={undrivableLoading}
+                  style={{
+                    marginTop: 6, width: '100%', padding: '10px 14px', borderRadius: 8,
+                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                    color: colors.error, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    opacity: undrivableLoading ? 0.6 : 1,
+                  }}
+                >
+                  {undrivableLoading ? 'Processing…' : 'Vehicle Cannot Be Driven (+$15.00 earned)'}
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Delivery confirmation reminder */}
         {activeRide.stage === 'in_progress' && serviceType === 'delivery' && (
