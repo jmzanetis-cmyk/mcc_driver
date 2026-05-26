@@ -126,6 +126,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       completionRate: driver.completion_rate,
       stripeAccountId: driver.stripe_account_id ?? undefined,
       backgroundCheckPassed: driver.background_check_passed ?? false,
+      bgcStatus: (driver.bgc_status ?? 'not_started') as 'not_started' | 'pending' | 'passed' | 'failed',
       licenseDocumentPath: driver.license_document_path ?? undefined,
       insuranceDocumentPath: driver.insurance_document_path ?? undefined,
       documentRejectionReason: driver.document_rejection_reason ?? undefined,

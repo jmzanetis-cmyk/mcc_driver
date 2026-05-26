@@ -265,10 +265,7 @@ export function DriverProfileScreen() {
             Certifications
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <CertBadge
-              label="Background Check"
-              passed={driver?.backgroundCheckPassed ?? false}
-            />
+            <BgcBadge status={driver?.bgcStatus ?? 'not_started'} />
             <CertBadge
               label="Valid Driver's License"
               passed={!!driver?.licenseDocumentPath}
@@ -298,6 +295,26 @@ function CertBadge({ label, passed }: { label: string; passed: boolean }) {
       <span style={{ fontSize: 13, fontWeight: 500, color: passed ? colors.success : colors.textMuted }}>
         {label}
       </span>
+    </div>
+  );
+}
+
+function BgcBadge({ status }: { status: string }) {
+  const cfg = {
+    passed:      { bg: colors.successBg, color: colors.success,  icon: '✅', label: 'Background Check — Verified' },
+    pending:     { bg: colors.warningBg, color: colors.warning,  icon: '🕐', label: 'Background Check — Pending' },
+    failed:      { bg: colors.errorBg,   color: colors.error,    icon: '❌', label: 'Background Check — Failed' },
+    not_started: { bg: colors.errorBg,   color: colors.error,    icon: '🛡️', label: 'Background Check — Required' },
+  }[status] ?? { bg: colors.bgSecondary, color: colors.textMuted, icon: '⬜', label: 'Background Check' };
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '8px 10px', borderRadius: borderRadius.sm,
+      background: cfg.bg,
+    }}>
+      <span style={{ fontSize: 16 }}>{cfg.icon}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, color: cfg.color }}>{cfg.label}</span>
     </div>
   );
 }

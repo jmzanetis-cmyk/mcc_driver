@@ -25,6 +25,7 @@ export interface DriverProfile {
   completionRate: number;
   stripeAccountId?: string;
   backgroundCheckPassed: boolean;
+  bgcStatus: 'not_started' | 'pending' | 'passed' | 'failed';
   licenseDocumentPath?: string;
   insuranceDocumentPath?: string;
   documentRejectionReason?: string;

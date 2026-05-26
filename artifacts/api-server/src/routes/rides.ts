@@ -634,6 +634,11 @@ router.post("/rides/assignments/:assignmentId/accept", async (req: Request, res:
       return;
     }
 
+    if (driver.bgcStatus !== "passed") {
+      res.status(400).json({ error: "Background check required before accepting rides" });
+      return;
+    }
+
     if (assignment.status !== "pending") {
       res.status(400).json({
         error: `Assignment is already ${assignment.status} — cannot accept`,

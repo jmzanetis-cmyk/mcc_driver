@@ -67,6 +67,7 @@ export function useAuth() {
         completionRate: row.completion_rate,
         stripeAccountId: row.stripe_account_id ?? undefined,
         backgroundCheckPassed: row.background_check_passed ?? false,
+        bgcStatus: (row.bgc_status ?? 'not_started') as 'not_started' | 'pending' | 'passed' | 'failed',
         licenseDocumentPath: row.license_document_path ?? undefined,
         insuranceDocumentPath: row.insurance_document_path ?? undefined,
         documentRejectionReason: row.document_rejection_reason ?? undefined,

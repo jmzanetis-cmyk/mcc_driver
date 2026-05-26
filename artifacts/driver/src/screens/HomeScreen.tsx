@@ -250,7 +250,13 @@ export function HomeScreen() {
           isOnline={isOnline}
           isToggling={isToggling}
           onToggle={toggleOnline}
-          disabledReason={PRE_LAUNCH ? 'Coming soon — licensing in progress' : undefined}
+          disabledReason={
+            PRE_LAUNCH
+              ? 'Coming soon — licensing in progress'
+              : driver.bgcStatus !== 'passed'
+              ? 'Background check required'
+              : undefined
+          }
         />
       </div>
 
@@ -313,6 +319,45 @@ export function HomeScreen() {
                 </div>
                 <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
                   Tap to review your documents
+                </div>
+              </div>
+              <span style={{ color: colors.textMuted }}>›</span>
+            </div>
+          </Card>
+        )}
+
+        {/* BGC status card — hidden once passed */}
+        {driver.bgcStatus !== 'passed' && (
+          <Card
+            onClick={() => navigate(driver.bgcStatus === 'failed' ? '/support' : '/profile')}
+            padding={14}
+            style={{
+              marginBottom: 16, cursor: 'pointer',
+              border: `1px solid ${driver.bgcStatus === 'pending' ? colors.warning : colors.error}`,
+              background: driver.bgcStatus === 'pending' ? colors.warningBg : colors.errorBg,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>
+                {driver.bgcStatus === 'pending' ? '🕐' : '🛡️'}
+              </span>
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 700,
+                  color: driver.bgcStatus === 'pending' ? colors.warning : colors.error,
+                }}>
+                  {driver.bgcStatus === 'pending'
+                    ? 'Background check in progress'
+                    : driver.bgcStatus === 'failed'
+                    ? 'Background check failed — contact support'
+                    : 'Background check required'}
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  {driver.bgcStatus === 'pending'
+                    ? 'You\'ll be notified when it\'s complete'
+                    : driver.bgcStatus === 'failed'
+                    ? 'Tap to reach support'
+                    : 'Complete your background check to go online'}
                 </div>
               </div>
               <span style={{ color: colors.textMuted }}>›</span>

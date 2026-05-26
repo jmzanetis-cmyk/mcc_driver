@@ -10,6 +10,7 @@ export interface DriverRow {
   license_document_path: string | null;
   insurance_document_path: string | null;
   background_check_passed: boolean;
+  bgc_status: string;
   partner_id: string | null;
   is_online: boolean;
   can_drive_member_vehicle: boolean;
