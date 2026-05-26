@@ -40,6 +40,7 @@ const DocumentsScreen = lazy(() => import('@/screens/DocumentsScreen').then(m =>
 const PerformanceScreen = lazy(() => import('@/screens/PerformanceScreen').then(m => ({ default: m.PerformanceScreen })));
 const PromotionsScreen = lazy(() => import('@/screens/PromotionsScreen').then(m => ({ default: m.PromotionsScreen })));
 const ScheduleScreen = lazy(() => import('@/screens/ScheduleScreen').then(m => ({ default: m.ScheduleScreen })));
+const ScheduledJobsMapScreen = lazy(() => import('@/screens/ScheduledJobsMapScreen').then(m => ({ default: m.ScheduledJobsMapScreen })));
 const HelpScreen = lazy(() => import('@/screens/HelpScreen').then(m => ({ default: m.HelpScreen })));
 const TrainingHubScreen = lazy(() => import('@/screens/TrainingHubScreen').then(m => ({ default: m.TrainingHubScreen })));
 const TrainingModuleScreen = lazy(() => import('@/screens/TrainingModuleScreen').then(m => ({ default: m.TrainingModuleScreen })));
@@ -155,6 +156,7 @@ export default function App() {
             <Route path="/performance" element={<ProtectedRoute><PerformanceScreen /></ProtectedRoute>} />
             <Route path="/promotions" element={<ProtectedRoute><PromotionsScreen /></ProtectedRoute>} />
             <Route path="/schedule" element={<ProtectedRoute><ScheduleScreen /></ProtectedRoute>} />
+            <Route path="/scheduled-jobs" element={<ProtectedRoute><ScheduledJobsMapScreen /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><HelpScreen /></ProtectedRoute>} />
             <Route path="/training" element={<ProtectedRoute><TrainingHubScreen /></ProtectedRoute>} />
             <Route path="/training/module/:slug" element={<ProtectedRoute><TrainingModuleScreen /></ProtectedRoute>} />

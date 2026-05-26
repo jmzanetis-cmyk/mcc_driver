@@ -48,7 +48,24 @@ router.get("/schedule", async (req: Request, res: Response) => {
       .limit(20);
 
     if (error) { res.status(500).json({ error: "Failed to fetch schedule" }); return; }
-    res.status(200).json({ schedule: data ?? [] });
+
+    // Also fetch driver_assignments that the driver self-reserved via the map screen
+    const { data: reservedData } = await supabaseAdmin
+      .from("driver_assignments")
+      .select(`
+        id, status, created_at,
+        rides (
+          id, scenario, tier, pickup_address, dropoff_address,
+          estimated_fare, estimated_distance_miles, service_type, scheduled_at
+        )
+      `)
+      .eq("driver_id", driver.id)
+      .eq("status", "reserved")
+      .gte("response_deadline", new Date().toISOString())
+      .order("response_deadline", { ascending: true })
+      .limit(20);
+
+    res.status(200).json({ schedule: data ?? [], reservedJobs: reservedData ?? [] });
   } catch (err) {
     logger.error({ err }, "schedule.get unhandled error");
     res.status(500).json({ error: "Internal server error" });

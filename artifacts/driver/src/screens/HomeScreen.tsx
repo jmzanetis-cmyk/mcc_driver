@@ -37,6 +37,7 @@ export function HomeScreen() {
 
   const [activePromo, setActivePromo] = useState<{ title: string; current: number; target: number } | null>(null);
   const [upcomingRide, setUpcomingRide] = useState<{ id: string; scheduledAt: string; pickup: string } | null>(null);
+  const [scheduledJobCount, setScheduledJobCount] = useState(0);
   const [trainingBanner, setTrainingBanner] = useState<{ title: string; subtitle: string } | null>(null);
   const [pendingEvalRideId, setPendingEvalRideId] = useState<string | null>(null);
   useEffect(() => {
@@ -72,6 +73,23 @@ export function HomeScreen() {
       } catch { /* ignore */ }
     })();
   }, [driver?.id]);
+
+  useEffect(() => {
+    if (!driver || currentLat == null || currentLng == null) return;
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const params = new URLSearchParams({ lat: String(currentLat), lng: String(currentLng) });
+        const res = await fetch(apiUrl(`/transport/scheduled-available?${params.toString()}`), {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (res.ok) {
+          const j = await res.json() as { jobs: unknown[] };
+          setScheduledJobCount(j.jobs?.length ?? 0);
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [driver?.id, currentLat, currentLng]);
 
   useEffect(() => {
     if (!driver) return;
@@ -451,6 +469,37 @@ export function HomeScreen() {
             </div>
           </Card>
         )}
+
+        {/* Browse Scheduled Jobs */}
+        <Card
+          onClick={() => navigate('/scheduled-jobs')}
+          style={{ marginTop: 12, cursor: 'pointer', border: `1px solid ${colors.gold}` }}
+          padding={14}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: 24 }}>🗓️</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>Browse Scheduled Jobs</div>
+              <div style={{ fontSize: 12, color: colors.textMuted }}>
+                {scheduledJobCount > 0
+                  ? `${scheduledJobCount} job${scheduledJobCount !== 1 ? 's' : ''} available near you`
+                  : 'Find upcoming scheduled rides on the map'}
+              </div>
+            </div>
+            {scheduledJobCount > 0 && (
+              <div style={{
+                minWidth: 24, height: 24, borderRadius: 12, padding: '0 6px',
+                background: colors.gold, color: colors.navy,
+                fontSize: 12, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {scheduledJobCount > 99 ? '99+' : scheduledJobCount}
+              </div>
+            )}
+            <div style={{ fontSize: 18, color: colors.gold }}>→</div>
+          </div>
+        </Card>
 
         {/* Upcoming scheduled ride */}
         {upcomingRide && (
