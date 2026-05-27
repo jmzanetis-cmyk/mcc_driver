@@ -18,6 +18,8 @@
     "test:visual:update": "playwright test --update-snapshots"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "qrcode": "^1.5.4",
     "@capacitor/app": "^8.1.0",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.3.4",

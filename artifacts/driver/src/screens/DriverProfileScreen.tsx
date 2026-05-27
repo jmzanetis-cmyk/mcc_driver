@@ -6,10 +6,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/services/supabase/client';
-import { PageHeader, Card, Spinner } from '@/components';
+import { PageHeader, Card, Spinner, Button } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import { apiUrl } from '@/services/api/baseUrl';
 import { getStarDisplay, formatDate } from '@/utils/formatters';
+
+interface Milestone {
+  id: string;
+  kind: string;
+  label: string;
+  icon: string;
+  earned_at: string;
+}
 
 interface VehicleInfo {
   id: string;
@@ -32,6 +40,7 @@ export function DriverProfileScreen() {
   const { driver } = useAuth();
   const [profile, setProfile] = useState<ProfileData>({ bio: null, memberSince: null, vehicle: null, photoUrl: null });
   const [loading, setLoading] = useState(true);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [editingBio, setEditingBio] = useState(false);
   const [bio, setBio] = useState('');
   const [saving, setSaving] = useState(false);
@@ -62,6 +71,22 @@ export function DriverProfileScreen() {
       });
       setBio(d?.bio ?? '');
       setLoading(false);
+    })();
+  }, [driver?.id]);
+
+  useEffect(() => {
+    if (!driver) return;
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(apiUrl('/milestones'), {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (res.ok) {
+          const j = await res.json() as { milestones: Milestone[] };
+          setMilestones(j.milestones);
+        }
+      } catch { /* ignore */ }
     })();
   }, [driver?.id]);
 
@@ -253,6 +278,44 @@ export function DriverProfileScreen() {
                 <div key={label} style={{ background: colors.bgSecondary, padding: '10px 12px', borderRadius: borderRadius.sm }}>
                   <div style={{ fontSize: 10, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy, marginTop: 2 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Refer & Earn quick action */}
+        <Button
+          onClick={() => navigate('/refer')}
+          variant="primary"
+          fullWidth
+          size="md"
+          style={{ marginBottom: 16 }}
+        >
+          💸 Refer & Earn
+        </Button>
+
+        {/* Achievements */}
+        {milestones.length > 0 && (
+          <Card padding={16} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>
+              Achievements
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {milestones.map((m) => (
+                <div
+                  key={m.id}
+                  title={m.label}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 12px', borderRadius: borderRadius.full,
+                    background: 'rgba(201,168,76,0.12)',
+                    border: `1px solid rgba(201,168,76,0.35)`,
+                    fontSize: 12, fontWeight: 600, color: colors.navy,
+                  }}
+                >
+                  <span style={{ fontSize: 15 }}>{m.icon}</span>
+                  {m.label}
                 </div>
               ))}
             </div>

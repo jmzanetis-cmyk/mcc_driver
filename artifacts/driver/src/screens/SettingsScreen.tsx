@@ -588,6 +588,8 @@ export function SettingsScreen() {
             { label: 'Documents', icon: '📄', path: '/documents' },
             { label: 'Performance', icon: '📊', path: '/performance' },
             { label: 'Promotions', icon: '🎯', path: '/promotions' },
+            { label: 'Refer & Earn', icon: '💸', path: '/refer' },
+            { label: "What's New", icon: '📢', path: '/announcements' },
             { label: 'Schedule', icon: '📅', path: '/schedule' },
             { label: 'Help', icon: '❓', path: '/help' },
           ].map(({ label, icon, path }, i, arr) => (

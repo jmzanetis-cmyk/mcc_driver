@@ -63,6 +63,7 @@ export const driversTable = pgTable("drivers", {
   averageRating: real("average_rating").notNull().default(5.0),
   completionRate: real("completion_rate").notNull().default(1.0),
   stripeAccountId: text("stripe_account_id"),
+  referralCode: text("referral_code").unique(),
   currentLat: real("current_lat"),
   currentLng: real("current_lng"),
   // Server-side freshness marker: stamped whenever the driver posts a
