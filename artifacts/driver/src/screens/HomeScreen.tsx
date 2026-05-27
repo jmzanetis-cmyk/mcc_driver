@@ -36,6 +36,7 @@ export function HomeScreen() {
   const compliance = useDocumentCompliance();
 
   const [activePromo, setActivePromo] = useState<{ title: string; current: number; target: number } | null>(null);
+  const [announcementsUnread, setAnnouncementsUnread] = useState(0);
   const [upcomingRide, setUpcomingRide] = useState<{ id: string; scheduledAt: string; pickup: string } | null>(null);
   const [scheduledJobCount, setScheduledJobCount] = useState(0);
   const [trainingBanner, setTrainingBanner] = useState<{ title: string; subtitle: string } | null>(null);
@@ -111,6 +112,22 @@ export function HomeScreen() {
           setTrainingBanner({ title: 'Training in progress', subtitle: `Continue: ${inProgress.percentComplete}% complete` });
         } else if (nextUp) {
           setTrainingBanner({ title: 'Training available', subtitle: `Start: ${nextUp.slug.replace(/-/g, ' ')}` });
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [driver?.id]);
+
+  useEffect(() => {
+    if (!driver) return;
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(apiUrl('/announcements'), {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (res.ok) {
+          const j = await res.json() as { unreadCount: number };
+          setAnnouncementsUnread(j.unreadCount ?? 0);
         }
       } catch { /* ignore */ }
     })();
@@ -383,6 +400,39 @@ export function HomeScreen() {
                 <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{trainingBanner.subtitle}</div>
               </div>
               <span style={{ color: colors.gold }}>›</span>
+            </div>
+          </Card>
+        )}
+
+        {/* Announcements unread banner */}
+        {announcementsUnread > 0 && (
+          <Card
+            onClick={() => navigate('/announcements')}
+            padding={14}
+            style={{
+              marginBottom: 16, cursor: 'pointer',
+              border: `1px solid ${colors.navy}`,
+              background: 'rgba(27,42,74,0.06)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>📢</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>
+                  {announcementsUnread === 1 ? '1 new announcement' : `${announcementsUnread} new announcements`}
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  Tap to read platform updates
+                </div>
+              </div>
+              <div style={{
+                minWidth: 22, height: 22, borderRadius: 11,
+                background: colors.navy, color: '#fff',
+                fontSize: 11, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {announcementsUnread > 9 ? '9+' : announcementsUnread}
+              </div>
             </div>
           </Card>
         )}

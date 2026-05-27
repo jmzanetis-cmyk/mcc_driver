@@ -35,6 +35,9 @@ import leaderboardRouter from "./leaderboard";
 import transportRouter from "./transport";
 import transportRequestsRouter from "./transportRequests";
 import tipShareRouter from "./tipShare";
+import referralRouter from "./referral";
+import milestonesRouter from "./milestones";
+import announcementsRouter from "./announcements";
 
 const router: IRouter = Router();
 
@@ -74,5 +77,8 @@ router.use(leaderboardRouter);
 router.use(transportRouter);
 router.use(transportRequestsRouter);
 router.use(tipShareRouter);
+router.use(referralRouter);
+router.use(milestonesRouter);
+router.use(announcementsRouter);
 
 export default router;
