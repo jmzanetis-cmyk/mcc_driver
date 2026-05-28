@@ -54,6 +54,7 @@ export const driversTable = pgTable("drivers", {
   profilePhotoUrl: text("profile_photo_url"),
   licenseDocumentPath: text("license_document_path"),
   insuranceDocumentPath: text("insurance_document_path"),
+  registrationDocumentPath: text("registration_document_path"),
   backgroundCheckPassed: boolean("background_check_passed").notNull().default(false),
   bgcStatus: text("bgc_status").notNull().default("not_started"),
   partnerId: uuid("partner_id"),

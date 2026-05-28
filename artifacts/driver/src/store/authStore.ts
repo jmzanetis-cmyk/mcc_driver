@@ -28,6 +28,7 @@ export interface DriverProfile {
   bgcStatus: 'not_started' | 'pending' | 'passed' | 'failed';
   licenseDocumentPath?: string;
   insuranceDocumentPath?: string;
+  registrationDocumentPath?: string;
   documentRejectionReason?: string;
 }
 

@@ -70,6 +70,7 @@ export function useAuth() {
         bgcStatus: (row.bgc_status ?? 'not_started') as 'not_started' | 'pending' | 'passed' | 'failed',
         licenseDocumentPath: row.license_document_path ?? undefined,
         insuranceDocumentPath: row.insurance_document_path ?? undefined,
+        registrationDocumentPath: row.registration_document_path ?? undefined,
         documentRejectionReason: row.document_rejection_reason ?? undefined,
       });
     }

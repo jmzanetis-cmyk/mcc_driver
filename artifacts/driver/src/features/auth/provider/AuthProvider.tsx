@@ -129,6 +129,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       bgcStatus: (driver.bgc_status ?? 'not_started') as 'not_started' | 'pending' | 'passed' | 'failed',
       licenseDocumentPath: driver.license_document_path ?? undefined,
       insuranceDocumentPath: driver.insurance_document_path ?? undefined,
+      registrationDocumentPath: driver.registration_document_path ?? undefined,
       documentRejectionReason: driver.document_rejection_reason ?? undefined,
     };
 

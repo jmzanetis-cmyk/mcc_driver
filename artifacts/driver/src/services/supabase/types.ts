@@ -9,6 +9,7 @@ export interface DriverRow {
   profile_photo_url: string | null;
   license_document_path: string | null;
   insurance_document_path: string | null;
+  registration_document_path: string | null;
   background_check_passed: boolean;
   bgc_status: string;
   partner_id: string | null;
