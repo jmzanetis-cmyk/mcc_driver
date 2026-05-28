@@ -50,7 +50,7 @@ export async function verifyOTP(
   const { data: driver } = await supabase
     .from('drivers')
     .select('id, status')
-    .eq('user_id', data.user?.id)
+    .eq('profile_id', data.user?.id)
     .single();
 
   if (!driver) return { success: true, isNewDriver: true };
@@ -66,7 +66,7 @@ export async function getDriverProfile(): Promise<DriverProfile | null> {
   const { data, error } = await supabase
     .from('drivers')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('profile_id', user.id)
     .single();
 
   if (error || !data) return null;
@@ -75,7 +75,7 @@ export async function getDriverProfile(): Promise<DriverProfile | null> {
 
   return {
     id: driver.id,
-    userId: driver.user_id,
+    userId: driver.profile_id,
     firstName: driver.first_name,
     lastName: driver.last_name,
     email: driver.email,
@@ -130,7 +130,7 @@ export async function createDriverApplication(applicationData: {
   const { data, error } = await supabase
     .from('drivers')
     .insert({
-      user_id: user.id,
+      profile_id: user.id,
       first_name: applicationData.firstName,
       last_name: applicationData.lastName,
       email: applicationData.email,
@@ -178,7 +178,7 @@ export async function updateDriverDocuments(params: {
   const { error } = await supabase
     .from('drivers')
     .update(updates)
-    .eq('user_id', user.id);
+    .eq('profile_id', user.id);
 
   if (error) return { success: false, error: error.message };
   return { success: true };
@@ -187,7 +187,7 @@ export async function updateDriverDocuments(params: {
 export async function signOut(): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
-    await supabase.from('drivers').update({ is_online: false }).eq('user_id', user.id);
+    await supabase.from('drivers').update({ is_online: false }).eq('profile_id', user.id);
   }
   await supabase.auth.signOut();
 }

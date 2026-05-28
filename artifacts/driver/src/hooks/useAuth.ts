@@ -31,7 +31,7 @@ export function useAuth() {
     const { data } = await supabase
       .from('drivers')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('profile_id', user.id)
       .single();
 
     if (data) {
@@ -49,7 +49,7 @@ export function useAuth() {
 
       setDriver({
         id: row.id,
-        userId: row.user_id,
+        userId: row.profile_id,
         firstName: row.first_name,
         lastName: row.last_name,
         email: row.email,

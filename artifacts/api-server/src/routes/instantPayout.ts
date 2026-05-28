@@ -66,7 +66,7 @@ router.post("/payouts/instant", async (req: Request, res: Response) => {
     const { data: driver, error: driverError } = await supabaseAdmin
       .from("drivers")
       .select("id, stripe_account_id, first_name, last_name")
-      .eq("user_id", user.id)
+      .eq("profile_id", user.id)
       .single();
 
     if (driverError || !driver) {

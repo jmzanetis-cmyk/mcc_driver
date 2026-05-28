@@ -15,7 +15,7 @@ async function getDriverId(authHeader: string | undefined): Promise<string | nul
   const token = authHeader.replace("Bearer ", "");
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return null;
-  const { data } = await supabaseAdmin.from("drivers").select("id").eq("user_id", user.id).single();
+  const { data } = await supabaseAdmin.from("drivers").select("id").eq("profile_id", user.id).single();
   return (data as { id: string } | null)?.id ?? null;
 }
 

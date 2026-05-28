@@ -174,7 +174,7 @@ export function RelocationScreen() {
         const { data: rad } = await supabase.from('ride_along_drivers').select('user_id').eq('id', rideAlongDriverId).maybeSingle();
         const userId = (rad as { user_id?: string } | null)?.user_id;
         if (!userId || cancelled) return;
-        const { data: driverRow } = await supabase.from('drivers').select('current_lat, current_lng').eq('user_id', userId).maybeSingle();
+        const { data: driverRow } = await supabase.from('drivers').select('current_lat, current_lng').eq('profile_id', userId).maybeSingle();
         const dr = driverRow as { current_lat?: number | null; current_lng?: number | null } | null;
         if (dr?.current_lat != null && dr?.current_lng != null && !cancelled) {
           setPartnerPos({ lat: dr.current_lat, lng: dr.current_lng });

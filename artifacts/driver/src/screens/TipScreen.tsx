@@ -86,7 +86,7 @@ export function TipScreen() {
       const { data: driverRow } = await supabase
         .from('drivers')
         .select('id')
-        .eq('user_id', userId)
+        .eq('profile_id', userId)
         .maybeSingle();
       const dId = (driverRow as { id: string } | null)?.id ?? null;
       setMyDriverId(dId);

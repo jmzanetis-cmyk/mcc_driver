@@ -63,7 +63,7 @@ router.post("/tips", async (req: Request, res: Response) => {
     const { data: callerDriver } = await supabaseAdmin
       .from("drivers")
       .select("id, stripe_account_id")
-      .eq("user_id", user.id)
+      .eq("profile_id", user.id)
       .single();
 
     if (!callerDriver) {

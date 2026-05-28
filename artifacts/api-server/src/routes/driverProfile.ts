@@ -31,7 +31,7 @@ router.post("/drivers/profile", async (req: Request, res: Response) => {
     const { error } = await supabaseAdmin
       .from("drivers")
       .update(update)
-      .eq("user_id", user.id);
+      .eq("profile_id", user.id);
 
     if (error) {
       logger.error({ err: error }, "driverProfile.update failed");

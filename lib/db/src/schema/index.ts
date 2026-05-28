@@ -45,7 +45,7 @@ export type DriverAuditLogEntry = typeof driverAuditLogTable.$inferSelect;
 
 export const driversTable = pgTable("drivers", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id").notNull(),
+  profileId: text("profile_id").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),

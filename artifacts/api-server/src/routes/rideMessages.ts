@@ -71,7 +71,7 @@ router.post("/rides/:rideId/messages", async (req: Request, res: Response) => {
     const { data: driver, error: driverError } = await supabaseAdmin
       .from("drivers")
       .select("id, first_name")
-      .eq("user_id", user.id)
+      .eq("profile_id", user.id)
       .single();
 
     if (driverError || !driver) {

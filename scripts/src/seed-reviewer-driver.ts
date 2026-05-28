@@ -111,7 +111,7 @@ async function upsertDriverRow(userId: string): Promise<void> {
     // can't use a single ON CONFLICT statement — do an explicit
     // lookup + UPDATE or INSERT.
     const existing = await client.query<{ id: string }>(
-      "SELECT id FROM drivers WHERE user_id = $1 LIMIT 1",
+      "SELECT id FROM drivers WHERE profile_id = $1 LIMIT 1",
       [userId],
     );
     if (existing.rowCount && existing.rowCount > 0) {

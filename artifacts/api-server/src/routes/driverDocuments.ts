@@ -47,7 +47,7 @@ async function resolveDriver(authHeader: string | undefined): Promise<DriverDocR
   const { data } = await supabaseAdmin
     .from("drivers")
     .select("id, license_document_path, insurance_document_path, registration_document_path, bgc_status, background_check_passed")
-    .eq("user_id", user.id)
+    .eq("profile_id", user.id)
     .single();
   return (data as DriverDocRow | null);
 }

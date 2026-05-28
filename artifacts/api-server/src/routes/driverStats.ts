@@ -23,7 +23,7 @@ router.get("/drivers/stats", async (req: Request, res: Response) => {
     const { data: driver, error: driverError } = await supabaseAdmin
       .from("drivers")
       .select("id, average_rating, total_rides_completed, completion_rate")
-      .eq("user_id", user.id)
+      .eq("profile_id", user.id)
       .single();
 
     if (driverError || !driver) {

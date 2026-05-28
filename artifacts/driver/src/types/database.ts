@@ -14,7 +14,7 @@ export interface Database {
       drivers: {
         Row: {
           id: string;
-          user_id: string;
+          profile_id: string;
           first_name: string;
           last_name: string;
           email: string;

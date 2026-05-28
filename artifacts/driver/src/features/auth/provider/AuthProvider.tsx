@@ -83,7 +83,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     const { data, error } = await supabase
       .from('drivers')
       .select('*')
-      .eq('user_id', userId)
+      .eq('profile_id', userId)
       .single();
 
     if (error || !data) {
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
     const profile: DriverProfile = {
       id: driver.id,
-      userId: driver.user_id,
+      userId: driver.profile_id,
       firstName: driver.first_name,
       lastName: driver.last_name,
       email: driver.email,

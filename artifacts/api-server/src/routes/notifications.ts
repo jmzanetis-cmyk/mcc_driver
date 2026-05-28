@@ -38,7 +38,7 @@ async function resolveDriver(
   const { data: driver, error: driverError } = await supabaseAdmin
     .from("drivers")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("profile_id", user.id)
     .single();
 
   if (driverError || !driver) {

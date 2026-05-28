@@ -21,7 +21,7 @@ async function getDriver(authHeader: string | undefined) {
   const { data } = await supabaseAdmin
     .from("drivers")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("profile_id", user.id)
     .single();
   return data as { id: string } | null;
 }

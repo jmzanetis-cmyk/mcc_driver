@@ -359,7 +359,7 @@ router.delete("/drivers/me", async (req: Request, res: Response): Promise<void> 
     const { error: mirrorErr } = await supabaseAdmin
       .from("drivers")
       .update({
-        user_id: sentinelUserId,
+        profile_id: sentinelUserId,
         first_name: sentinelString,
         last_name: sentinelString,
         email: sentinelString,
