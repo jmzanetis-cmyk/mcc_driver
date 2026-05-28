@@ -38,6 +38,7 @@ import tipShareRouter from "./tipShare";
 import referralRouter from "./referral";
 import milestonesRouter from "./milestones";
 import announcementsRouter from "./announcements";
+import driverDocumentsRouter from "./driverDocuments";
 
 const router: IRouter = Router();
 
@@ -80,5 +81,6 @@ router.use(tipShareRouter);
 router.use(referralRouter);
 router.use(milestonesRouter);
 router.use(announcementsRouter);
+router.use(driverDocumentsRouter);
 
 export default router;
