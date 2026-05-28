@@ -12,6 +12,10 @@
 --
 -- ADMIN ACCESS: the API server uses the service_role key which bypasses RLS
 -- entirely, so these policies don't affect server-side signed URL generation.
+--
+-- FIX NOTE: table alias 'd' on the subquery is required so Postgres resolves
+-- d.user_id against public.drivers, not the policy's host table storage.objects
+-- (which has no user_id column, only owner_id).
 
 -- Drop any stale/incorrect existing policies on this bucket before recreating.
 DROP POLICY IF EXISTS "drivers_select_own" ON storage.objects;
@@ -27,7 +31,7 @@ ON storage.objects FOR SELECT TO authenticated
 USING (
   bucket_id = 'driver-documents'
   AND (storage.foldername(name))[1] IN (
-    SELECT id::text FROM public.drivers WHERE user_id = auth.uid()
+    SELECT d.id::text FROM public.drivers d WHERE d.user_id = auth.uid()
   )
 );
 
@@ -37,7 +41,7 @@ ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
   bucket_id = 'driver-documents'
   AND (storage.foldername(name))[1] IN (
-    SELECT id::text FROM public.drivers WHERE user_id = auth.uid()
+    SELECT d.id::text FROM public.drivers d WHERE d.user_id = auth.uid()
   )
 );
 
@@ -47,13 +51,13 @@ ON storage.objects FOR UPDATE TO authenticated
 USING (
   bucket_id = 'driver-documents'
   AND (storage.foldername(name))[1] IN (
-    SELECT id::text FROM public.drivers WHERE user_id = auth.uid()
+    SELECT d.id::text FROM public.drivers d WHERE d.user_id = auth.uid()
   )
 )
 WITH CHECK (
   bucket_id = 'driver-documents'
   AND (storage.foldername(name))[1] IN (
-    SELECT id::text FROM public.drivers WHERE user_id = auth.uid()
+    SELECT d.id::text FROM public.drivers d WHERE d.user_id = auth.uid()
   )
 );
 
