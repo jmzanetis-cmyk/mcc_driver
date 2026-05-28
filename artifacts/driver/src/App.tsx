@@ -57,6 +57,7 @@ const LegalSupportScreen = lazy(() => import('@/screens/legal/SupportScreen').th
 const VehicleInspectionScreen = lazy(() => import('@/screens/VehicleInspectionScreen').then(m => ({ default: m.VehicleInspectionScreen })));
 const ReferAndEarnScreen = lazy(() => import('@/screens/ReferAndEarnScreen').then(m => ({ default: m.ReferAndEarnScreen })));
 const AnnouncementsScreen = lazy(() => import('@/screens/AnnouncementsScreen').then(m => ({ default: m.AnnouncementsScreen })));
+const MyDocumentsScreen = lazy(() => import('@/screens/MyDocumentsScreen').then(m => ({ default: m.MyDocumentsScreen })));
 
 function ScreenFallback() {
   return (
@@ -175,6 +176,7 @@ export default function App() {
             <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardScreen /></ProtectedRoute>} />
             <Route path="/refer" element={<ProtectedRoute><ReferAndEarnScreen /></ProtectedRoute>} />
             <Route path="/announcements" element={<ProtectedRoute><AnnouncementsScreen /></ProtectedRoute>} />
+            <Route path="/my-documents" element={<ProtectedRoute><MyDocumentsScreen /></ProtectedRoute>} />
             <Route path="/scheduled" element={<Navigate to="/home" replace />} />
             {/* Public legal routes — required by App Store Connect for the
                 Privacy Policy URL, Terms of Use URL, and Support URL fields.

@@ -586,6 +586,7 @@ export function SettingsScreen() {
             { label: 'View Profile', icon: '👤', path: '/profile' },
             { label: 'Safety', icon: '🆘', path: '/safety' },
             { label: 'Documents', icon: '📄', path: '/documents' },
+            { label: 'My Documents', icon: '🗂️', path: '/my-documents' },
             { label: 'Performance', icon: '📊', path: '/performance' },
             { label: 'Promotions', icon: '🎯', path: '/promotions' },
             { label: 'Refer & Earn', icon: '💸', path: '/refer' },

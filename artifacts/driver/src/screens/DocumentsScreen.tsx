@@ -35,10 +35,10 @@ export function DocumentsScreen() {
     try {
       const ext = file.name.split('.').pop() ?? 'pdf';
       const path = `${driver.id}/${field}.${ext}`;
-      await supabase.storage.from(bucket).upload(path, file, { upsert: true });
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      if (data.publicUrl) {
-        await supabase.from('drivers').update({ [field]: data.publicUrl }).eq('id', driver.id);
+      const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+      // Store the relative storage path, not a public URL (the bucket is private).
+      if (!error) {
+        await supabase.from('drivers').update({ [field]: path }).eq('id', driver.id);
       }
     } finally {
       setUploading(null);
