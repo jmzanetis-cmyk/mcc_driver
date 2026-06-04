@@ -66,5 +66,16 @@
                 <string>remote-notification</string>
                 <string>location</string>
         </array>
+        <key>CFBundleURLTypes</key>
+        <array>
+                <dict>
+                        <key>CFBundleURLName</key>
+                        <string>com.mycarconcierge.driver</string>
+                        <key>CFBundleURLSchemes</key>
+                        <array>
+                                <string>mccdriver</string>
+                        </array>
+                </dict>
+        </array>
 </dict>
 </plist>
