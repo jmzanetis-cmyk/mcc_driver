@@ -497,7 +497,7 @@ export function DriverFounderScreen() {
           </div>
         </Card>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 8 }}>
           <Button onClick={() => void handleShare(signupUrl, referralCode)} variant="primary" fullWidth size="lg">
             {typeof navigator !== 'undefined' && 'share' in navigator ? '↑ Share Link' : '↑ Share / Copy'}
           </Button>
@@ -519,6 +519,10 @@ export function DriverFounderScreen() {
               ↓ Download QR Code
             </Button>
           )}
+        </div>
+
+        <div style={{ fontSize: 11, color: colors.textMuted, lineHeight: 1.5, marginBottom: 24, padding: '8px 12px', background: colors.bgSecondary, borderRadius: borderRadius.sm }}>
+          <strong>Disclosure:</strong> you earn a commission when referred providers purchase bid credits. Providers are informed of this relationship at signup.
         </div>
 
         <Card padding={14} style={{ marginBottom: 16, background: colors.infoBg, border: `1px solid ${colors.info}` }}>

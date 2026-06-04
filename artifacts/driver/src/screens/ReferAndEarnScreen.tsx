@@ -219,6 +219,15 @@ export function ReferAndEarnScreen() {
               )}
             </div>
 
+            {mode === 'provider' && (
+              <div style={{
+                marginTop: 12, fontSize: 11, color: colors.textMuted, lineHeight: 1.5,
+                padding: '8px 12px', background: colors.bgSecondary, borderRadius: borderRadius.sm,
+              }}>
+                <strong>Disclosure:</strong> you earn a commission when referred providers purchase bid credits. Providers are informed of this relationship at signup.
+              </div>
+            )}
+
             {/* How it works */}
             <div style={{ marginTop: 28 }}>
               <div style={{
