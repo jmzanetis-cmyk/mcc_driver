@@ -345,7 +345,7 @@ export function DriverFounderScreen() {
             Agreements
           </div>
           {([
-            { key: 'terms', label: 'I agree to the MCC Terms of Service and Founder Program terms.', checked: agreeTerms, set: setAgreeTerms },
+            { key: 'terms', label: 'I agree to the MCC Terms of Service and Founder Program Terms (mycarconcierge.com/founder-program-terms.html).', checked: agreeTerms, set: setAgreeTerms },
             { key: 'contractor', label: 'I understand I am an independent contractor, not an employee.', checked: agreeContractor, set: setAgreeContractor },
             { key: 'commission', label: 'I understand commissions are held for 7 days and paid in monthly batches. Payout is not instant.', checked: agreeCommission, set: setAgreeCommission },
             { key: 'accurate', label: 'The information I have provided is accurate and truthful.', checked: agreeAccurate, set: setAgreeAccurate },
