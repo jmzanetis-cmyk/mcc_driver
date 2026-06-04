@@ -892,6 +892,19 @@ export function NavigateScreen() {
           </div>
         )}
 
+        {/* Custody handoffs — shown for concierge service type */}
+        {serviceType === 'concierge' && (
+          <Button
+            onClick={() => navigate(`/custody${rideId ? `?rideId=${rideId}` : ''}`)}
+            variant="secondary"
+            fullWidth
+            size="sm"
+            style={{ marginBottom: 8 }}
+          >
+            🔑 Custody Handoffs
+          </Button>
+        )}
+
         {/* Cancel option (driver-initiated) */}
         {['accepted', 'navigating', 'arrived'].includes(activeRide.stage) && (
           <>

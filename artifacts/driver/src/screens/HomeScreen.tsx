@@ -179,6 +179,21 @@ export function HomeScreen() {
   // We treat a network failure as "unknown" rather than "no profile" so
   // an offline launch doesn't hide the entry from drivers who DO have a
   // record — the card simply stays hidden until the lookup succeeds.
+  const [pendingCustodyCount, setPendingCustodyCount] = useState(0);
+  useEffect(() => {
+    if (!driver) return;
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('custody_handoffs')
+          .select('id')
+          .eq('receiving_party_id', driver.userId)
+          .eq('status', 'awaiting_receiver');
+        setPendingCustodyCount(data?.length ?? 0);
+      } catch { /* non-blocking */ }
+    })();
+  }, [driver?.id]);
+
   const [hasRideAlongProfile, setHasRideAlongProfile] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -347,6 +362,32 @@ export function HomeScreen() {
       />
 
       <div style={{ padding: 20 }}>
+        {/* Pending custody handoffs alert */}
+        {pendingCustodyCount > 0 && (
+          <Card
+            onClick={() => navigate('/custody')}
+            padding={14}
+            style={{
+              marginBottom: 16, cursor: 'pointer',
+              border: `1px solid rgba(59,130,246,0.4)`,
+              background: 'rgba(59,130,246,0.06)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🔑</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>
+                  {pendingCustodyCount} custody handoff{pendingCustodyCount > 1 ? 's' : ''} awaiting you
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  Tap to review and accept
+                </div>
+              </div>
+              <span style={{ color: colors.textMuted, fontSize: 16 }}>›</span>
+            </div>
+          </Card>
+        )}
+
         {/* Location permission error banner */}
         {locationError && (
           <Card
