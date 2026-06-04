@@ -2,8 +2,8 @@
 // MCC Driver — Sign In Screen
 // ============================================================
 
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { sendOTP, verifyOTP } from '@/services/auth/authService';
 import { Button, Input, Spinner } from '@/components';
 import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
@@ -11,11 +11,24 @@ import { colors, borderRadius } from '@/theme';
 
 export function SignInScreen() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Persist ?from_founder and ?src from the /drive landing page or any deep link.
+  // These are read by ApplicationScreen (src→acquisitionSource) and App.tsx
+  // (from_founder→post-signup redirect into the founder enrollment flow).
+  useEffect(() => {
+    const fromFounder = searchParams.get('from_founder');
+    const src = searchParams.get('src');
+    try {
+      if (fromFounder === '1') localStorage.setItem('mcc_driver_from_founder', '1');
+      if (src) localStorage.setItem('mcc_driver_src', src);
+    } catch { /* ignore quota errors */ }
+  }, []);
 
   const handleSendOTP = async () => {
     if (phone.length < 10) {

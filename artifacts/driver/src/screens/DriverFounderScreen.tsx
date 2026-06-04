@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,7 @@ type FounderState =
   | { kind: 'error'; message: string }
   | { kind: 'no_application' }
   | { kind: 'pending' }
+  | { kind: 'just_enrolled' }   // shown after submit when ?welcome=1
   | { kind: 'rejected'; reason: string | null }
   | { kind: 'active'; referralCode: string; signupUrl: string };
 
@@ -41,13 +42,16 @@ async function generateQR(url: string): Promise<string> {
 
 export function DriverFounderScreen() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isWelcomeMode = searchParams.get('welcome') === '1';
+
   const { driver, user } = useAuth();
   const [founderState, setFounderState] = useState<FounderState>({ kind: 'loading' });
   const [earningsState, setEarningsState] = useState<EarningsState>({ kind: 'idle' });
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Apply form
+  // Apply form — auto-open when arriving from the recruitment funnel
   const [showApplyForm, setShowApplyForm] = useState(false);
   const [motivation, setMotivation] = useState('');
   const [location, setLocation] = useState('');
@@ -91,6 +95,9 @@ export function DriverFounderScreen() {
 
       if (!application) {
         setFounderState({ kind: 'no_application' });
+        // Arrived from /drive recruitment funnel — skip the intro card and go
+        // straight to the apply form so enrollment is a single welcoming step.
+        if (isWelcomeMode) setShowApplyForm(true);
         return;
       }
 
@@ -185,7 +192,13 @@ export function DriverFounderScreen() {
       return;
     }
 
-    setFounderState({ kind: 'pending' });
+    // Welcome-mode: show the "now invite your first provider" step instead of
+    // the generic pending screen so the very next action is submitting a referral.
+    if (isWelcomeMode) {
+      setFounderState({ kind: 'just_enrolled' });
+    } else {
+      setFounderState({ kind: 'pending' });
+    }
   }
 
   async function handleCopy(text: string) {
@@ -235,8 +248,41 @@ export function DriverFounderScreen() {
       case 'rejected':
         return renderRejected(founderState.reason);
       case 'no_application':
-        return showApplyForm ? renderApplyForm() : renderInfo();
+        return showApplyForm ? renderApplyForm(isWelcomeMode) : renderInfo();
+      case 'just_enrolled':
+        return renderJustEnrolled();
     }
+  }
+
+  function renderJustEnrolled() {
+    return (
+      <Card padding={24}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>
+            You&apos;re in!
+          </div>
+          <div style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 1.7, marginBottom: 8 }}>
+            Your application is under review. Once approved you&apos;ll get your
+            referral code and start earning 50% on every bid-credit purchase from the
+            providers you refer.
+          </div>
+          <div style={{ fontSize: 13, color: colors.textMuted, lineHeight: 1.6, marginBottom: 24 }}>
+            While you wait — who&apos;s the first shop you&apos;d refer? Tap below to
+            preview your provider invite link and have it ready to share the moment
+            your code arrives.
+          </div>
+        </div>
+        <Button
+          onClick={() => navigate('/settings')}
+          variant="primary"
+          fullWidth
+          size="lg"
+        >
+          Go to Dashboard
+        </Button>
+      </Card>
+    );
   }
 
   function renderInfo() {
@@ -287,17 +333,32 @@ export function DriverFounderScreen() {
     );
   }
 
-  function renderApplyForm() {
+  function renderApplyForm(isWelcome = false) {
     return (
       <>
-        <Card padding={16} style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
-            Driver Founder Application
-          </div>
-          <div style={{ fontSize: 12, color: colors.textMuted }}>
-            Pre-filled from your driver profile. Add the remaining details and agree to the terms below.
-          </div>
-        </Card>
+        {isWelcome ? (
+          <Card padding={20} style={{ marginBottom: 16, background: colors.surfaceDark, border: `1px solid ${colors.gold}` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: colors.gold, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+              Welcome to Driver Founders
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#FAF7F0', marginBottom: 8, lineHeight: 1.3 }}>
+              You&apos;re one step away from earning 50% for life.
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(250,247,240,0.75)', lineHeight: 1.6 }}>
+              Agree to the terms below and submit your application. Once approved you&apos;ll
+              get a referral code to share with shops, garages, and dealerships.
+            </div>
+          </Card>
+        ) : (
+          <Card padding={16} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: colors.navy, marginBottom: 4 }}>
+              Driver Founder Application
+            </div>
+            <div style={{ fontSize: 12, color: colors.textMuted }}>
+              Pre-filled from your driver profile. Add the remaining details and agree to the terms below.
+            </div>
+          </Card>
+        )}
 
         <Card padding={16} style={{ marginBottom: 16 }}>
           <FieldDisplay label="Name" value={driver ? `${driver.firstName} ${driver.lastName}` : ''} />

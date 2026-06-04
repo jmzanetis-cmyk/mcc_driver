@@ -26,6 +26,11 @@ interface FormData {
   vehicleColor: string;
   vehiclePlate: string;
   partnerInviteCode: string;
+  acquisitionSource: string;
+}
+
+function readAcquisitionSource(): string {
+  try { return localStorage.getItem('mcc_driver_src') || ''; } catch { return ''; }
 }
 
 const INITIAL_FORM: FormData = {
@@ -33,6 +38,7 @@ const INITIAL_FORM: FormData = {
   dateOfBirth: '', driversLicenseNumber: '', driversLicenseState: 'NJ',
   driversLicenseExpiry: '', vehicleMake: '', vehicleModel: '',
   vehicleYear: '', vehicleColor: '', vehiclePlate: '', partnerInviteCode: '',
+  acquisitionSource: readAcquisitionSource(),
 };
 
 const DRAFT_KEY = 'mcc_driver_application_draft';
@@ -277,6 +283,7 @@ export function ApplicationScreen() {
       licenseDocumentPath: licenseDoc.path ?? undefined,
       insuranceDocumentPath: insuranceDoc.path ?? undefined,
       partnerInviteCode: form.partnerInviteCode || undefined,
+      acquisitionSource: form.acquisitionSource || undefined,
     });
 
     setLoading(false);
@@ -396,6 +403,13 @@ export function ApplicationScreen() {
               value={form.partnerInviteCode}
               onChange={update('partnerInviteCode')}
               placeholder="Enter code if you have one"
+            />
+
+            <Input
+              label="Where did you hear about us? (optional)"
+              value={form.acquisitionSource}
+              onChange={update('acquisitionSource')}
+              placeholder="e.g. Instagram, TikTok, a friend, Google…"
             />
 
             {/* Summary */}

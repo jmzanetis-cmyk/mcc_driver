@@ -36,6 +36,9 @@ export function HomeScreen() {
   const compliance = useDocumentCompliance();
 
   const [activePromo, setActivePromo] = useState<{ title: string; current: number; target: number } | null>(null);
+  // Dismissible founder-recruitment banner (shown to active drivers who aren't yet founders).
+  // Dismiss key is user-scoped (E7 pattern): mcc_dismiss_founder_banner_{driverId}
+  const [showFounderBanner, setShowFounderBanner] = useState(false);
   const [announcementsUnread, setAnnouncementsUnread] = useState(0);
   const [upcomingRide, setUpcomingRide] = useState<{ id: string; scheduledAt: string; pickup: string } | null>(null);
   const [scheduledJobCount, setScheduledJobCount] = useState(0);
@@ -57,6 +60,29 @@ export function HomeScreen() {
       } catch { /* ignore */ }
     })();
   }, [driver?.id]);
+
+  useEffect(() => {
+    if (!driver) return;
+    const dismissKey = `mcc_dismiss_founder_banner_${driver.id}`;
+    try { if (localStorage.getItem(dismissKey)) return; } catch { /* ignore */ }
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('member_founder_profiles')
+          .select('id')
+          .eq('user_id', driver.userId)
+          .eq('status', 'active')
+          .maybeSingle();
+        if (!data) setShowFounderBanner(true);
+      } catch { /* non-blocking */ }
+    })();
+  }, [driver?.id]);
+
+  function dismissFounderBanner() {
+    if (!driver) return;
+    try { localStorage.setItem(`mcc_dismiss_founder_banner_${driver.id}`, '1'); } catch { /* ignore */ }
+    setShowFounderBanner(false);
+  }
 
   useEffect(() => {
     if (!driver) return;
@@ -191,6 +217,41 @@ export function HomeScreen() {
             You can explore the app and complete training. Active dispatch will begin once licensing is finalized.
             We'll notify you when you can start earning.
           </p>
+        </div>
+      )}
+
+      {/* Founder recruitment banner — shown to active non-founder drivers until dismissed */}
+      {showFounderBanner && (
+        <div style={{
+          background: 'rgba(201,162,39,0.10)',
+          borderBottom: '1px solid rgba(201,162,39,0.28)',
+          padding: '12px 16px 12px 20px',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1 }}>
+            <span aria-hidden="true" style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>⭐</span>
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: colors.gold, lineHeight: 1.4, marginBottom: 2 }}>
+                Earn 50% on every shop you refer — for life.
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Join the Driver Founder program. Refer auto-service providers and earn half their bid-credit spend forever.{' '}
+                <button
+                  onClick={() => navigate('/founder')}
+                  style={{ background: 'none', border: 'none', padding: 0, color: colors.gold, fontWeight: 600, fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Learn more →
+                </button>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={dismissFounderBanner}
+            aria-label="Dismiss founder banner"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, lineHeight: 1, flexShrink: 0, padding: '2px 4px' }}
+          >
+            ×
+          </button>
         </div>
       )}
 

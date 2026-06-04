@@ -58,6 +58,7 @@ const VehicleInspectionScreen = lazy(() => import('@/screens/VehicleInspectionSc
 const ReferAndEarnScreen = lazy(() => import('@/screens/ReferAndEarnScreen').then(m => ({ default: m.ReferAndEarnScreen })));
 const AnnouncementsScreen = lazy(() => import('@/screens/AnnouncementsScreen').then(m => ({ default: m.AnnouncementsScreen })));
 const MyDocumentsScreen = lazy(() => import('@/screens/MyDocumentsScreen').then(m => ({ default: m.MyDocumentsScreen })));
+const DriverFounderScreen = lazy(() => import('@/screens/DriverFounderScreen').then(m => ({ default: m.DriverFounderScreen })));
 
 function ScreenFallback() {
   return (
@@ -110,6 +111,17 @@ function AuthRedirect() {
       </div>
     );
   }
+
+  // When the driver was recruited via /drive, route them straight into
+  // founder enrollment on first active login instead of the generic home.
+  // The flag is cleared on use so subsequent logins go to /home normally.
+  try {
+    const fromFounder = localStorage.getItem('mcc_driver_from_founder');
+    if (fromFounder === '1') {
+      localStorage.removeItem('mcc_driver_from_founder');
+      return <Navigate to="/founder?welcome=1" replace />;
+    }
+  } catch { /* ignore storage errors */ }
 
   return <Navigate to="/home" replace />;
 }
@@ -177,6 +189,7 @@ export default function App() {
             <Route path="/refer" element={<ProtectedRoute><ReferAndEarnScreen /></ProtectedRoute>} />
             <Route path="/announcements" element={<ProtectedRoute><AnnouncementsScreen /></ProtectedRoute>} />
             <Route path="/my-documents" element={<ProtectedRoute><MyDocumentsScreen /></ProtectedRoute>} />
+            <Route path="/founder" element={<ProtectedRoute><DriverFounderScreen /></ProtectedRoute>} />
             <Route path="/scheduled" element={<Navigate to="/home" replace />} />
             {/* Public legal routes — required by App Store Connect for the
                 Privacy Policy URL, Terms of Use URL, and Support URL fields.
