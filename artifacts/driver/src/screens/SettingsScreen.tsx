@@ -590,6 +590,7 @@ export function SettingsScreen() {
             { label: 'Performance', icon: '📊', path: '/performance' },
             { label: 'Promotions', icon: '🎯', path: '/promotions' },
             { label: 'Refer & Earn', icon: '💸', path: '/refer' },
+            { label: 'Driver Founder', icon: '⭐', path: '/founder' },
             { label: "What's New", icon: '📢', path: '/announcements' },
             { label: 'Schedule', icon: '📅', path: '/schedule' },
             { label: 'Help', icon: '❓', path: '/help' },
