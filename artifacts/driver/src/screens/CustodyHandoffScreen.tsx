@@ -17,9 +17,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button, Card, PageHeader, Spinner } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import {
-  captureLiveShot, uploadCustodyPhoto, acceptHandoff, disputeHandoff,
-  subscribeToJobChain, type CapturedShot,
+  uploadCustodyPhoto, acceptHandoff, disputeHandoff,
+  subscribeToJobChain,
 } from '@/services/custody/custody.client';
+import { GuidedCaptureOverlay, type CaptureResult } from '@/components/GuidedCaptureOverlay';
 import {
   createHandoff, releaseHandoff, getJobContextForRide,
   type JobContext,
@@ -127,9 +128,6 @@ type Mode =
       jobId: string;
       handoffId: string;
       leg: HandoffLeg;
-      angleIndex: number;
-      capturing: boolean;
-      captureError: string | null;
     }
   | {
       tag: 'attest';
@@ -272,9 +270,6 @@ export function CustodyHandoffScreen() {
       jobId: item.jobId,
       handoffId: item.handoffId,
       leg: item.leg,
-      angleIndex: 0,
-      capturing: false,
-      captureError: null,
     });
   };
 
@@ -297,61 +292,9 @@ export function CustodyHandoffScreen() {
         jobId: item.jobId,
         handoffId: handoff.id,
         leg: item.leg,
-        angleIndex: 0,
-        capturing: false,
-        captureError: null,
       });
     } catch (e) {
       setMode({ tag: 'error', msg: e instanceof Error ? e.message : 'Failed to create handoff' });
-    }
-  };
-
-  // ── capture one photo ────────────────────────────────────────────────────
-
-  const captureNext = async () => {
-    if (mode.tag !== 'capture' || mode.capturing || !driverUid) return;
-
-    const angle = FULL_ANGLE_SET[mode.angleIndex];
-    if (!angle) return;
-
-    setMode((m) => m.tag === 'capture' ? { ...m, capturing: true, captureError: null } : m);
-
-    let shot: CapturedShot;
-    try {
-      shot = await captureLiveShot();
-    } catch {
-      setMode((m) => m.tag === 'capture' ? { ...m, capturing: false, captureError: 'Camera cancelled or unavailable. Tap to try again.' } : m);
-      return;
-    }
-
-    // Upload immediately
-    try {
-      await uploadCustodyPhoto({
-        supabase,
-        jobId: mode.jobId,
-        handoffId: mode.handoffId,
-        capturedBy: driverUid,
-        capturedByRole: 'driver',
-        angle,
-        shot,
-      });
-    } catch (e) {
-      setMode((m) => m.tag === 'capture' ? { ...m, capturing: false, captureError: 'Upload failed — tap to retry.' } : m);
-      return;
-    }
-
-    const nextIndex = mode.angleIndex + 1;
-    if (nextIndex < FULL_ANGLE_SET.length) {
-      setMode((m) => m.tag === 'capture' ? { ...m, capturing: false, captureError: null, angleIndex: nextIndex } : m);
-    } else {
-      // All photos captured
-      const { subflow, handoffId, jobId, leg } = mode;
-      if (subflow === 'accept') {
-        setMode({ tag: 'attest', handoffId, jobId, leg, photoCount: FULL_ANGLE_SET.length });
-      } else {
-        // Release: show confirm step
-        setMode({ tag: 'attest', handoffId, jobId, leg, photoCount: FULL_ANGLE_SET.length });
-      }
     }
   };
 
@@ -576,95 +519,40 @@ export function CustodyHandoffScreen() {
     );
   }
 
-  // ── Capture wizard ───────────────────────────────────────────────────────
+  // ── Capture wizard — delegated to GuidedCaptureOverlay ──────────────────
 
   if (mode.tag === 'capture') {
-    const angle = FULL_ANGLE_SET[mode.angleIndex];
-    const meta = angle ? ANGLE_META[angle] : null;
-    const total = FULL_ANGLE_SET.length;
-    const done = mode.angleIndex;
-    const isRelease = mode.subflow === 'release';
+    const { jobId, handoffId, leg, subflow } = mode;
+
+    const handleCaptureComplete = async (captureResults: CaptureResult[]) => {
+      if (!driverUid) return;
+      setMode({ tag: 'submitting', label: 'Uploading photos…' });
+      try {
+        for (const cr of captureResults) {
+          await uploadCustodyPhoto({
+            supabase,
+            jobId,
+            handoffId,
+            capturedBy: driverUid,
+            capturedByRole: 'driver',
+            angle: cr.angle,
+            shot: { blob: cr.blob, capturedAt: cr.capturedAt, gps: cr.gps },
+            qualityPassed: cr.qualityOutput.passed,
+            qualityMeta: cr.qualityOutput.quality_meta as unknown as Record<string, unknown>,
+          });
+        }
+        setMode({ tag: 'attest', handoffId, jobId, leg, photoCount: captureResults.length });
+      } catch (e) {
+        setMode({ tag: 'error', msg: e instanceof Error ? e.message : 'Photo upload failed' });
+      }
+    };
 
     return (
-      <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
-        <PageHeader
-          title={isRelease ? 'Release Photos' : 'Check-In Photos'}
-          onBack={() => void load()}
-        />
-
-        <div style={{ flex: 1, padding: 20 }}>
-          {/* Progress bar */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>
-                {LEG_LABEL[mode.leg]}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: colors.navy }}>
-                {done}/{total}
-              </span>
-            </div>
-            <div style={{ height: 6, borderRadius: 3, background: colors.bgSecondary, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${(done / total) * 100}%`, background: colors.gold, borderRadius: 3, transition: 'width 0.3s ease' }} />
-            </div>
-          </div>
-
-          {/* Angle card */}
-          {meta && (
-            <Card padding={24} style={{ marginBottom: 20, textAlign: 'center' }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>{meta.icon}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: colors.navy, marginBottom: 8 }}>
-                {meta.label}
-              </div>
-              <div style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>
-                {meta.hint}
-              </div>
-            </Card>
-          )}
-
-          {/* Error */}
-          {mode.captureError && (
-            <div style={{
-              padding: '10px 14px', borderRadius: borderRadius.md, marginBottom: 16,
-              background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-              fontSize: 13, color: colors.error,
-            }}>
-              {mode.captureError}
-            </div>
-          )}
-
-          {/* Angle dot strip */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 24, flexWrap: 'wrap' }}>
-            {FULL_ANGLE_SET.map((_, i) => (
-              <div key={i} style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: i < done ? colors.success : i === done ? colors.gold : colors.border,
-              }} />
-            ))}
-          </div>
-        </div>
-
-        {/* Capture button */}
-        <div style={{ padding: '0 20px 40px' }}>
-          <Button
-            onClick={() => void captureNext()}
-            loading={mode.capturing}
-            variant="primary"
-            fullWidth
-            size="lg"
-          >
-            {mode.capturing ? 'Opening camera…' : `📷  Capture ${meta?.label ?? 'Photo'}`}
-          </Button>
-          <Button
-            onClick={() => void load()}
-            variant="ghost"
-            fullWidth
-            size="sm"
-            style={{ marginTop: 8 }}
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
+      <GuidedCaptureOverlay
+        requiredAngles={FULL_ANGLE_SET}
+        onComplete={(results) => void handleCaptureComplete(results)}
+        onCancel={() => void load()}
+      />
     );
   }
 
