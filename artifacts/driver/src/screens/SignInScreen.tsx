@@ -92,7 +92,7 @@ export function SignInScreen() {
       {/* Logo area */}
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
         <img
-          src="/driver/mcc-driver-logo.png"
+          src={`${import.meta.env.BASE_URL}mcc-driver-logo.png`}
           alt="My Car Concierge — Driver App"
           style={{ width: 220, height: 220, objectFit: 'contain', margin: '0 auto', display: 'block' }}
         />
