@@ -25,7 +25,7 @@ export type AttestationType = 'release' | 'accept' | 'dispute';
 export type PhotoAngle =
   | 'front' | 'rear' | 'driver_side' | 'passenger_side' | 'roof'
   | 'wheel_fl' | 'wheel_fr' | 'wheel_rl' | 'wheel_rr'
-  | 'interior_front' | 'interior_rear' | 'cargo' | 'odometer' | 'other';
+  | 'interior_front' | 'interior_rear' | 'cargo' | 'odometer' | 'fuel_gauge' | 'other';
 
 export type DisputeType =
   | 'new_damage'
@@ -45,7 +45,7 @@ export const EXTERIOR_ANGLES: PhotoAngle[] = [
   'front', 'rear', 'driver_side', 'passenger_side', 'roof',
   'wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr',
 ];
-export const INTERIOR_ANGLES: PhotoAngle[] = ['interior_front', 'interior_rear', 'cargo', 'odometer'];
+export const INTERIOR_ANGLES: PhotoAngle[] = ['interior_front', 'interior_rear', 'cargo', 'odometer', 'fuel_gauge'];
 export const FULL_ANGLE_SET: PhotoAngle[] = [...EXTERIOR_ANGLES, ...INTERIOR_ANGLES];
 
 // ---- Row types -------------------------------------------------------------
@@ -84,6 +84,8 @@ export interface CustodyPhoto {
   live_capture: boolean;
   quality_score: number | null;
   quality_flags: string[];
+  quality_passed: boolean | null;
+  quality_meta: Record<string, unknown> | null;
   ai_diff_result: unknown | null;
   created_at: string;
 }
