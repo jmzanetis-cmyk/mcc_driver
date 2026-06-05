@@ -86,6 +86,7 @@ const ANGLE_META: Record<PhotoAngle, { label: string; hint: string; icon: string
   interior_rear:  { label: 'Interior Rear',   icon: '🪑', hint: 'Rear seat area and floor.' },
   cargo:          { label: 'Cargo / Trunk',   icon: '📦', hint: 'Trunk or cargo area with lid open.' },
   odometer:       { label: 'Odometer',        icon: '🔢', hint: 'Dashboard — show mileage reading clearly.' },
+  fuel_gauge:     { label: 'Fuel / Charge',   icon: '⛽', hint: 'Dashboard — show fuel or charge level clearly.' },
   other:          { label: 'Additional',      icon: '📷', hint: 'Any other relevant condition to document.' },
 };
 

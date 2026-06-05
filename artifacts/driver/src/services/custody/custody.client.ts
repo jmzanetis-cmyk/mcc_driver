@@ -82,13 +82,15 @@ export interface UploadArgs {
   capturedByRole: PartyRole;
   angle: PhotoAngle;
   shot: CapturedShot;
+  qualityPassed?: boolean;
+  qualityMeta?: Record<string, unknown>;
 }
 
 // Path MUST be custody/{job_id}/{handoff_id}/{photo_id}.jpg — storage RLS
 // parses the job_id out of position [2]. The row id == the filename so the
 // file and its metadata row are 1:1.
 export async function uploadCustodyPhoto(args: UploadArgs): Promise<CustodyPhoto> {
-  const { supabase, jobId, handoffId, capturedBy, capturedByRole, angle, shot } = args;
+  const { supabase, jobId, handoffId, capturedBy, capturedByRole, angle, shot, qualityPassed, qualityMeta } = args;
   const photoId = newId();
   const path = `custody/${jobId}/${handoffId}/${photoId}.jpg`;
 
@@ -112,6 +114,8 @@ export async function uploadCustodyPhoto(args: UploadArgs): Promise<CustodyPhoto
       gps_lng: shot.gps.lng,
       gps_accuracy_m: shot.gps.accuracy_m,
       live_capture: true,
+      quality_passed: qualityPassed ?? null,
+      quality_meta: qualityMeta ?? null,
       // quality_score / quality_flags / ai_diff_result are filled async by your
       // edge function after upload — leave them out here.
     })
