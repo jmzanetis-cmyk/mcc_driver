@@ -24,7 +24,16 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     let mounted = true;
 
     async function bootstrap() {
-      const { data: { session } } = await supabase.auth.getSession();
+      let session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'] = null;
+      try {
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('getSession timeout')), 6000),
+        );
+        const result = await Promise.race([supabase.auth.getSession(), timeout]);
+        session = result.data.session;
+      } catch {
+        // Network unavailable or timed out — treat as unauthenticated.
+      }
       if (!mounted) return;
 
       setSession(session);
@@ -50,7 +59,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       setLoading(false);
     }
 
-    bootstrap();
+    bootstrap().catch(() => { if (mounted) setLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
