@@ -11,3 +11,6 @@ capacitor-cordova-ios-plugins
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+
+# Xcode SPM resolution cache
+App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
