@@ -508,3 +508,9 @@ export async function updateDriverServices(
     services as Record<string, unknown>
   );
 }
+
+// ── Email identity linking ────────────────────────────────────────────────────
+
+export async function linkEmail(email: string): Promise<ApiResult> {
+  return callApi('/drivers/link-email', 'POST', { email });
+}

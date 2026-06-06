@@ -186,6 +186,56 @@ export async function updateDriverDocuments(params: {
   return { success: true };
 }
 
+export async function sendEmailOTP(email: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+export async function verifyEmailOTP(
+  email: string,
+  code: string,
+): Promise<{
+  success: boolean;
+  noAccount: boolean;
+  driverStatus?: 'pending_approval' | 'active' | 'inactive' | 'suspended' | 'deactivated';
+  error?: string;
+}> {
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    type: 'email',
+  });
+
+  if (error) return { success: false, noAccount: false, error: error.message };
+
+  const { data: driver } = await supabase
+    .from('drivers')
+    .select('id, status')
+    .eq('profile_id', data.user?.id)
+    .single();
+
+  if (!driver) {
+    await supabase.auth.signOut();
+    return {
+      success: false,
+      noAccount: true,
+      error: 'No driver account is linked to this email. Sign in with your phone number first, then add your email in Settings.',
+    };
+  }
+
+  const row = driver as unknown as { id: string; status: 'pending_approval' | 'active' | 'inactive' | 'suspended' | 'deactivated' };
+  return { success: true, noAccount: false, driverStatus: row.status };
+}
+
+export async function getLinkedEmail(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.email ?? null;
+}
+
 export async function signOut(): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {

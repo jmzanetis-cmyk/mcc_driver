@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { sendOTP, verifyOTP } from '@/services/auth/authService';
+import { sendOTP, verifyOTP, sendEmailOTP, verifyEmailOTP } from '@/services/auth/authService';
 import { Button, Input, Spinner } from '@/components';
 import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius } from '@/theme';
@@ -12,8 +12,10 @@ import { colors, borderRadius } from '@/theme';
 export function SignInScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [step, setStep] = useState<'phone' | 'code'>('phone');
+  const [method, setMethod] = useState<'phone' | 'email'>('phone');
+  const [step, setStep] = useState<'input' | 'code'>('input');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,57 +32,66 @@ export function SignInScreen() {
     } catch { /* ignore quota errors */ }
   }, []);
 
+  const switchMethod = (m: 'phone' | 'email') => {
+    setMethod(m);
+    setStep('input');
+    setCode('');
+    setError('');
+  };
+
   const handleSendOTP = async () => {
-    if (phone.length < 10) {
-      setError('Enter a valid phone number');
-      return;
-    }
     if (isOffline()) {
       setError("You're offline — connect to send a verification code.");
       return;
     }
-    setLoading(true);
-    setError('');
-
-    const formatted = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
-    const result = await sendOTP(formatted);
-
-    setLoading(false);
-    if (result.success) {
-      setStep('code');
+    if (method === 'phone') {
+      if (phone.replace(/\D/g, '').length < 10) { setError('Enter a valid phone number'); return; }
+      setLoading(true); setError('');
+      const formatted = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
+      const result = await sendOTP(formatted);
+      setLoading(false);
+      if (result.success) setStep('code');
+      else setError(result.error || 'Failed to send code');
     } else {
-      setError(result.error || 'Failed to send code');
+      if (!email.includes('@') || !email.includes('.')) { setError('Enter a valid email address'); return; }
+      setLoading(true); setError('');
+      const result = await sendEmailOTP(email.trim().toLowerCase());
+      setLoading(false);
+      if (result.success) setStep('code');
+      else setError(result.error || 'Failed to send code');
     }
   };
 
   const handleVerifyOTP = async () => {
-    if (code.length < 6) {
-      setError('Enter the 6-digit code');
-      return;
-    }
+    if (code.length < 6) { setError('Enter the 6-digit code'); return; }
     if (isOffline()) {
       setError("You're offline — connect to verify the code.");
       return;
     }
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
 
-    const formatted = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
-    const result = await verifyOTP(formatted, code);
-
-    setLoading(false);
-    if (result.success) {
-      if (result.isNewDriver) {
-        navigate('/apply');
-      } else if (result.driverStatus === 'pending_approval') {
-        navigate('/pending');
-      } else if (result.driverStatus === 'suspended' || result.driverStatus === 'deactivated') {
-        navigate('/');
+    if (method === 'phone') {
+      const formatted = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
+      const result = await verifyOTP(formatted, code);
+      setLoading(false);
+      if (result.success) {
+        if (result.isNewDriver) navigate('/apply');
+        else if (result.driverStatus === 'pending_approval') navigate('/pending');
+        else if (result.driverStatus === 'suspended' || result.driverStatus === 'deactivated') navigate('/');
+        else navigate('/home');
       } else {
-        navigate('/home');
+        setError(result.error || 'Invalid code');
       }
     } else {
-      setError(result.error || 'Invalid code');
+      const result = await verifyEmailOTP(email.trim().toLowerCase(), code);
+      setLoading(false);
+      if (result.success) {
+        if (result.driverStatus === 'pending_approval') navigate('/pending');
+        else if (result.driverStatus === 'suspended' || result.driverStatus === 'deactivated') navigate('/');
+        else navigate('/home');
+      } else {
+        setError(result.error || 'Invalid code');
+      }
     }
   };
 
@@ -104,23 +115,61 @@ export function SignInScreen() {
         padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
       }}>
         <OfflineNotice style={{ marginBottom: 16 }} />
-        {step === 'phone' ? (
+
+        {step === 'input' && (
+          <div style={{
+            display: 'flex', marginBottom: 20,
+            border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, overflow: 'hidden',
+          }}>
+            {(['phone', 'email'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => switchMethod(m)}
+                style={{
+                  flex: 1, padding: '9px 0', border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600,
+                  background: method === m ? colors.surfaceDark : 'transparent',
+                  color: method === m ? colors.gold : colors.textMuted,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {m === 'phone' ? 'Phone' : 'Email'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 'input' ? (
           <>
             <h2 className="heading-editorial heading-editorial-lg" style={{ marginBottom: 4 }}>
               Sign In
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
-              Enter your phone number to receive a verification code
+              {method === 'phone'
+                ? 'Enter your phone number to receive a verification code'
+                : 'Enter your email address to receive a verification code'}
             </p>
-            <Input
-              label="Phone Number"
-              value={phone}
-              onChange={setPhone}
-              type="tel"
-              placeholder="(555) 123-4567"
-              required
-              error={error}
-            />
+            {method === 'phone' ? (
+              <Input
+                label="Phone Number"
+                value={phone}
+                onChange={setPhone}
+                type="tel"
+                placeholder="(555) 123-4567"
+                required
+                error={error}
+              />
+            ) : (
+              <Input
+                label="Email Address"
+                value={email}
+                onChange={setEmail}
+                type="email"
+                placeholder="you@example.com"
+                required
+                error={error}
+              />
+            )}
             <Button onClick={handleSendOTP} loading={loading} fullWidth size="lg">
               Send Verification Code
             </Button>
@@ -131,7 +180,7 @@ export function SignInScreen() {
               Enter Code
             </h2>
             <p style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
-              We sent a 6-digit code to {phone}
+              We sent a 6-digit code to {method === 'phone' ? phone : email}
             </p>
             <Input
               label="Verification Code"
@@ -146,11 +195,11 @@ export function SignInScreen() {
               Verify & Sign In
             </Button>
             <Button
-              onClick={() => { setStep('phone'); setCode(''); setError(''); }}
+              onClick={() => { setStep('input'); setCode(''); setError(''); }}
               variant="ghost" fullWidth size="sm"
               style={{ marginTop: 12 }}
             >
-              Use a different number
+              {method === 'phone' ? 'Use a different number' : 'Use a different email'}
             </Button>
           </>
         )}

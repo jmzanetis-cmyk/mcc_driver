@@ -16,9 +16,11 @@ import {
   clearPreferredPartner,
   updateDriverServices,
   deleteMyAccount,
+  linkEmail,
   type PartnerLookupResult,
   type DeleteAccountBlocked,
 } from '@/services/api/edgeFunctions';
+import { getLinkedEmail } from '@/services/auth/authService';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { purgeAllOfflineData } from '@/services/offline/storage';
@@ -41,6 +43,12 @@ export function SettingsScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletePartialWarning, setDeletePartialWarning] = useState<string | null>(null);
 
+  // Email identity linking
+  const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailLinking, setEmailLinking] = useState(false);
+  const [emailLinkError, setEmailLinkError] = useState<string | null>(null);
+
   // Known Partner state
   const [partnerEmail, setPartnerEmail] = useState('');
   const [savedPartner, setSavedPartner] = useState<PartnerLookupResult | null>(null);
@@ -60,6 +68,10 @@ export function SettingsScreen() {
   }, [driver?.id]);
 
   useEffect(() => {
+    void getLinkedEmail().then(setLinkedEmail);
+  }, []);
+
+  useEffect(() => {
     const saved = localStorage.getItem('mcc_preferred_nav') as NavApp | null;
     if (saved) setPreferredNav(saved);
 
@@ -76,6 +88,22 @@ export function SettingsScreen() {
       }
     });
   }, []);
+
+  const handleLinkEmail = async () => {
+    const trimmed = emailInput.trim().toLowerCase();
+    if (!trimmed.includes('@') || !trimmed.includes('.')) {
+      setEmailLinkError('Enter a valid email address'); return;
+    }
+    setEmailLinking(true); setEmailLinkError(null);
+    const result = await linkEmail(trimmed);
+    setEmailLinking(false);
+    if (result.success) {
+      setLinkedEmail(trimmed);
+      setEmailInput('');
+    } else {
+      setEmailLinkError(result.error ?? 'Failed to link email. Please try again.');
+    }
+  };
 
   const handleNavChange = (app: NavApp) => {
     setPreferredNav(app);
@@ -306,6 +334,59 @@ export function SettingsScreen() {
               <div style={{ fontSize: 11, color: colors.textMuted }}>Completion</div>
             </div>
           </div>
+        </Card>
+
+        {/* Account — email sign-in */}
+        <SectionLabel>Account</SectionLabel>
+        <Card style={{ marginBottom: 16 }} padding={14}>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>
+            Add an email address so you can sign in with a 6-digit code instead of SMS.
+          </div>
+          {linkedEmail ? (
+            <SettingRow label="Email sign-in" value={linkedEmail} />
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleLinkEmail(); }}
+                  style={{
+                    flex: 1, padding: '10px 12px',
+                    borderRadius: borderRadius.sm,
+                    border: `1px solid ${colors.border}`,
+                    fontSize: 14, background: colors.bgCard,
+                    color: colors.textPrimary, outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={() => void handleLinkEmail()}
+                  disabled={emailLinking || !emailInput.trim()}
+                  style={{
+                    padding: '10px 16px',
+                    background: colors.surfaceDark, border: 'none',
+                    borderRadius: borderRadius.sm, cursor: 'pointer',
+                    fontSize: 13, fontWeight: 600, color: colors.gold,
+                    opacity: emailLinking || !emailInput.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {emailLinking ? '…' : 'Add'}
+                </button>
+              </div>
+              {emailLinkError && (
+                <div style={{
+                  marginTop: 8, padding: '8px 12px',
+                  background: colors.errorBg ?? 'rgba(220,53,69,0.08)',
+                  borderRadius: borderRadius.sm,
+                  fontSize: 12, color: colors.error,
+                }}>
+                  {emailLinkError}
+                </div>
+              )}
+            </>
+          )}
         </Card>
 
         {/* Driver status */}
