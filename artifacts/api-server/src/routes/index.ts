@@ -40,6 +40,7 @@ import milestonesRouter from "./milestones";
 import announcementsRouter from "./announcements";
 import driverDocumentsRouter from "./driverDocuments";
 import driverEmailLinkRouter from "./driverEmailLink";
+import custodyRouter from "./custody";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use(milestonesRouter);
 router.use(announcementsRouter);
 router.use(driverDocumentsRouter);
 router.use(driverEmailLinkRouter);
+router.use(custodyRouter);
 
 export default router;
