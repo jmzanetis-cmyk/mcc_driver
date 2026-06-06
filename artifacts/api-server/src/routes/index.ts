@@ -39,6 +39,7 @@ import referralRouter from "./referral";
 import milestonesRouter from "./milestones";
 import announcementsRouter from "./announcements";
 import driverDocumentsRouter from "./driverDocuments";
+import driverEmailLinkRouter from "./driverEmailLink";
 
 const router: IRouter = Router();
 
@@ -82,5 +83,6 @@ router.use(referralRouter);
 router.use(milestonesRouter);
 router.use(announcementsRouter);
 router.use(driverDocumentsRouter);
+router.use(driverEmailLinkRouter);
 
 export default router;
