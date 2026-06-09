@@ -154,7 +154,7 @@ async function main() {
   // ── 2. Insert test driver into local DB ────────────────────────────────────
   console.log("[2] Inserting test driver...");
   await db.query(
-    `INSERT INTO drivers (id, user_id, first_name, last_name, email, phone,
+    `INSERT INTO drivers (id, profile_id, first_name, last_name, email, phone,
                           status, is_online, can_drive_member_vehicle,
                           current_lat, current_lng)
      VALUES ($1, 'smoke_test_user', 'Smoke', 'Driver', 'smoke@example.com',

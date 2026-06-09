@@ -135,7 +135,7 @@ async function upsertDriverRow(userId: string): Promise<void> {
     } else {
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO drivers (
-           user_id, first_name, last_name, email, phone,
+           profile_id, first_name, last_name, email, phone,
            status, background_check_passed,
            can_drive_member_vehicle, can_do_rideshare, can_do_delivery,
            is_online
