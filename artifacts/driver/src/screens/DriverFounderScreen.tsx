@@ -293,10 +293,10 @@ export function DriverFounderScreen() {
             Driver Founder Program
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: '#FAF7F0', marginBottom: 8, lineHeight: 1.3 }}>
-            Earn 50% on every provider you refer — for life.
+            Earn 50% on every provider you refer — for 12 months.
           </div>
           <div style={{ fontSize: 13, color: 'rgba(250,247,240,0.75)', lineHeight: 1.6 }}>
-            You visit shops, garages, and dealerships every day on the job. Refer them to MCC and earn half of every bid-pack purchase they make on the platform — forever.
+            You visit shops, garages, and dealerships every day on the job. Refer them to MCC and earn half of every bid-pack purchase they make on the platform for 12 months from enrollment.
           </div>
         </Card>
 
@@ -342,7 +342,7 @@ export function DriverFounderScreen() {
               Welcome to Driver Founders
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#FAF7F0', marginBottom: 8, lineHeight: 1.3 }}>
-              You&apos;re one step away from earning 50% for life.
+              You&apos;re one step away from earning 50% for a full year.
             </div>
             <div style={{ fontSize: 13, color: 'rgba(250,247,240,0.75)', lineHeight: 1.6 }}>
               Agree to the terms below and submit your application. Once approved you&apos;ll

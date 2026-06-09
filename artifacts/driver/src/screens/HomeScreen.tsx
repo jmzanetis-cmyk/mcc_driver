@@ -247,10 +247,10 @@ export function HomeScreen() {
             <span aria-hidden="true" style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>⭐</span>
             <div>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: colors.gold, lineHeight: 1.4, marginBottom: 2 }}>
-                Earn 50% on every shop you refer — for life.
+                Earn 50% on every shop you refer — for 12 months.
               </p>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Join the Driver Founder program. Refer auto-service providers and earn half their bid-credit spend forever.{' '}
+                Join the Driver Founder program. Refer auto-service providers and earn half their bid-credit spend for 12 months from enrollment.{' '}
                 <button
                   onClick={() => navigate('/founder')}
                   style={{ background: 'none', border: 'none', padding: 0, color: colors.gold, fontWeight: 600, fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
