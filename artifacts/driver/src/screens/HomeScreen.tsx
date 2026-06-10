@@ -323,7 +323,7 @@ export function HomeScreen() {
             <button
               type="button"
               onClick={() => navigate('/settings')}
-              aria-label={`Open settings for ${driver.firstName} ${driver.lastName}`}
+              aria-label="Settings"
               style={{
                 width: 44, height: 44, borderRadius: '50%',
                 background: 'rgba(201,152,46,0.15)', display: 'flex',
@@ -331,9 +331,26 @@ export function HomeScreen() {
                 fontSize: 14, fontWeight: 700, color: colors.gold,
                 cursor: 'pointer', border: 'none', padding: 0,
                 fontFamily: 'inherit',
+                position: 'relative',
               }}
             >
               <span aria-hidden="true">{driver.firstName[0]}{driver.lastName[0]}</span>
+              {/* Gear badge — signals Settings destination, mirrors notification-dot pattern */}
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute', bottom: -1, right: -1,
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: colors.surfaceDark,
+                  border: `1.5px solid ${colors.surfaceDark}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 8, lineHeight: 1,
+                  color: colors.textWhite,
+                  pointerEvents: 'none',
+                }}
+              >
+                ⚙
+              </span>
             </button>
           </div>
         </div>
