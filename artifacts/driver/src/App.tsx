@@ -8,6 +8,7 @@ import { Spinner } from '@/components';
 import { colors } from '@/theme';
 import './theme/global.css';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ActiveRideWatcher } from '@/components/ActiveRideWatcher';
 import { LocationTracker } from '@/components/LocationTracker';
 import { EnvBadge } from '@/components/EnvBadge';
@@ -150,6 +151,7 @@ export default function App() {
             <ThemeToggle />
           </div>
           <AppStatusBridge>
+          <ErrorBoundary>
           <Suspense fallback={<ScreenFallback />}>
           <Routes>
             <Route path="/signin" element={<SignInScreen />} />
@@ -203,6 +205,7 @@ export default function App() {
             <Route path="*" element={<AuthRedirect />} />
           </Routes>
           </Suspense>
+          </ErrorBoundary>
           </AppStatusBridge>
         </AuthProvider>
       </QueryProvider>

@@ -69,7 +69,7 @@ export function useAuth() {
         totalRidesCompleted: row.total_rides_completed,
         averageRating: row.average_rating,
         completionRate: row.completion_rate,
-        stripeAccountId: row.stripe_account_id ?? undefined,
+        stripeAccountId: row.stripe_connect_account_id ?? undefined,
         backgroundCheckPassed: row.background_check_passed ?? false,
         bgcStatus: (row.bgc_status ?? 'not_started') as 'not_started' | 'pending' | 'passed' | 'failed',
         licenseDocumentPath: row.license_document_path ?? undefined,

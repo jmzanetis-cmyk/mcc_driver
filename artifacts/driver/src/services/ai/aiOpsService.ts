@@ -337,7 +337,7 @@ async function loadDriverContext(driverId: string): Promise<DriverContext | null
     totalRidesCompleted: driver.total_rides_completed,
     averageRating: driver.average_rating,
     completionRate: driver.completion_rate,
-    stripeAccountId: driver.stripe_account_id ?? undefined,
+    stripeAccountId: driver.stripe_connect_account_id ?? undefined,
     vehicles: vehicles.map((v) => ({
       id: v.id,
       make: v.make,

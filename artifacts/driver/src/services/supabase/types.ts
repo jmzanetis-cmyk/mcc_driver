@@ -18,7 +18,7 @@ export interface DriverRow {
   total_rides_completed: number;
   average_rating: number;
   completion_rate: number;
-  stripe_account_id: string | null;
+  stripe_connect_account_id: string | null;
   current_lat: number | null;
   current_lng: number | null;
   document_rejection_reason: string | null;
