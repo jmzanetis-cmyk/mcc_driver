@@ -15,8 +15,7 @@ import { uploadDriverDocument } from '@/services/documents/documentService';
 import { Button, Input, PageHeader } from '@/components';
 import { OfflineNotice, isOffline } from '@/components/OfflineNotice';
 import { colors, borderRadius, withAlpha } from '@/theme';
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { apiUrl } from '@/services/api/baseUrl';
 
 interface FormData {
   firstName: string;
@@ -250,7 +249,7 @@ export function RideAlongApplyScreen() {
         agreementSigned: true,
       };
 
-      const res = await fetch(`${BASE}/api/ride-along-drivers`, {
+      const res = await fetch(apiUrl('/ride-along-drivers'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

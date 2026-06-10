@@ -18,8 +18,7 @@ import {
   memberApproveTandemMatch,
   memberDeclineTandemMatch,
 } from '@/services/api/edgeFunctions';
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { apiUrl } from '@/services/api/baseUrl';
 
 interface DriverSummary {
   id: string;
@@ -119,7 +118,7 @@ export function MemberApprovalScreen() {
     if (!tandemJobId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/tandem-jobs/${tandemJobId}/match-detail`);
+      const res = await fetch(apiUrl(`/tandem-jobs/${tandemJobId}/match-detail`));
       if (!res.ok) {
         if (res.status === 404) setError('This match link is no longer valid.');
         else setError(`Failed to load match (HTTP ${res.status}).`);

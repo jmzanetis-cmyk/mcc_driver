@@ -10,8 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { Button } from '@/components';
 import { colors, borderRadius, withAlpha } from '@/theme';
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { apiUrl } from '@/services/api/baseUrl';
 
 interface RideAlongProfile {
   id: string;
@@ -54,7 +53,7 @@ export function RideAlongPendingScreen() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { navigate('/signin'); return; }
 
-    const res = await fetch(`${BASE}/api/ride-along-drivers/me`, {
+    const res = await fetch(apiUrl('/ride-along-drivers/me'), {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
 
@@ -259,8 +258,7 @@ function ResubmitButton({ profileId, onSuccess }: { profileId: string; onSuccess
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
-      const res = await fetch(`${BASE}/api/ride-along-drivers/${profileId}`, {
+      const res = await fetch(apiUrl(`/ride-along-drivers/${profileId}`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

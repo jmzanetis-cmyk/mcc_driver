@@ -17,8 +17,7 @@ import { colors, borderRadius, withAlpha } from '@/theme';
 import { formatCurrency } from '@/utils/formatters';
 import { acceptTandemMatch, declineTandemMatch } from '@/services/api/edgeFunctions';
 import { useTandemBroadcasts, type TandemBroadcastRow } from '@/hooks/useTandemBroadcasts';
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { apiUrl } from '@/services/api/baseUrl';
 
 interface RideAlongProfile {
   id: string;
@@ -69,7 +68,7 @@ export function RideAlongDashboardScreen() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { navigate('/signin'); return; }
 
-    const res = await fetch(`${BASE}/api/ride-along-drivers/me`, {
+    const res = await fetch(apiUrl('/ride-along-drivers/me'), {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
 

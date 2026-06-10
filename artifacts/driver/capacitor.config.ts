@@ -10,6 +10,11 @@ const config: CapacitorConfig = {
     limitsNavigationsToAppBoundDomains: false,
   },
   plugins: {
+    CapacitorHttp: {
+      // Route all fetch/XHR through the native URLSession layer so
+      // WKWebView CORS restrictions don't block Supabase API calls.
+      enabled: true,
+    },
     SplashScreen: {
       launchShowDuration: 1500,
       launchAutoHide: true,

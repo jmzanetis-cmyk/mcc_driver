@@ -5,8 +5,9 @@ import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PageHeader, Card, Button, Spinner } from '@/components';
 import { colors, borderRadius } from '@/theme';
+import { apiUrl } from '@/services/api/baseUrl';
 
-const BASE_URL = 'https://www.mycarconcierge.com';
+const MCC_SITE = 'https://www.mycarconcierge.com';
 
 type FounderState =
   | { kind: 'loading' }
@@ -78,7 +79,7 @@ export function DriverFounderScreen() {
         .maybeSingle();
 
       if (profile?.referral_code) {
-        const signupUrl = `${BASE_URL}/signup-provider?ref=${profile.referral_code}`;
+        const signupUrl = `${MCC_SITE}/signup-provider?ref=${profile.referral_code}`;
         setFounderState({ kind: 'active', referralCode: profile.referral_code as string, signupUrl });
         void generateQR(signupUrl).then(setQrDataUrl);
         void loadEarnings();
@@ -119,7 +120,7 @@ export function DriverFounderScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) { setEarningsState({ kind: 'error' }); return; }
-      const res = await fetch(`${BASE_URL}/api/member-founder/me`, {
+      const res = await fetch(apiUrl('/member-founder/me'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { setEarningsState({ kind: 'error' }); return; }
