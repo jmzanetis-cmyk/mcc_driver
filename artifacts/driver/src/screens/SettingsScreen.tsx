@@ -111,8 +111,14 @@ export function SettingsScreen() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
+    try {
+      await signOut();
+    } catch {
+      // signOut swallows network failures internally, but catch defensively
+      // so the navigate below always runs.
+    } finally {
+      navigate('/signin', { replace: true });
+    }
   };
 
   const openDeleteFlow = () => {
@@ -752,14 +758,14 @@ export function SettingsScreen() {
           </Card>
         )}
 
-        {/* Sign out */}
+        {/* Log out */}
         <Button
           onClick={() => setShowSignOutConfirm(true)}
           variant="secondary"
           fullWidth
           style={{ color: colors.error, borderColor: colors.error }}
         >
-          Sign Out
+          Log Out
         </Button>
 
         {/* Delete account (App Store Guideline 5.1.1(v)) */}
@@ -935,7 +941,7 @@ export function SettingsScreen() {
         </div>
       )}
 
-      {/* Sign out confirmation */}
+      {/* Log out confirmation */}
       {showSignOutConfirm && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 999,
@@ -945,7 +951,7 @@ export function SettingsScreen() {
         }}>
           <Card style={{ maxWidth: 320, width: '100%' }} padding={24}>
             <div className="heading-editorial heading-editorial-md" style={{ marginBottom: 8 }}>
-              Sign out?
+              Log out of MCC Driver?
             </div>
             <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 20 }}>
               You'll stop receiving ride requests and will need to sign in again.
@@ -954,8 +960,8 @@ export function SettingsScreen() {
               <Button onClick={() => setShowSignOutConfirm(false)} variant="secondary" style={{ flex: 1 }}>
                 Cancel
               </Button>
-              <Button onClick={handleSignOut} variant="danger" style={{ flex: 1 }}>
-                Sign Out
+              <Button onClick={() => void handleSignOut()} variant="danger" style={{ flex: 1 }}>
+                Log Out
               </Button>
             </div>
           </Card>

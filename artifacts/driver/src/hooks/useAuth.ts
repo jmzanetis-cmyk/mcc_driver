@@ -19,9 +19,13 @@ export function useAuth() {
     // revoke endpoint needs a valid access token to authenticate the call.
     await unregisterPushSubscription().catch(() => {});
     if (driver) {
-      await supabase.from('drivers').update({ is_online: false }).eq('id', driver.id);
+      await supabase.from('drivers').update({ is_online: false }).eq('id', driver.id).catch(() => {});
     }
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Network failure — swallow; local session is cleared below regardless.
+    }
     clear();
   }, [driver, clear]);
 

@@ -17,6 +17,7 @@ vi.mock('@/services/supabase/client', () => ({
         data: { session: { access_token: 'test-token' } },
       })),
       getUser: vi.fn(async () => ({ data: { user: { id: 'user-1' } }, error: null })),
+      signOut: vi.fn(async () => ({ error: null })),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
     },
     from: vi.fn(() => ({
