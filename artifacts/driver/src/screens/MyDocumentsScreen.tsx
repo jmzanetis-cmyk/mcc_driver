@@ -135,17 +135,6 @@ export function MyDocumentsScreen() {
               ))}
             </Card>
 
-            {/* Signed Agreements — coming soon */}
-            <SectionLabel>Signed Agreements</SectionLabel>
-            <Card padding={16} style={{ marginBottom: 20 }}>
-              <ComingSoon label="Driver agreement and addenda will appear here once the document signing flow is live." />
-            </Card>
-
-            {/* Tax Documents — coming soon */}
-            <SectionLabel>Tax Documents</SectionLabel>
-            <Card padding={16}>
-              <ComingSoon label="W-9 on file and year-end 1099-NEC forms will appear here once available." />
-            </Card>
           </>
         )}
       </div>
@@ -248,18 +237,3 @@ function DocRow({
   );
 }
 
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-      <span style={{ fontSize: 20, flexShrink: 0, opacity: 0.4 }}>🔒</span>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: colors.textMuted, marginBottom: 4 }}>
-          Coming Soon
-        </div>
-        <div style={{ fontSize: 13, color: colors.textMuted, lineHeight: 1.5 }}>
-          {label}
-        </div>
-      </div>
-    </div>
-  );
-}
