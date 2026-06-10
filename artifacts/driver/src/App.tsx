@@ -12,11 +12,11 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ActiveRideWatcher } from '@/components/ActiveRideWatcher';
 import { LocationTracker } from '@/components/LocationTracker';
 import { EnvBadge } from '@/components/EnvBadge';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NetworkResyncBridge } from '@/components/NetworkResyncBridge';
 import { AppStatusBridge } from '@/components/AppStatusBridge';
+import { TabLayout } from '@/components/TabLayout';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 const SignInScreen = lazy(() => import('@/screens/SignInScreen').then(m => ({ default: m.SignInScreen })));
 const ApplicationScreen = lazy(() => import('@/screens/ApplicationScreen').then(m => ({ default: m.ApplicationScreen })));
@@ -140,69 +140,75 @@ export default function App() {
           <NetworkResyncBridge />
           <OfflineBanner />
           <EnvBadge />
-          <div
-            style={{
-              position: 'fixed',
-              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
-              right: 16,
-              zIndex: 80,
-            }}
-          >
-            <ThemeToggle />
-          </div>
           <AppStatusBridge>
           <ErrorBoundary>
           <Suspense fallback={<ScreenFallback />}>
           <Routes>
+
+            {/* ── Standalone screens — no tab bar ── */}
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/apply" element={<ApplicationScreen />} />
             <Route path="/pending" element={<PendingScreen />} />
             <Route path="/ride-along-apply" element={<RideAlongApplyScreen />} />
             <Route path="/ride-along-pending" element={<RideAlongPendingScreen />} />
-            <Route path="/ride-along" element={<RideAlongDashboardScreen />} />
             <Route path="/tandem-match/:tandemJobId/approve" element={<MemberApprovalScreen />} />
-            <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
+            {/* Active ride deep screens */}
             <Route path="/ride/:rideId/navigate" element={<ProtectedRoute><NavigateScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/complete" element={<ProtectedRoute><RideCompleteScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/tip" element={<ProtectedRoute><TipScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/relocation" element={<ProtectedRoute><RelocationScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/inspection/:phase" element={<ProtectedRoute><VehicleInspectionScreen /></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><NotificationsScreen /></ProtectedRoute>} />
-            <Route path="/safety" element={<ProtectedRoute><SafetyScreen /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><DriverProfileScreen /></ProtectedRoute>} />
-            <Route path="/documents" element={<ProtectedRoute><DocumentsScreen /></ProtectedRoute>} />
-            <Route path="/performance" element={<ProtectedRoute><PerformanceScreen /></ProtectedRoute>} />
-            <Route path="/promotions" element={<ProtectedRoute><PromotionsScreen /></ProtectedRoute>} />
-            <Route path="/schedule" element={<ProtectedRoute><ScheduleScreen /></ProtectedRoute>} />
-            <Route path="/scheduled-jobs" element={<ProtectedRoute><ScheduledJobsMapScreen /></ProtectedRoute>} />
-            <Route path="/help" element={<ProtectedRoute><HelpScreen /></ProtectedRoute>} />
-            <Route path="/training" element={<ProtectedRoute><TrainingHubScreen /></ProtectedRoute>} />
-            <Route path="/training/module/:slug" element={<ProtectedRoute><TrainingModuleScreen /></ProtectedRoute>} />
-            <Route path="/training/lesson/:lessonId" element={<ProtectedRoute><TrainingLessonScreen /></ProtectedRoute>} />
             <Route path="/ride/:rideId/eval-codriver" element={<ProtectedRoute><CoDriverEvalScreen /></ProtectedRoute>} />
-            <Route path="/earnings" element={<ProtectedRoute><EarningsScreen /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
-            <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />
-            <Route path="/instant-pay" element={<ProtectedRoute><InstantPayScreen /></ProtectedRoute>} />
+            {/* Full-screen flows */}
             <Route path="/settings/payments" element={<ProtectedRoute><SetupPaymentsScreen /></ProtectedRoute>} />
-            <Route path="/mileage" element={<ProtectedRoute><MileageScreen /></ProtectedRoute>} />
-            <Route path="/expenses" element={<ProtectedRoute><ExpensesScreen /></ProtectedRoute>} />
-            <Route path="/tax-estimator" element={<ProtectedRoute><TaxEstimatorScreen /></ProtectedRoute>} />
-            <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardScreen /></ProtectedRoute>} />
-            <Route path="/refer" element={<ProtectedRoute><ReferAndEarnScreen /></ProtectedRoute>} />
-            <Route path="/announcements" element={<ProtectedRoute><AnnouncementsScreen /></ProtectedRoute>} />
-            <Route path="/my-documents" element={<ProtectedRoute><MyDocumentsScreen /></ProtectedRoute>} />
-            <Route path="/founder" element={<ProtectedRoute><DriverFounderScreen /></ProtectedRoute>} />
-            <Route path="/custody" element={<ProtectedRoute><CustodyHandoffScreen /></ProtectedRoute>} />
-            <Route path="/scheduled" element={<Navigate to="/home" replace />} />
-            {/* Public legal routes — required by App Store Connect for the
-                Privacy Policy URL, Terms of Use URL, and Support URL fields.
-                These resolve over HTTPS via the deployed driver app domain
-                and are linked from SignIn, Application, and Settings. */}
+            <Route path="/training/lesson/:lessonId" element={<ProtectedRoute><TrainingLessonScreen /></ProtectedRoute>} />
+            {/* Public legal — required for App Store Connect URLs */}
             <Route path="/legal/privacy" element={<PrivacyScreen />} />
             <Route path="/legal/terms" element={<TermsScreen />} />
             <Route path="/legal/support" element={<LegalSupportScreen />} />
-            <Route path="*" element={<AuthRedirect />} />
+
+            {/* ── Tab-bar layout — all authenticated screens ── */}
+            <Route element={<TabLayout />}>
+              {/* Home tab */}
+              <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
+
+              {/* Rides tab */}
+              <Route path="/schedule" element={<ProtectedRoute><ScheduleScreen /></ProtectedRoute>} />
+              <Route path="/scheduled-jobs" element={<ProtectedRoute><ScheduledJobsMapScreen /></ProtectedRoute>} />
+              <Route path="/ride-along" element={<RideAlongDashboardScreen />} />
+
+              {/* Earnings tab */}
+              <Route path="/earnings" element={<ProtectedRoute><EarningsScreen /></ProtectedRoute>} />
+              <Route path="/instant-pay" element={<ProtectedRoute><InstantPayScreen /></ProtectedRoute>} />
+              <Route path="/mileage" element={<ProtectedRoute><MileageScreen /></ProtectedRoute>} />
+              <Route path="/expenses" element={<ProtectedRoute><ExpensesScreen /></ProtectedRoute>} />
+              <Route path="/tax-estimator" element={<ProtectedRoute><TaxEstimatorScreen /></ProtectedRoute>} />
+
+              {/* Training tab */}
+              <Route path="/training" element={<ProtectedRoute><TrainingHubScreen /></ProtectedRoute>} />
+              <Route path="/training/module/:slug" element={<ProtectedRoute><TrainingModuleScreen /></ProtectedRoute>} />
+              <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardScreen /></ProtectedRoute>} />
+              <Route path="/promotions" element={<ProtectedRoute><PromotionsScreen /></ProtectedRoute>} />
+              <Route path="/performance" element={<ProtectedRoute><PerformanceScreen /></ProtectedRoute>} />
+
+              {/* Account tab */}
+              <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><DriverProfileScreen /></ProtectedRoute>} />
+              <Route path="/documents" element={<ProtectedRoute><DocumentsScreen /></ProtectedRoute>} />
+              <Route path="/my-documents" element={<ProtectedRoute><MyDocumentsScreen /></ProtectedRoute>} />
+              <Route path="/safety" element={<ProtectedRoute><SafetyScreen /></ProtectedRoute>} />
+              <Route path="/help" element={<ProtectedRoute><HelpScreen /></ProtectedRoute>} />
+              <Route path="/support" element={<ProtectedRoute><AIChatScreen /></ProtectedRoute>} />
+              <Route path="/notifications" element={<ProtectedRoute><NotificationsScreen /></ProtectedRoute>} />
+              <Route path="/refer" element={<ProtectedRoute><ReferAndEarnScreen /></ProtectedRoute>} />
+              <Route path="/announcements" element={<ProtectedRoute><AnnouncementsScreen /></ProtectedRoute>} />
+              <Route path="/founder" element={<ProtectedRoute><DriverFounderScreen /></ProtectedRoute>} />
+              <Route path="/custody" element={<ProtectedRoute><CustodyHandoffScreen /></ProtectedRoute>} />
+
+              <Route path="/scheduled" element={<Navigate to="/home" replace />} />
+              <Route path="*" element={<AuthRedirect />} />
+            </Route>
+
           </Routes>
           </Suspense>
           </ErrorBoundary>

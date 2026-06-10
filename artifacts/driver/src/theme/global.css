@@ -7,6 +7,11 @@
    driver-app-specific utility classes referenced by screens.
    ============================================================ */
 
+/* Fill viewport with brand canvas so no white shows under tab bar or status bar */
+html, body, #root {
+  background: var(--bg-deep, #0F1923);
+}
+
 /* Safe area insets for notched phones */
 body {
   padding-top: env(safe-area-inset-top);
@@ -19,6 +24,10 @@ body {
 
 /* Prevent overscroll bounce */
 html { overscroll-behavior: none; }
+
+/* Hide scrollbars everywhere on native — the app scrolls but tracks are invisible */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
 
 /* Disable text selection on interactive elements */
 button, a, .tap-target { -webkit-user-select: none; user-select: none; }
