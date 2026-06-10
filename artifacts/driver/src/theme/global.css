@@ -32,6 +32,15 @@ html { overscroll-behavior: none; }
 /* Disable text selection on interactive elements */
 button, a, .tap-target { -webkit-user-select: none; user-select: none; }
 
+/* Native touch: remove tap highlight and suppress hover-only transforms */
+button, a { -webkit-tap-highlight-color: transparent; }
+@media (hover: none) {
+  .btn-primary:hover:not(:disabled),
+  .btn-gold:hover:not(:disabled),
+  .btn-success:hover:not(:disabled),
+  .header-theme-toggle:hover { transform: none !important; box-shadow: revert !important; }
+}
+
 /* Smooth scrolling */
 .scroll-container {
   overflow-y: auto;

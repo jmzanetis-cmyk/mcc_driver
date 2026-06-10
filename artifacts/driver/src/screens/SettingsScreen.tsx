@@ -4,6 +4,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  AlertCircle, Banknote, BarChart2, Building2, CalendarDays,
+  Car, CheckCircle, FileText, FolderOpen, HelpCircle, Map,
+  Megaphone, Package, Shield, Star, Target, User, Users,
+  XCircle,
+} from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 import { getAvailableNavApps, getNavAppName, type NavApp } from '@/services/navigation/navService';
 import { PageHeader, Card, Button } from '@/components';
@@ -293,7 +300,7 @@ export function SettingsScreen() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bgPrimary }}>
-      <PageHeader title="Settings" onBack={() => navigate('/home')} />
+      <PageHeader title="Settings" />
 
       <div style={{ padding: 20 }}>
         {/* Profile card */}
@@ -413,11 +420,23 @@ export function SettingsScreen() {
           />
           <SettingRow
             label="Driver Type"
-            value={driver.partnerId ? '🏢 Partner Driver' : '🚗 Independent'}
+            value={
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {driver.partnerId
+                  ? <><Building2 size={14} color={colors.textMuted} strokeWidth={1.5} /> Partner Driver</>
+                  : <><Car size={14} color={colors.textMuted} strokeWidth={1.5} /> Independent</>}
+              </span>
+            }
           />
           <SettingRow
             label="Member Vehicle Certified"
-            value={driver.canDriveMemberVehicle ? '✅ Yes' : '❌ Not yet'}
+            value={
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {driver.canDriveMemberVehicle
+                  ? <><CheckCircle size={14} color={colors.success} strokeWidth={1.5} /> Yes</>
+                  : <><XCircle size={14} color={colors.textMuted} strokeWidth={1.5} /> Not yet</>}
+              </span>
+            }
           />
         </Card>
 
@@ -436,7 +455,7 @@ export function SettingsScreen() {
             padding: '12px 0', borderBottom: `1px solid ${colors.borderLight}`,
           }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>🚗 Rideshare</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy, display: 'flex', alignItems: 'center', gap: 6 }}><Car size={15} color={colors.navy} strokeWidth={1.5} aria-hidden="true" /> Rideshare</div>
               <div style={{ fontSize: 12, color: colors.textMuted }}>
                 Pick up and transport passengers in your vehicle — $1.50/mi
               </div>
@@ -466,7 +485,7 @@ export function SettingsScreen() {
             padding: '12px 0',
           }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>📦 Delivery</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy, display: 'flex', alignItems: 'center', gap: 6 }}><Package size={15} color={colors.navy} strokeWidth={1.5} aria-hidden="true" /> Delivery</div>
               <div style={{ fontSize: 12, color: colors.textMuted }}>
                 Pick up and deliver parcels and food orders — $2.00/mi
               </div>
@@ -510,8 +529,8 @@ export function SettingsScreen() {
                   transition: 'all 0.15s',
                 }}
               >
-                <div style={{ fontSize: 24, marginBottom: 4 }}>
-                  {app === 'google_maps' ? '🗺️' : app === 'waze' ? '🔵' : '🍎'}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
+                  <Map size={22} color={preferredNav === app ? colors.navy : colors.textMuted} strokeWidth={1.5} aria-hidden="true" />
                 </div>
                 <div style={{
                   fontSize: 11, fontWeight: 600,
@@ -529,7 +548,13 @@ export function SettingsScreen() {
         <Card style={{ marginBottom: 16 }} padding={14}>
           <SettingRow
             label="Payment Account"
-            value={driver.stripeAccountId ? '✅ Connected' : '⚠️ Not Set Up'}
+            value={
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {driver.stripeAccountId
+                  ? <><CheckCircle size={14} color={colors.success} strokeWidth={1.5} /> Connected</>
+                  : <><AlertCircle size={14} color={colors.warning} strokeWidth={1.5} /> Not Set Up</>}
+              </span>
+            }
           />
           {driver.stripeAccountId ? (
             <button
@@ -563,7 +588,7 @@ export function SettingsScreen() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
               >
-                🏦 Set Up Payouts
+                <Banknote size={15} strokeWidth={1.5} aria-hidden="true" /> Set Up Payouts
               </button>
             </>
           )}
@@ -666,22 +691,34 @@ export function SettingsScreen() {
           )}
         </Card>
 
+        {/* Appearance */}
+        <SectionLabel>Appearance</SectionLabel>
+        <Card style={{ marginBottom: 16 }} padding={14}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>Theme</div>
+              <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>Switch between Day and Night mode</div>
+            </div>
+            <ThemeToggle />
+          </div>
+        </Card>
+
         {/* Driver Tools */}
         <SectionLabel>Driver Tools</SectionLabel>
         <Card style={{ marginBottom: 16 }} padding={0}>
-          {[
-            { label: 'View Profile', icon: '👤', path: '/profile' },
-            { label: 'Safety', icon: '🆘', path: '/safety' },
-            { label: 'Documents', icon: '📄', path: '/documents' },
-            { label: 'My Documents', icon: '🗂️', path: '/my-documents' },
-            { label: 'Performance', icon: '📊', path: '/performance' },
-            { label: 'Promotions', icon: '🎯', path: '/promotions' },
-            { label: 'Refer & Earn', icon: '💸', path: '/refer' },
-            { label: 'Driver Founder', icon: '⭐', path: '/founder' },
-            { label: "What's New", icon: '📢', path: '/announcements' },
-            { label: 'Schedule', icon: '📅', path: '/schedule' },
-            { label: 'Help', icon: '❓', path: '/help' },
-          ].map(({ label, icon, path }, i, arr) => (
+          {([
+            { label: 'View Profile',   Icon: User,         path: '/profile' },
+            { label: 'Safety',         Icon: Shield,       path: '/safety' },
+            { label: 'Documents',      Icon: FileText,     path: '/documents' },
+            { label: 'My Documents',   Icon: FolderOpen,   path: '/my-documents' },
+            { label: 'Performance',    Icon: BarChart2,    path: '/performance' },
+            { label: 'Promotions',     Icon: Target,       path: '/promotions' },
+            { label: 'Refer & Earn',   Icon: Users,        path: '/refer' },
+            { label: 'Driver Founder', Icon: Star,         path: '/founder' },
+            { label: "What's New",     Icon: Megaphone,    path: '/announcements' },
+            { label: 'Schedule',       Icon: CalendarDays, path: '/schedule' },
+            { label: 'Help',           Icon: HelpCircle,   path: '/help' },
+          ] as const).map(({ label, Icon, path }, i, arr) => (
             <button
               key={path}
               onClick={() => navigate(path)}
@@ -690,13 +727,14 @@ export function SettingsScreen() {
                 padding: '14px 14px', background: 'transparent', border: 'none',
                 borderBottom: i < arr.length - 1 ? `1px solid ${colors.border}` : 'none',
                 cursor: 'pointer', fontSize: 14, color: colors.textPrimary, textAlign: 'left',
-                fontFamily: 'inherit',
+                fontFamily: 'inherit', minHeight: 44,
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span>{icon}</span>{label}
+                <Icon size={16} color={colors.textMuted} strokeWidth={1.5} aria-hidden="true" />
+                {label}
               </span>
-              <span style={{ color: colors.textMuted }}>›</span>
+              <span style={{ color: colors.textMuted, fontSize: 16 }}>›</span>
             </button>
           ))}
         </Card>
