@@ -44,10 +44,7 @@ async function sendSms(to: string, body: string): Promise<void> {
 }
 
 function appBaseUrl(): string {
-  const explicit = process.env["APP_BASE_URL"];
-  if (explicit) return explicit.replace(/\/$/, "");
-  const replit = (process.env["REPLIT_DOMAINS"] ?? "").split(",")[0]?.trim();
-  return replit ? `https://${replit}` : "https://app.mycarconcierge.com";
+  return (process.env["APP_BASE_URL"] ?? "https://app.mycarconcierge.com").replace(/\/$/, "");
 }
 
 // ── Auth helper ──────────────────────────────────────────────────────────────

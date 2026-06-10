@@ -12,10 +12,7 @@ if (!resend) {
 }
 
 const SIGN_IN_URL =
-  process.env["DRIVER_SIGN_IN_URL"] ??
-  (process.env["REPLIT_DOMAINS"]?.split(",")[0]
-    ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0]}/driver`
-    : "https://mycarconcierge.com/driver");
+  process.env["DRIVER_SIGN_IN_URL"] ?? "https://mycarconcierge.com/driver";
 
 function escapeHtml(s: string): string {
   return s

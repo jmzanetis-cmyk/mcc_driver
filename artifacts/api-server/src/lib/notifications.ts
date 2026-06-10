@@ -51,11 +51,7 @@ async function getTwilioClient(): Promise<TwilioClient | null> {
 
 // ── Deep link helpers ───────────────────────────────────────────────────────
 function appBaseUrl(): string {
-  const explicit = process.env["APP_BASE_URL"];
-  if (explicit) return explicit.replace(/\/$/, "");
-  const replitDomain = (process.env["REPLIT_DOMAINS"] ?? "").split(",")[0]?.trim();
-  if (replitDomain) return `https://${replitDomain}`;
-  return "https://app.mycarconcierge.com";
+  return (process.env["APP_BASE_URL"] ?? "https://app.mycarconcierge.com").replace(/\/$/, "");
 }
 
 // Driver app is served behind the `/driver/` path prefix (see

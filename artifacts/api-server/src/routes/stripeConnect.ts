@@ -115,11 +115,8 @@ router.post("/stripe/connect/onboard", async (req: Request, res: Response) => {
   }
 
   // Derive the base URL to build return / refresh URLs for the account link.
-  // Prefer the explicit DRIVER_APP_URL env var; fall back to the first domain
-  // published on this Repl; otherwise use whatever the client sent as Host.
-  const domains = process.env.REPLIT_DOMAINS?.split(",").map((d) => d.trim()).filter(Boolean) ?? [];
-  const baseHost = process.env.DRIVER_APP_URL
-    ?? (domains.length > 0 ? `https://${domains[0]}` : `https://${req.headers.host ?? "localhost"}`);
+  // Prefer the explicit DRIVER_APP_URL env var; fall back to the Host header.
+  const baseHost = process.env.DRIVER_APP_URL ?? `https://${req.headers.host ?? "localhost"}`;
 
   const returnUrl = `${baseHost}/driver/settings/payments?stripe_return=1`;
   const refreshUrl = `${baseHost}/driver/settings/payments?stripe_refresh=1`;
@@ -278,9 +275,7 @@ router.post("/stripe/connect/refresh", async (req: Request, res: Response) => {
     return;
   }
 
-  const domains = process.env.REPLIT_DOMAINS?.split(",").map((d) => d.trim()).filter(Boolean) ?? [];
-  const baseHost = process.env.DRIVER_APP_URL
-    ?? (domains.length > 0 ? `https://${domains[0]}` : `https://${req.headers.host ?? "localhost"}`);
+  const baseHost = process.env.DRIVER_APP_URL ?? `https://${req.headers.host ?? "localhost"}`;
 
   const returnUrl = `${baseHost}/driver/settings/payments?stripe_return=1`;
   const refreshUrl = `${baseHost}/driver/settings/payments?stripe_refresh=1`;
