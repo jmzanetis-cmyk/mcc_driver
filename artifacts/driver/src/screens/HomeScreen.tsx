@@ -4,6 +4,12 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  AlertTriangle, Ban, Bot, CalendarDays, CalendarRange,
+  Car, ChevronRight, Clock, GraduationCap, Handshake,
+  Key, MapPin, Megaphone, Settings, ShieldAlert, Target,
+  Trophy, Wallet,
+} from 'lucide-react';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDriverStatus } from '@/hooks/useDriverStatus';
@@ -391,7 +397,7 @@ export function HomeScreen() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>🔑</span>
+              <Key size={18} color="#3b82f6" strokeWidth={1.5} aria-hidden="true" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>
                   {pendingCustodyCount} custody handoff{pendingCustodyCount > 1 ? 's' : ''} awaiting you
@@ -400,7 +406,7 @@ export function HomeScreen() {
                   Tap to review and accept
                 </div>
               </div>
-              <span style={{ color: colors.textMuted, fontSize: 16 }}>›</span>
+              <ChevronRight size={16} color={colors.textMuted} aria-hidden="true" />
             </div>
           </Card>
         )}
@@ -422,7 +428,7 @@ export function HomeScreen() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>📍</span>
+              <MapPin size={18} color={colors.error} strokeWidth={1.5} aria-hidden="true" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: colors.error }}>
                   Location access required to go online
@@ -431,7 +437,7 @@ export function HomeScreen() {
                   Tap to open Settings and enable location
                 </div>
               </div>
-              <span style={{ color: colors.error, fontSize: 16 }}>›</span>
+              <ChevronRight size={16} color={colors.error} aria-hidden="true" />
             </div>
           </Card>
         )}
@@ -448,7 +454,9 @@ export function HomeScreen() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>{compliance.isBlocked ? '🚫' : '⚠️'}</span>
+              {compliance.isBlocked
+                ? <Ban size={18} color={colors.error} strokeWidth={1.5} aria-hidden="true" />
+                : <AlertTriangle size={18} color={colors.warning} strokeWidth={1.5} aria-hidden="true" />}
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: compliance.isBlocked ? colors.error : colors.warning }}>
                   {compliance.isBlocked ? 'Document Expired — Cannot Go Online' : 'Document Expiring Soon'}
@@ -457,7 +465,7 @@ export function HomeScreen() {
                   Tap to review your documents
                 </div>
               </div>
-              <span style={{ color: colors.textMuted }}>›</span>
+              <ChevronRight size={16} color={colors.textMuted} aria-hidden="true" />
             </div>
           </Card>
         )}
@@ -474,9 +482,9 @@ export function HomeScreen() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>
-                {driver.bgcStatus === 'pending' ? '🕐' : '🛡️'}
-              </span>
+              {driver.bgcStatus === 'pending'
+                ? <Clock size={18} color={colors.warning} strokeWidth={1.5} aria-hidden="true" />
+                : <ShieldAlert size={18} color={colors.error} strokeWidth={1.5} aria-hidden="true" />}
               <div style={{ flex: 1 }}>
                 <div style={{
                   fontSize: 13, fontWeight: 700,
@@ -513,12 +521,12 @@ export function HomeScreen() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>🎓</span>
+              <GraduationCap size={18} color={colors.gold} strokeWidth={1.5} aria-hidden="true" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>{trainingBanner.title}</div>
                 <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{trainingBanner.subtitle}</div>
               </div>
-              <span style={{ color: colors.gold }}>›</span>
+              <ChevronRight size={16} color={colors.gold} aria-hidden="true" />
             </div>
           </Card>
         )}
@@ -535,7 +543,7 @@ export function HomeScreen() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>📢</span>
+              <Megaphone size={18} color={colors.navy} strokeWidth={1.5} aria-hidden="true" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>
                   {announcementsUnread === 1 ? '1 new announcement' : `${announcementsUnread} new announcements`}
@@ -568,7 +576,7 @@ export function HomeScreen() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>🤝</span>
+              <Handshake size={18} color={colors.info} strokeWidth={1.5} aria-hidden="true" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>Rate your co-driver</div>
                 <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
@@ -649,17 +657,17 @@ export function HomeScreen() {
         {/* Quick actions */}
         <div style={{ display: 'flex', gap: 10 }}>
           <Card onClick={() => navigate('/earnings')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
-            <div style={{ fontSize: 20, marginBottom: 6 }}>💰</div>
+            <div style={{ marginBottom: 6 }}><Wallet size={20} color={colors.gold} strokeWidth={1.5} aria-hidden="true" /></div>
             <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Earnings</div>
             <div style={{ fontSize: 11, color: colors.textMuted }}>View details</div>
           </Card>
           <Card onClick={() => navigate('/training')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
-            <div style={{ fontSize: 20, marginBottom: 6 }}>🎓</div>
+            <div style={{ marginBottom: 6 }}><GraduationCap size={20} color={colors.gold} strokeWidth={1.5} aria-hidden="true" /></div>
             <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Training</div>
             <div style={{ fontSize: 11, color: colors.textMuted }}>Certifications</div>
           </Card>
           <Card onClick={() => navigate('/settings')} style={{ flex: 1, cursor: 'pointer' }} padding={14}>
-            <div style={{ fontSize: 20, marginBottom: 6 }}>⚙️</div>
+            <div style={{ marginBottom: 6 }}><Settings size={20} color={colors.gold} strokeWidth={1.5} aria-hidden="true" /></div>
             <div style={{ fontSize: 13, fontWeight: 600, color: colors.navy }}>Settings</div>
             <div style={{ fontSize: 11, color: colors.textMuted }}>Profile & prefs</div>
           </Card>
@@ -674,12 +682,12 @@ export function HomeScreen() {
             padding={14}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: 24 }}>🚖</div>
+              <Car size={22} color={colors.gold} strokeWidth={1.5} aria-hidden="true" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>Ride-Along Jobs</div>
                 <div style={{ fontSize: 12, color: colors.textMuted }}>Tandem dashboard — live broadcasts & matches</div>
               </div>
-              <div style={{ fontSize: 18, color: colors.gold }}>→</div>
+              <ChevronRight size={18} color={colors.gold} aria-hidden="true" />
             </div>
           </Card>
         )}
@@ -691,7 +699,7 @@ export function HomeScreen() {
           padding={14}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 24 }}>🗓️</div>
+            <CalendarRange size={22} color={colors.gold} strokeWidth={1.5} aria-hidden="true" />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>Browse Scheduled Jobs</div>
               <div style={{ fontSize: 12, color: colors.textMuted }}>
@@ -723,7 +731,7 @@ export function HomeScreen() {
             padding={14}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>📅</span>
+              <CalendarDays size={18} color={colors.info} strokeWidth={1.5} aria-hidden="true" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>
                   Upcoming: {formatDate(upcomingRide.scheduledAt)} at {formatTime(upcomingRide.scheduledAt)}
@@ -745,7 +753,7 @@ export function HomeScreen() {
             padding={14}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 18 }}>🎯</span>
+              <Target size={16} color={colors.gold} strokeWidth={1.5} aria-hidden="true" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: colors.navy }}>{activePromo.title}</div>
                 <div style={{ fontSize: 11, color: colors.textMuted }}>
@@ -769,12 +777,12 @@ export function HomeScreen() {
         {/* AI Support button */}
         <Card onClick={() => navigate('/support')} style={{ marginTop: 12, cursor: 'pointer', border: `1px solid ${colors.gold}` }} padding={14}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 24 }}>🤖</div>
+            <Bot size={22} color={colors.gold} strokeWidth={1.5} aria-hidden="true" />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: colors.navy }}>AI Support</div>
               <div style={{ fontSize: 12, color: colors.textMuted }}>Earnings, vehicles, payouts, help & more</div>
             </div>
-            <div style={{ fontSize: 18, color: colors.gold }}>→</div>
+            <ChevronRight size={18} color={colors.gold} aria-hidden="true" />
           </div>
         </Card>
 
@@ -785,7 +793,7 @@ export function HomeScreen() {
             borderRadius: borderRadius.md, textAlign: 'center',
           }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: colors.success }}>
-              🟢 You're online and accepting rides
+              You're online and accepting rides
             </div>
             <div style={{ fontSize: 12, color: colors.success, marginTop: 4 }}>
               Your next ride will appear here as soon as one is dispatched.
@@ -827,7 +835,9 @@ export function HomeScreen() {
           padding: 24,
         }}>
           <Card style={{ maxWidth: 340, width: '100%' }} padding={28}>
-            <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚫</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+              <Ban size={36} color={colors.error} strokeWidth={1.5} aria-hidden="true" />
+            </div>
             <div className="heading-editorial heading-editorial-md" style={{ textAlign: 'center', marginBottom: 8 }}>
               Ride Cancelled
             </div>

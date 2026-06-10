@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BookOpen, Car, GraduationCap, Home, Lock, ShieldAlert, TrendingUp, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/services/supabase/client';
 import { PageHeader, Card, Spinner } from '@/components';
@@ -25,13 +26,14 @@ interface TrainingModule {
   certifiedAt: string | null;
 }
 
-const MODULE_ICONS: Record<string, string> = {
-  'platform-basics':      '🏠',
-  'passenger-rides':      '🧑',
-  'solo-vehicle-shuttle': '🚗',
-  'tandem-concierge':     '🤝',
-  'safety-emergency':     '🆘',
-  'earnings-business':    '💰',
+type LucideIcon = React.ComponentType<{ size: number; color: string; strokeWidth: number }>;
+const MODULE_ICONS: Record<string, LucideIcon> = {
+  'platform-basics':      Home,
+  'passenger-rides':      Users,
+  'solo-vehicle-shuttle': Car,
+  'tandem-concierge':     GraduationCap,
+  'safety-emergency':     ShieldAlert,
+  'earnings-business':    TrendingUp,
 };
 
 // prerequisite chain: which slug must be certified before this tier is unlocked
@@ -114,9 +116,11 @@ export function TrainingHubScreen() {
                         <div style={{
                           width: 48, height: 48, borderRadius: borderRadius.md, flexShrink: 0,
                           background: unlocked ? colors.surfaceDark : colors.bgSecondary,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                          {unlocked ? (MODULE_ICONS[m.slug] ?? '📚') : '🔒'}
+                          {unlocked
+                            ? (() => { const Icon = MODULE_ICONS[m.slug] ?? BookOpen; return <Icon size={22} color={colors.gold} strokeWidth={1.5} />; })()
+                            : <Lock size={20} color={colors.textMuted} strokeWidth={1.5} />}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -156,7 +160,7 @@ export function TrainingHubScreen() {
                           )}
 
                           <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 8 }}>
-                            ⏱ ~{m.estimated_minutes} min
+                            ~{m.estimated_minutes} min
                             {m.tier_required > 0 && (
                               <span style={{ marginLeft: 8, color: colors.warning }}>
                                 · Tier {m.tier_required} required

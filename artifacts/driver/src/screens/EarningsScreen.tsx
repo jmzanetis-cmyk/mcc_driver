@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle, Car, BarChart2, Receipt, Trophy } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useEarnings, type RideEarning, type PayoutRecord } from '@/hooks/useEarnings';
 import { PageHeader, Card, StatCard, Spinner } from '@/components';
@@ -148,12 +149,12 @@ export function EarningsScreen() {
           Financial Tools
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          {[
-            { path: '/mileage', icon: '🚗', label: 'Mileage', sublabel: 'IRS deduction' },
-            { path: '/expenses', icon: '🧾', label: 'Expenses', sublabel: 'Business costs' },
-            { path: '/tax-estimator', icon: '📊', label: 'Tax Est.', sublabel: 'Quarterly' },
-            { path: '/leaderboard', icon: '🏆', label: 'Rankings', sublabel: 'Top drivers' },
-          ].map(({ path, icon, label, sublabel }) => (
+          {([
+            { path: '/mileage',       Icon: Car,       label: 'Mileage',   sublabel: 'IRS deduction' },
+            { path: '/expenses',      Icon: Receipt,   label: 'Expenses',  sublabel: 'Business costs' },
+            { path: '/tax-estimator', Icon: BarChart2, label: 'Tax Est.',  sublabel: 'Quarterly' },
+            { path: '/leaderboard',   Icon: Trophy,    label: 'Rankings',  sublabel: 'Top drivers' },
+          ] as const).map(({ path, Icon, label, sublabel }) => (
             <button
               key={path}
               onClick={() => navigate(path)}
@@ -163,7 +164,9 @@ export function EarningsScreen() {
                 cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
+                <Icon size={20} color={colors.gold} strokeWidth={1.5} aria-hidden="true" />
+              </div>
               <div style={{ fontSize: 11, fontWeight: 700, color: colors.navy }}>{label}</div>
               <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>{sublabel}</div>
             </button>
@@ -192,7 +195,9 @@ export function EarningsScreen() {
         ) : isError ? (
           <Card padding={24}>
             <div style={{ textAlign: 'center', color: colors.textMuted }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                <AlertCircle size={32} color={colors.warning} strokeWidth={1.5} aria-hidden="true" />
+              </div>
               <div style={{ fontSize: 14, marginBottom: 12 }}>Couldn't load your earnings. Check your connection and try again.</div>
               <button
                 onClick={() => { void refreshEarnings(); }}
@@ -205,7 +210,9 @@ export function EarningsScreen() {
         ) : filteredRides.length === 0 ? (
           <Card padding={24}>
             <div style={{ textAlign: 'center', color: colors.textMuted }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🚗</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                <Car size={32} color={colors.textMuted} strokeWidth={1.5} aria-hidden="true" />
+              </div>
               <div style={{ fontSize: 14 }}>No rides for this period</div>
             </div>
           </Card>

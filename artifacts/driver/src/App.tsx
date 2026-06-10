@@ -17,6 +17,7 @@ import { NetworkResyncBridge } from '@/components/NetworkResyncBridge';
 import { AppStatusBridge } from '@/components/AppStatusBridge';
 import { TabLayout } from '@/components/TabLayout';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Ban } from 'lucide-react';
 
 const SignInScreen = lazy(() => import('@/screens/SignInScreen').then(m => ({ default: m.SignInScreen })));
 const ApplicationScreen = lazy(() => import('@/screens/ApplicationScreen').then(m => ({ default: m.ApplicationScreen })));
@@ -103,7 +104,9 @@ function AuthRedirect() {
         alignItems: 'center', justifyContent: 'center',
         padding: 32, background: colors.bgPrimary,
       }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <Ban size={48} color={colors.error} strokeWidth={1.5} aria-hidden="true" />
+        </div>
         <div style={{ fontSize: 20, fontWeight: 600, color: colors.navy, marginBottom: 8 }}>
           Account {driver.status === 'suspended' ? 'Suspended' : 'Deactivated'}
         </div>

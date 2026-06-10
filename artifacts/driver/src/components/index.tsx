@@ -8,6 +8,7 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { colors, borderRadius, shadows } from '@/theme';
 
 export { MapView } from './MapView';
@@ -310,7 +311,7 @@ export function StatCard({ label, value, sublabel, color = colors.textPrimary }:
 // ============================================================
 
 interface InfoRowProps {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value: string;
   valueColor?: string;
@@ -319,9 +320,7 @@ interface InfoRowProps {
 export function InfoRow({ icon, label, value, valueColor }: InfoRowProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
-      {/* Decorative emoji — VoiceOver should skip and announce
-          the label + value as a single phrase. */}
-      <span aria-hidden="true" style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{icon}</span>
+      <span aria-hidden="true" style={{ width: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{icon}</span>
       <span style={{ fontSize: 13, color: colors.textMuted, flex: 1 }}>{label}</span>
       <span style={{ fontSize: 14, fontWeight: 600, color: valueColor || colors.textPrimary }}>{value}</span>
     </div>
@@ -372,14 +371,14 @@ export function PageHeader({ title, subtitle, onBack, rightAction }: PageHeaderP
           aria-label="Go back"
           style={{
             background: 'none', border: 'none', color: colors.textWhite,
-            fontSize: 22, cursor: 'pointer',
+            cursor: 'pointer',
             // 44×44 touch target (Apple HIG / WCAG 2.5.5).
             minWidth: 44, minHeight: 44,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             padding: 4, borderRadius: 8,
           }}
         >
-          <span aria-hidden="true">←</span>
+          <ChevronLeft size={24} strokeWidth={2} aria-hidden="true" />
         </button>
       ) : (
         <img
