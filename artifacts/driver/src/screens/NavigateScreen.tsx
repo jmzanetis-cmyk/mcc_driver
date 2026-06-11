@@ -15,8 +15,10 @@ import { useDispatchStore } from '@/store/dispatchStore';
 import { openNavigation, getNavAppName, getDefaultNavApp, type NavApp } from '@/services/navigation/navService';
 import { fetchRoute, type RouteResult } from '@/services/navigation/routeService';
 import { Button, Card, InfoRow, PageHeader, Spinner, MapView } from '@/components';
+import { SpeedChip } from '@/components/SpeedChip';
 import { useDriverStatusStore } from '@/store/driverStatusStore';
 import { colors, borderRadius, withAlpha } from '@/theme';
+import { useTrackingPublisher } from '@/hooks/useTrackingPublisher';
 import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
   getRoleDescription, shortenAddress, formatElapsed,
@@ -53,6 +55,11 @@ export function NavigateScreen() {
   const [showChat, setShowChat] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [queuedCompletion, setQueuedCompletion] = useState(false);
+
+  const { isPublishing, currentSpeedMph } = useTrackingPublisher();
+  const [speedBannerDismissed, setSpeedBannerDismissed] = useState(() => {
+    try { return !!localStorage.getItem('mcc_speed_onboard_dismissed'); } catch { return false; }
+  });
 
   // Wait timer — starts when stage transitions to 'arrived'
   const [arrivedAtTs, setArrivedAtTs] = useState<number | null>(null);
@@ -624,6 +631,13 @@ export function NavigateScreen() {
         >
           💬
         </button>
+
+        {/* Live speed overlay — shown when publisher is active */}
+        {isPublishing && currentSpeedMph !== null && (
+          <div style={{ position: 'absolute', bottom: 12, right: 12 }}>
+            <SpeedChip mph={currentSpeedMph} />
+          </div>
+        )}
       </div>
 
       {/* Content panel */}
@@ -633,6 +647,34 @@ export function NavigateScreen() {
         marginTop: -16, background: colors.bgPrimary,
         position: 'relative',
       }}>
+        {/* Speed onboarding banner — shown once when tracking first starts */}
+        {isPublishing && !speedBannerDismissed && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'rgba(201,152,46,0.10)', border: '1px solid rgba(201,152,46,0.30)',
+            borderRadius: borderRadius.md, padding: '10px 14px', marginBottom: 12,
+          }}>
+            <SpeedChip mph={currentSpeedMph} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, fontSize: 12, color: 'var(--accent-gold)', lineHeight: 1.4 }}>
+              Your speed is visible to the member — MCC drivers share this as a trust signal.
+            </div>
+            <button
+              onClick={() => {
+                try { localStorage.setItem('mcc_speed_onboard_dismissed', '1'); } catch { /* ignore */ }
+                setSpeedBannerDismissed(true);
+              }}
+              aria-label="Dismiss speed notice"
+              style={{
+                background: 'none', border: 'none', color: 'var(--accent-gold)',
+                fontSize: 18, cursor: 'pointer', padding: '0 4px', flexShrink: 0,
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* ETA / distance strip */}
         {route && (
           <div style={{
