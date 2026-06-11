@@ -30,7 +30,6 @@ export type EventKind       = 'leg' | 'road_test' | 'tow';
 
 export interface PublisherParams {
   jobId:      string;
-  legId:      string;
   handoffId:  string;
   leg:        HandoffLeg;
   driverRole?: DriverRole;  // defaults to 'primary'
@@ -242,7 +241,6 @@ class TrackingPublisher {
     if (this._p) {
       const params: PublisherParams = {
         jobId:      this._p.jobId,
-        legId:      this._p.legId,
         handoffId:  this._p.handoffId,
         leg:        this._p.leg,
         driverRole: this._p.driverRole,

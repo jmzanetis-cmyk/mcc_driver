@@ -14,6 +14,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useTrackingPublisher } from '@/hooks/useTrackingPublisher';
 import { Button, Card, PageHeader, Spinner } from '@/components';
 import { colors, borderRadius } from '@/theme';
 import {
@@ -218,6 +219,13 @@ export function CustodyHandoffScreen() {
   const [mode, setMode] = useState<Mode>({ tag: 'loading' });
   const unsubRef = useRef<(() => void) | null>(null);
 
+  const { isPublishing, start, stop, notifyAttested, secureHold, resumeFromHold } = useTrackingPublisher();
+  const [holdConfirmPending, setHoldConfirmPending] = useState(false);
+  const [holdHandoffId, setHoldHandoffId] = useState<string | null>(null);
+  const [holdError, setHoldError] = useState<string | null>(null);
+  // Tracks the active handoff context needed to pass to hold/resume helpers.
+  const activeHandoffRef = useRef<{ jobId: string; handoffId: string; leg: HandoffLeg } | null>(null);
+
   const driverUid = driver?.userId ?? null;
 
   // ── load pending handoffs ────────────────────────────────────────────────
@@ -300,10 +308,14 @@ export function CustodyHandoffScreen() {
 
   // ── accept handoff ───────────────────────────────────────────────────────
 
-  const submitAccept = async (handoffId: string, notes?: string) => {
+  const submitAccept = async (handoffId: string, jobId: string, leg: HandoffLeg, notes?: string) => {
     setMode({ tag: 'submitting', label: 'Submitting acceptance…' });
     try {
       await acceptHandoff(supabase, handoffId, notes);
+      // Start publisher; silently aborts for member_to_provider / provider_to_member.
+      activeHandoffRef.current = { jobId, handoffId, leg };
+      await start({ jobId, handoffId, leg });
+      notifyAttested();
       setMode({ tag: 'done', msg: 'Handoff accepted. Condition recorded as baseline.', icon: '✅' });
     } catch (e) {
       setMode({ tag: 'error', msg: e instanceof Error ? e.message : 'Accept failed' });
@@ -330,9 +342,40 @@ export function CustodyHandoffScreen() {
     setMode({ tag: 'submitting', label: 'Releasing vehicle…' });
     try {
       await releaseHandoff(handoffId, null, null, null);
+      void stop();
+      activeHandoffRef.current = null;
+      setHoldHandoffId(null);
       setMode({ tag: 'done', msg: 'Vehicle released. The receiving party has been notified.', icon: '🔑' });
     } catch (e) {
       setMode({ tag: 'error', msg: e instanceof Error ? e.message : 'Release failed' });
+    }
+  };
+
+  // ── secure hold / resume ─────────────────────────────────────────────────
+
+  const handleHoldConfirm = async () => {
+    setHoldConfirmPending(false);
+    const ref = activeHandoffRef.current;
+    if (!ref) return;
+    setHoldError(null);
+    try {
+      await secureHold(ref.handoffId, null);
+      setHoldHandoffId(ref.handoffId);
+    } catch (e) {
+      // Surface failure: a failed hold_start means no audit record.
+      setHoldError(e instanceof Error ? e.message : 'Failed to pause tracking — custody hold record not written');
+    }
+  };
+
+  const handleResume = async () => {
+    const hid = holdHandoffId;
+    if (!hid) return;
+    setHoldError(null);
+    try {
+      await resumeFromHold(hid);
+      setHoldHandoffId(null);
+    } catch (e) {
+      setHoldError(e instanceof Error ? e.message : 'Failed to resume tracking');
     }
   };
 
@@ -407,6 +450,65 @@ export function CustodyHandoffScreen() {
       <div style={{ minHeight: '100vh', background: colors.bgPrimary, display: 'flex', flexDirection: 'column' }}>
         <PageHeader title="Custody Handoffs" onBack={() => navigate(-1)} />
         <div style={{ flex: 1, padding: '16px 16px 32px' }}>
+
+          {/* Live tracking / Secure Hold / Resume banner */}
+          {(isPublishing || holdHandoffId !== null) && (
+            <div style={{ marginBottom: 20 }}>
+              {holdError && (
+                <div style={{
+                  padding: '10px 14px', borderRadius: 8, marginBottom: 10,
+                  background: 'rgba(239,68,68,0.1)', color: colors.error, fontSize: 13, lineHeight: 1.5,
+                }}>
+                  {holdError}
+                </div>
+              )}
+              {holdConfirmPending ? (
+                <Card padding={16} style={{ border: `1px solid ${colors.warning}` }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: colors.navy, marginBottom: 6 }}>
+                    Pause live tracking?
+                  </div>
+                  <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16, lineHeight: 1.5 }}>
+                    Location updates will stop and a custody hold record will be written.
+                    Resume when you return to the vehicle.
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <Button onClick={() => void handleHoldConfirm()} variant="danger" fullWidth size="md">
+                      Yes, pause tracking
+                    </Button>
+                    <Button onClick={() => setHoldConfirmPending(false)} variant="secondary" fullWidth size="md">
+                      Cancel
+                    </Button>
+                  </div>
+                </Card>
+              ) : holdHandoffId !== null ? (
+                <Card padding={16} style={{ border: `1px solid ${colors.gold}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                    <span style={{ fontSize: 20 }}>⏸</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: colors.navy }}>Tracking paused</div>
+                      <div style={{ fontSize: 12, color: colors.textMuted }}>Custody hold record written</div>
+                    </div>
+                  </div>
+                  <Button onClick={() => void handleResume()} variant="primary" fullWidth size="md">
+                    Resume Tracking
+                  </Button>
+                </Card>
+              ) : (
+                <Card padding={16} style={{ border: `1px solid ${colors.gold}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                    <span style={{ fontSize: 20 }}>📍</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: colors.navy }}>Live tracking active</div>
+                      <div style={{ fontSize: 12, color: colors.textMuted }}>Member can see your location</div>
+                    </div>
+                  </div>
+                  <Button onClick={() => setHoldConfirmPending(true)} variant="secondary" fullWidth size="md">
+                    Secure Hold
+                  </Button>
+                </Card>
+              )}
+            </div>
+          )}
 
           {/* Pending actions */}
           {items.length > 0 && (
@@ -590,7 +692,7 @@ export function CustodyHandoffScreen() {
           ) : (
             <>
               <Button
-                onClick={() => void submitAccept(mode.handoffId)}
+                onClick={() => void submitAccept(mode.handoffId, mode.jobId, mode.leg)}
                 variant="success"
                 fullWidth
                 size="lg"
