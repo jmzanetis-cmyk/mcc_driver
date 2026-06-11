@@ -32,6 +32,15 @@ export function useTrackingPublisher() {
     });
   }, []);
 
+  const [currentJobId, setCurrentJobId] = useState<string | null>(
+    trackingPublisher.currentJobId,
+  );
+  useEffect(() => {
+    return trackingPublisher.subscribe(() => {
+      setCurrentJobId(trackingPublisher.currentJobId);
+    });
+  }, []);
+
   const start = useCallback(
     (params: PublisherParams) => trackingPublisher.start(params),
     [],
@@ -58,5 +67,10 @@ export function useTrackingPublisher() {
     [],
   );
 
-  return { isPublishing, currentSpeedMph, start, stop, notifyAttested, secureHold, resumeFromHold };
+  const reportTandemSeparation = useCallback(
+    () => trackingPublisher.reportTandemSeparation(),
+    [],
+  );
+
+  return { isPublishing, currentSpeedMph, currentJobId, start, stop, notifyAttested, secureHold, resumeFromHold, reportTandemSeparation };
 }

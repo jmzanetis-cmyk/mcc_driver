@@ -7,7 +7,7 @@
 // overlay is shown and the driver is returned to home.
 // ============================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveRide, type ActiveRideStage } from '@/hooks/useActiveRide';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +19,7 @@ import { SpeedChip } from '@/components/SpeedChip';
 import { useDriverStatusStore } from '@/store/driverStatusStore';
 import { colors, borderRadius, withAlpha } from '@/theme';
 import { useTrackingPublisher } from '@/hooks/useTrackingPublisher';
+import { useLiveTracking } from '@/hooks/useLiveTracking';
 import {
   formatCurrency, formatDistance, getScenarioLabel, getTierLabel,
   getRoleDescription, shortenAddress, formatElapsed,
@@ -56,10 +57,44 @@ export function NavigateScreen() {
   const [countdown, setCountdown] = useState(5);
   const [queuedCompletion, setQueuedCompletion] = useState(false);
 
-  const { isPublishing, currentSpeedMph } = useTrackingPublisher();
+  const { isPublishing, currentSpeedMph, currentJobId, reportTandemSeparation } = useTrackingPublisher();
   const [speedBannerDismissed, setSpeedBannerDismissed] = useState(() => {
     try { return !!localStorage.getItem('mcc_speed_onboard_dismissed'); } catch { return false; }
   });
+
+  // Tandem partner dot — subscribe to the custody job channel when publishing.
+  const { pings: tandemPings } = useLiveTracking(isPublishing ? currentJobId : null);
+  const partnerPos = useMemo(() => {
+    for (const [key, ping] of tandemPings) {
+      if (key.includes(':chase:')) return { lat: ping.lat, lng: ping.lng };
+    }
+    return null;
+  }, [tandemPings]);
+
+  // Separation alert: >2 km between lead and chase for >2 min.
+  const [sepAlertShown, setSepAlertShown] = useState(false);
+  const sepSinceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!partnerPos) { sepSinceRef.current = null; setSepAlertShown(false); return; }
+    const iv = setInterval(() => {
+      const { currentLat, currentLng } = useDriverStatusStore.getState();
+      if (currentLat == null || currentLng == null || !partnerPos) return;
+      const dx = partnerPos.lat - currentLat;
+      const dy = partnerPos.lng - currentLng;
+      const approxM = Math.sqrt(dx * dx + dy * dy) * 111_000;
+      if (approxM > 2000) {
+        if (!sepSinceRef.current) sepSinceRef.current = Date.now();
+        if (!sepAlertShown && Date.now() - (sepSinceRef.current ?? Date.now()) >= 2 * 60_000) {
+          setSepAlertShown(true);
+          void reportTandemSeparation();
+        }
+      } else {
+        sepSinceRef.current = null;
+        if (sepAlertShown) setSepAlertShown(false);
+      }
+    }, 10_000);
+    return () => clearInterval(iv);
+  }, [partnerPos, sepAlertShown, reportTandemSeparation]);
 
   // Wait timer — starts when stage transitions to 'arrived'
   const [arrivedAtTs, setArrivedAtTs] = useState<number | null>(null);
@@ -583,6 +618,7 @@ export function NavigateScreen() {
         <MapView
           center={driverPosition ?? { lat: destination.lat, lng: destination.lng }}
           driverPosition={driverPosition}
+          partnerPosition={partnerPos}
           destinations={remainingWaypoints ?? [{ lat: destination.lat, lng: destination.lng, label: destination.label }]}
           routePolyline={route?.polyline}
           zoom={15}
@@ -647,6 +683,19 @@ export function NavigateScreen() {
         marginTop: -16, background: colors.bgPrimary,
         position: 'relative',
       }}>
+        {/* Tandem separation alert — shown when chase is >2 km away for >2 min */}
+        {sepAlertShown && (
+          <div role="alert" style={{
+            padding: '10px 14px', borderRadius: borderRadius.md, marginBottom: 12,
+            background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)',
+            fontSize: 13, color: 'rgba(245,158,11,0.9)',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ fontSize: 18 }}>⚠️</span>
+            Chase vehicle is more than 2 km away — verify your partner is following.
+          </div>
+        )}
+
         {/* Speed onboarding banner — shown once when tracking first starts */}
         {isPublishing && !speedBannerDismissed && (
           <div style={{

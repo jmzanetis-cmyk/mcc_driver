@@ -111,11 +111,20 @@ class TrackingPublisher {
 
   get isPublishing(): boolean { return this._isPublishing; }
 
+  /** The concierge job ID currently being tracked; null when not publishing. */
+  get currentJobId(): string | null { return this._p?.jobId ?? null; }
+
   /** Speed in mph after noise-floor / accuracy filter; null when hidden. */
   get currentSpeedMph(): number | null {
     const mps = this._smoothed();
     if (mps === null) return null;
     return mps * 2.23694;
+  }
+
+  /** Write a tandem_separation ops flag for the current job (called by NavigateScreen). */
+  async reportTandemSeparation(): Promise<void> {
+    if (!this._p) return;
+    await this._postOpsFlag('tandem_separation', this._p.jobId, this._p.handoffId);
   }
 
   subscribe(fn: Listener): () => void {
