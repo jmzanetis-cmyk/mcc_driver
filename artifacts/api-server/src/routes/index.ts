@@ -41,6 +41,7 @@ import announcementsRouter from "./announcements";
 import driverDocumentsRouter from "./driverDocuments";
 import driverEmailLinkRouter from "./driverEmailLink";
 import custodyRouter from "./custody";
+import trackingFlagsRouter from "./trackingFlags";
 
 const router: IRouter = Router();
 
@@ -86,5 +87,6 @@ router.use(announcementsRouter);
 router.use(driverDocumentsRouter);
 router.use(driverEmailLinkRouter);
 router.use(custodyRouter);
+router.use(trackingFlagsRouter);
 
 export default router;
