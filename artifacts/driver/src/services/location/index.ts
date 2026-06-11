@@ -16,6 +16,7 @@ export interface LocationFix {
   lng: number;
   heading: number | null;
   accuracy: number | null;
+  speed: number | null;  // m/s, null when unavailable
   timestamp: number;
 }
 
@@ -147,6 +148,7 @@ interface PositionLike {
     longitude: number;
     heading: number | null;
     accuracy: number;
+    speed?: number | null;
   };
   timestamp: number;
 }
@@ -157,6 +159,7 @@ function toFix(pos: PositionLike): LocationFix {
     lng: pos.coords.longitude,
     heading: pos.coords.heading ?? null,
     accuracy: pos.coords.accuracy ?? null,
+    speed: pos.coords.speed ?? null,
     timestamp: pos.timestamp,
   };
 }
