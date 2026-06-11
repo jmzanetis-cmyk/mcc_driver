@@ -1,9 +1,0 @@
-[build]
-buildCommand = "node ./build.mjs"
-
-[deploy]
-startCommand = "node --enable-source-maps ./dist/index.mjs"
-healthcheckPath = "/api/app/status"
-healthcheckTimeout = 30
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 3
