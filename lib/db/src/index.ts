@@ -9,7 +9,10 @@ if (!dbUrl) {
   throw new Error("DATABASE_URL is not set");
 }
 
-export const pool = new Pool({ connectionString: dbUrl });
+export const pool = new Pool({
+  connectionString: dbUrl,
+  ssl: { rejectUnauthorized: false },
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
