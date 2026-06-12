@@ -31,11 +31,13 @@ DO $$
 DECLARE
   -- Paste the UUID of the App Review driver profile here:
   review_uid_text     text := '7ea30444-47d8-40b8-8e84-db70e1fdf68a';
-  -- Paste the UUID of the demo member profile here:
-  demo_member_uid     text := 'PASTE-MEMBER-UUID-HERE';
+  demo_member_uid     text := '83a05113-75bc-4f4e-8969-2498b58a2339';
+  -- Alpha Auto Body (profiles.id):
+  demo_provider_uid   text := 'dbb15523-2441-4ad9-8d2d-c6d8812c7ca2';
 
   review_uid          uuid;
   member_uid          uuid;
+  provider_uid        uuid;
   driver_id           uuid;
 
   -- Fixed UUIDs — must match demoReplay.ts constants
@@ -59,13 +61,14 @@ BEGIN
     RAISE EXCEPTION 'demo_member_uid is not a valid UUID. Create the demo member account in Supabase Dashboard first.';
   END IF;
 
-  review_uid := review_uid_text::uuid;
-  member_uid := demo_member_uid::uuid;
+  review_uid   := review_uid_text::uuid;
+  member_uid   := demo_member_uid::uuid;
+  provider_uid := demo_provider_uid::uuid;
 
   -- ── Resolve driver row ───────────────────────────────────────────────────────
   SELECT id INTO driver_id
     FROM public.drivers
-   WHERE profile_id = review_uid_text;
+   WHERE profile_id = review_uid;
 
   IF driver_id IS NULL THEN
     RAISE EXCEPTION 'Driver row not found for profile %. Run create-app-review-driver-account.sql first.', review_uid_text;
@@ -75,6 +78,7 @@ BEGIN
   INSERT INTO public.concierge_jobs (
     id,
     member_id,
+    provider_id,
     tier,
     scenario,
     status,
@@ -91,6 +95,7 @@ BEGIN
   ) VALUES (
     demo_job_id,
     member_uid,
+    provider_uid,  -- Alpha Auto Body
     2,   -- Tier 2
     3,   -- Scenario 3 (vehicle shuttle)
     'in_progress',
@@ -107,6 +112,7 @@ BEGIN
   )
   ON CONFLICT (id) DO UPDATE SET
     status                = 'in_progress',
+    provider_id           = provider_uid,
     is_demo               = true,
     live_tracking_enabled = true,
     scheduled_start_at    = now();
