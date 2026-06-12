@@ -121,6 +121,11 @@ class TrackingPublisher {
     return mps * 2.23694;
   }
 
+  /** Demo-only: inject a synthetic fix through the normal _onFix pipeline. */
+  injectFixForDemo(fix: LocationFix): void {
+    if (this._isPublishing) this._onFix(fix);
+  }
+
   /** Write a tandem_separation ops flag for the current job (called by NavigateScreen). */
   async reportTandemSeparation(): Promise<void> {
     if (!this._p) return;

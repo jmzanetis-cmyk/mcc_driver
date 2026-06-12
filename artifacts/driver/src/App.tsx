@@ -62,6 +62,7 @@ const AnnouncementsScreen = lazy(() => import('@/screens/AnnouncementsScreen').t
 const MyDocumentsScreen = lazy(() => import('@/screens/MyDocumentsScreen').then(m => ({ default: m.MyDocumentsScreen })));
 const DriverFounderScreen = lazy(() => import('@/screens/DriverFounderScreen').then(m => ({ default: m.DriverFounderScreen })));
 const CustodyHandoffScreen = lazy(() => import('@/screens/CustodyHandoffScreen').then(m => ({ default: m.CustodyHandoffScreen })));
+const DemoJobScreen = lazy(() => import('@/screens/DemoJobScreen').then(m => ({ default: m.DemoJobScreen })));
 
 function ScreenFallback() {
   return (
@@ -169,6 +170,8 @@ export default function App() {
             <Route path="/legal/privacy" element={<PrivacyScreen />} />
             <Route path="/legal/terms" element={<TermsScreen />} />
             <Route path="/legal/support" element={<LegalSupportScreen />} />
+            {/* App Review / QA demo */}
+            <Route path="/demo-job" element={<ProtectedRoute><DemoJobScreen /></ProtectedRoute>} />
 
             {/* ── Tab-bar layout — all authenticated screens ── */}
             <Route element={<TabLayout />}>
