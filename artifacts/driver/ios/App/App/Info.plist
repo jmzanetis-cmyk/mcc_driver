@@ -50,9 +50,9 @@
         <key>NSLocationWhenInUseUsageDescription</key>
         <string>My Car Concierge uses your location while you are online so we can match you with the nearest ride request and share your progress with the member during a ride.</string>
         <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-        <string>My Car Concierge needs to keep tracking your location while you are on an active ride so dispatch and the member can see your progress even when your screen is locked.</string>
+        <string>My Car Concierge uses your location while the app is open so dispatch and the member can follow your progress during an active ride.</string>
         <key>NSLocationAlwaysUsageDescription</key>
-        <string>My Car Concierge needs to keep tracking your location while you are on an active ride so dispatch and the member can see your progress even when your screen is locked.</string>
+        <string>My Car Concierge uses your location while the app is open so dispatch and the member can follow your progress during an active ride.</string>
         <key>NSCameraUsageDescription</key>
         <string>My Car Concierge needs your camera so you can upload required driver documents like your license, vehicle photos, and insurance.</string>
         <key>NSPhotoLibraryUsageDescription</key>
@@ -64,7 +64,6 @@
         <key>UIBackgroundModes</key>
         <array>
                 <string>remote-notification</string>
-                <string>location</string>
         </array>
         <key>CFBundleURLTypes</key>
         <array>
