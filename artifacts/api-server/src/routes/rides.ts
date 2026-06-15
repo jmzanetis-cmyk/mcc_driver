@@ -982,6 +982,19 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
       }
     }
 
+    // ── FEATURE_CANCELLATION_POLICY side-effects (default OFF) ──────────────
+    // When ON and this is a driver-initiated cancel: classify fault, write the
+    // cancellation record to Supabase, and apply penalty / timeout if at-fault.
+    if (process.env.FEATURE_CANCELLATION_POLICY === "true" && driverIdFromAuth && cancelledBy === "driver") {
+      await _applyDriverCancelPolicy({
+        rideId,
+        driverId: driverIdFromAuth,
+        reason,
+        activeAssignments,
+        ride,
+      }).catch((err) => logger.warn({ err, rideId }, "rides.cancel: policy side-effect failed — cancel proceeds without policy"));
+    }
+
     // ── Phase 1: Local Postgres writes (must all succeed before Supabase mirrors) ──
 
     // Update ride status to cancelled in local Postgres
@@ -1036,6 +1049,134 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal error" });
   }
 });
+
+// ── Driver cancellation policy helper ────────────────────────────────────────
+// Runs ONLY when FEATURE_CANCELLATION_POLICY='true'. Classifies fault,
+// writes ride_cancellations to Supabase, and applies penalty/timeout when
+// the cancel is at-fault. Never throws — caller wraps in .catch().
+
+const NO_FAULT_REASONS = new Set([
+  "safety", "vehicle_breakdown", "unsafe_pickup",
+  "wrong_address", "gps_failure", "system_error", "noshow",
+]);
+
+const DEFAULT_GRACE_SECS    = 60;
+const DEFAULT_PENALTY_CENTS = 500;
+const DEFAULT_PENALTY_CAP   = 1500;
+const DEFAULT_TIMEOUT_2ND   = 15;
+const DEFAULT_TIMEOUT_3RD   = 30;
+const DEFAULT_STRIKE_WINDOW = 7;
+
+async function _applyDriverCancelPolicy({
+  rideId,
+  driverId,
+  reason,
+  activeAssignments,
+  ride,
+}: {
+  rideId:            string;
+  driverId:          string;
+  reason?:           string;
+  activeAssignments: Array<{ id: string; driverId: string; status: string }>;
+  ride:              typeof ridesTable.$inferSelect;
+}): Promise<void> {
+  // Load policy config from Supabase
+  const { data: cfgRows } = await supabaseAdmin
+    .from("cancellation_policy_config")
+    .select("key, value_int");
+  const cfg = Object.fromEntries((cfgRows ?? []).map((r: { key: string; value_int: number | null }) => [r.key, r.value_int]));
+
+  const graceSecs      = (cfg.grace_seconds     ?? DEFAULT_GRACE_SECS);
+  const penaltyCents   = (cfg.driver_penalty_cents ?? DEFAULT_PENALTY_CENTS);
+  const penaltyCap     = (cfg.driver_penalty_cap_per_period_cents ?? DEFAULT_PENALTY_CAP);
+  const timeout2nd     = (cfg.timeout_2nd_strike_min ?? DEFAULT_TIMEOUT_2ND);
+  const timeout3rd     = (cfg.timeout_3rd_strike_min ?? DEFAULT_TIMEOUT_3RD);
+
+  // Fault classification
+  const noFault = reason ? NO_FAULT_REASONS.has(reason) : false;
+  const fault   = noFault ? "none" : "driver";
+
+  // Grace: use ride's accepted_at; fall back to ride creation
+  const firstAccept = activeAssignments.reduce<string | null>((earliest, a) => {
+    const aAny = a as unknown as Record<string, string | null>;
+    const at = aAny["acceptedAt"] ?? aAny["accepted_at"] ?? null;
+    if (!at) return earliest;
+    return earliest ? (at < earliest ? at : earliest) : at;
+  }, null);
+  const graceElapsed = firstAccept
+    ? (Date.now() - new Date(firstAccept).getTime()) > (graceSecs * 1000)
+    : false;
+  const secondsSinceMatch = firstAccept
+    ? Math.floor((Date.now() - new Date(firstAccept).getTime()) / 1000) : 0;
+
+  // Get driver's booker info from the ride
+  const memberIdAny = (ride as unknown as Record<string, unknown>)["memberId"] ?? (ride as unknown as Record<string, unknown>)["member_id"];
+  const memberId = typeof memberIdAny === "string" ? memberIdAny : null;
+
+  // Write ride_cancellations to Supabase (non-blocking if it fails)
+  const { data: cancelRow } = await supabaseAdmin.from("ride_cancellations").insert({
+    ride_id:             rideId,
+    driver_id:           driverId,
+    cancelled_by:        "driver",
+    booker_party:        "member",
+    booker_id:           memberId ?? driverId, // fallback to driverId if member unknown
+    fault,
+    reason_code:         reason ?? null,
+    grace_elapsed:       graceElapsed,
+    driver_moving:       ["en_route", "arrived"].some((s) => activeAssignments.some((a) => a.status.includes(s))),
+    seconds_since_match: secondsSinceMatch,
+    active_driver_count: activeAssignments.length,
+  }).select("id").single();
+
+  // At-fault: apply penalty + timeout
+  if (fault === "driver" && graceElapsed) {
+    // Current driver record for strike count
+    const [driverRow] = await db
+      .select({ cancelStrikeCount: driversTable.cancelStrikeCount })
+      .from(driversTable)
+      .where(eq(driversTable.id, driverId))
+      .limit(1);
+
+    const currentStrikes = (driverRow?.cancelStrikeCount ?? 0) + 1;
+    const isFirstStrike  = currentStrikes === 1;
+
+    // Penalty debit to driver_earnings (capped per period — enforced by payout reconciler)
+    if (!isFirstStrike) {
+      await db.insert(driverEarningsTable).values({
+        driverId,
+        rideId,
+        amountCents:  -Math.min(penaltyCents, penaltyCap),
+        kind:         "cancellation_penalty",
+        notes:        `At-fault cancel — ride ${rideId}${cancelRow?.id ? ` (cancel ${cancelRow.id})` : ""}`,
+        payoutStatus: "pending",
+      });
+    }
+
+    // Timeout (2nd strike = timeout_2nd, 3rd+ = timeout_3rd; 1st = warning only)
+    const timeoutMins = currentStrikes === 2 ? timeout2nd
+                      : currentStrikes >= 3   ? timeout3rd
+                      : 0;
+    const timeoutUntil = timeoutMins > 0
+      ? new Date(Date.now() + timeoutMins * 60 * 1000)
+      : null;
+
+    await db
+      .update(driversTable)
+      .set({
+        cancelStrikeCount: currentStrikes,
+        ...(timeoutUntil ? { timeoutUntil } : {}),
+      })
+      .where(eq(driversTable.id, driverId));
+
+    // Mirror timeout_until to Supabase drivers table so Netlify functions can read it
+    if (timeoutUntil) {
+      await supabaseAdmin
+        .from("drivers")
+        .update({ timeout_until: timeoutUntil.toISOString(), cancel_strike_count: currentStrikes })
+        .eq("id", driverId);
+    }
+  }
+}
 
 // ── POST /api/rides/:rideId/complete ─────────────────────────────────────────
 

@@ -78,6 +78,13 @@
       "when": 1778945281849,
       "tag": "0010_bumpy_invisible_woman",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1749916800000,
+      "tag": "0011_cancellation_policy",
+      "breakpoints": true
     }
   ]
 }

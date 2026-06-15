@@ -79,6 +79,11 @@ export const driversTable = pgTable("drivers", {
   // Service type capabilities — drivers opt in to rideshare and delivery in Settings
   canDoRideshare: boolean("can_do_rideshare").notNull().default(false),
   canDoDelivery: boolean("can_do_delivery").notNull().default(false),
+  // Cancellation policy (FEATURE_CANCELLATION_POLICY): set when a driver receives
+  // a timeout penalty — dispatch skips this driver until the timestamp passes.
+  timeoutUntil: timestamp("timeout_until", { withTimezone: true }),
+  // Rolling at-fault cancel count within strike_window_days; reset by the cancel handler.
+  cancelStrikeCount: integer("cancel_strike_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
