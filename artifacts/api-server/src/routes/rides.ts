@@ -18,7 +18,7 @@ import {
 import { logger } from "../lib/logger";
 import { setSentryRequestIdentity } from "../lib/sentry";
 import { SCENARIO_CONFIG } from "../lib/scenarioConfig";
-import { insertAssignmentViaSupabase, updateAssignmentViaSupabase, updateRideViaSupabase } from "../lib/supabaseAdmin";
+import { supabaseAdmin, insertAssignmentViaSupabase, updateAssignmentViaSupabase, updateRideViaSupabase } from "../lib/supabaseAdmin";
 import { notifyRideOffer } from "../lib/notifications";
 import { calculateTransportFare, TRANSPORT_RATES, determineWaitTimePayer, calculateWaitCents } from "@workspace/shared/transportRates";
 
@@ -964,7 +964,7 @@ router.post("/rides/:rideId/cancel", async (req: Request, res: Response) => {
     // Fetch all active driver_assignments for this ride
     const activeAssignmentStatuses = ["pending", "accepted", "en_route", "arrived", "in_progress"];
     const activeAssignments = await db
-      .select({ id: driverAssignmentsTable.id, driverId: driverAssignmentsTable.driverId })
+      .select({ id: driverAssignmentsTable.id, driverId: driverAssignmentsTable.driverId, status: driverAssignmentsTable.status })
       .from(driverAssignmentsTable)
       .where(
         and(
